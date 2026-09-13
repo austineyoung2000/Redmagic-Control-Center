@@ -3,6 +3,7 @@ package com.elitedarkkaiser.redmagic
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -11,7 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AbsListView
 import android.widget.BaseAdapter
-import android.widget.Button
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -21,14 +22,6 @@ import android.widget.Toast
 
 private fun gpDp(context: Context, value: Int): Int {
     return (value * context.resources.displayMetrics.density).toInt()
-}
-
-private fun gpRoundedFill(fill: Int, radiusDp: Int, context: Context): GradientDrawable {
-    return GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        cornerRadius = gpDp(context, radiusDp).toFloat()
-        setColor(fill)
-    }
 }
 
 private fun gpRoundedStroke(fill: Int, stroke: Int, radiusDp: Int, context: Context): GradientDrawable {
@@ -54,7 +47,6 @@ fun showGamePickerDialogUI(
     val textPrimary = Color.parseColor("#EAF1FF")
     val textSecondary = Color.parseColor("#9AA8BC")
     val accent = Color.parseColor("#4EA1FF")
-    val btnSecondary = Color.parseColor("#1E2633")
 
     val apps = pm.getInstalledApplications(0)
         .filter { app ->
@@ -187,28 +179,67 @@ fun showGamePickerDialogUI(
         setPadding(gpDp(context, 4), 0, gpDp(context, 4), gpDp(context, 12))
     }
 
-    val saveBtn = Button(context).apply {
+    val saveBtn = MaterialButton(context).apply {
         text = "Save"
         textSize = 13f
-        setAllCaps(false)
+        isAllCaps = false
         setTextColor(textPrimary)
-        background = gpRoundedFill(accent, 14, context)
-        setPadding(gpDp(context, 18), gpDp(context, 10), gpDp(context, 18), gpDp(context, 10))
+
+        backgroundTintList =
+            ColorStateList.valueOf(accent)
+        rippleColor =
+            ColorStateList.valueOf(Color.parseColor("#33445A"))
+        cornerRadius = gpDp(context, 14)
+
+        insetTop = 0
+        insetBottom = 0
+        minHeight = gpDp(context, 48)
+        setPadding(
+            gpDp(context, 18),
+            gpDp(context, 10),
+            gpDp(context, 18),
+            gpDp(context, 10)
+        )
         setOnClickListener {
             setSavedGamePackagesStorage(context, selected)
             onSave(selected)
-            Toast.makeText(context, "Saved ${selected.size} apps", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                "Saved ${selected.size} apps",
+                Toast.LENGTH_SHORT
+            ).show()
             dialogRef?.dismiss()
         }
     }
 
-    val cancelBtn = Button(context).apply {
+    val cancelBtn = MaterialButton(
+        context,
+        null,
+        com.google.android.material.R.attr.materialButtonOutlinedStyle
+    ).apply {
         text = "Cancel"
         textSize = 13f
-        setAllCaps(false)
+        isAllCaps = false
         setTextColor(textPrimary)
-        background = gpRoundedFill(btnSecondary, 14, context)
-        setPadding(gpDp(context, 18), gpDp(context, 10), gpDp(context, 18), gpDp(context, 10))
+
+        backgroundTintList =
+            ColorStateList.valueOf(Color.TRANSPARENT)
+        strokeWidth = gpDp(context, 1)
+        strokeColor =
+            ColorStateList.valueOf(panelStroke)
+        rippleColor =
+            ColorStateList.valueOf(Color.parseColor("#33445A"))
+        cornerRadius = gpDp(context, 14)
+
+        insetTop = 0
+        insetBottom = 0
+        minHeight = gpDp(context, 48)
+        setPadding(
+            gpDp(context, 18),
+            gpDp(context, 10),
+            gpDp(context, 18),
+            gpDp(context, 10)
+        )
         setOnClickListener { dialogRef?.dismiss() }
     }
 
