@@ -248,7 +248,6 @@ class CallLightingService : Service() {
     private fun applyProfile(fan: LedState, logo: LedState, shoulder: LedState) {
         if (fan.enabled) {
             if (fan.effect.startsWith("preset:")) {
-                HardwareController.setFanLedEnabled(true)
                 HardwareController.setFanLedStockPreset(fan.effect.removePrefix("preset:"))
             } else {
                 HardwareController.setFanLedEffect(fan.effect, fan.color)

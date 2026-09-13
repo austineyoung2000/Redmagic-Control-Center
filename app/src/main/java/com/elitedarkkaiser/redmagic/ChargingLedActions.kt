@@ -163,7 +163,6 @@ object ChargingLedActions {
             },
             applySelection = { effect, color ->
                 if (effect.startsWith("preset:")) {
-                    HardwareController.setFanLedEnabled(true)
                     HardwareController.setFanLedStockPreset(effect.removePrefix("preset:"))
                 } else {
                     HardwareController.setFanLedEffect(effect, color)
@@ -192,7 +191,6 @@ object ChargingLedActions {
                 chargingFanEnabled = true
                 chargingFanEffect = "preset:$value"
                 chargingFanColor = -1
-                HardwareController.setFanLedEnabled(true)
                 HardwareController.setFanLedStockPreset(value)
                 chargingFanDialogRefresh?.invoke()
             },

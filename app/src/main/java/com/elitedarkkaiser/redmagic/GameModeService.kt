@@ -269,7 +269,6 @@ class GameModeService : Service() {
             }
 
             if (fanLedEnabled) {
-                HardwareController.setFanLedEnabled(true)
                 if (fanLedModeType == "preset" && fanLedPresetValue.isNotBlank()) {
                     HardwareController.setFanLedStockPreset(fanLedPresetValue)
                 } else if (fanLedEffect.startsWith("preset:")) {
@@ -282,14 +281,12 @@ class GameModeService : Service() {
             }
 
             if (logoLedEnabled) {
-                HardwareController.setLogoLedEnabled(true)
                 HardwareController.setLogoLedEffect(logoLedEffect, logoLedColor)
             } else {
                 HardwareController.setLogoLedEnabled(false)
             }
 
             if (shoulderLedEnabled) {
-                HardwareController.setShoulderLedEnabled(true)
                 HardwareController.setShoulderLedEffect(shoulderLedEffect, shoulderLedColor)
             } else {
                 HardwareController.setShoulderLedEnabled(false)
@@ -340,7 +337,6 @@ class GameModeService : Service() {
             }
 
             if (fanLedEnabled) {
-                HardwareController.setFanLedEnabled(true)
                 if (fanLedEffect.startsWith("preset:")) {
                     HardwareController.setFanLedStockPreset(fanLedEffect.removePrefix("preset:"))
                 } else {
@@ -351,14 +347,12 @@ class GameModeService : Service() {
             }
 
             if (logoLedEnabled) {
-                HardwareController.setLogoLedEnabled(true)
                 HardwareController.setLogoLedEffect(logoLedEffect, logoLedColor)
             } else {
                 HardwareController.setLogoLedEnabled(false)
             }
 
             if (shoulderLedEnabled) {
-                HardwareController.setShoulderLedEnabled(true)
                 HardwareController.setShoulderLedEffect(shoulderLedEffect, shoulderLedColor)
             } else {
                 HardwareController.setShoulderLedEnabled(false)

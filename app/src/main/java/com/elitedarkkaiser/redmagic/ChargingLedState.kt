@@ -119,7 +119,6 @@ internal object ChargingLedState {
 
         if (fanEnabled) {
             if (fanEffect.startsWith("preset:")) {
-                HardwareController.setFanLedEnabled(true)
                 HardwareController.setFanLedStockPreset(fanEffect.removePrefix("preset:"))
             } else {
                 HardwareController.setFanLedEffect(fanEffect, fanColor)
