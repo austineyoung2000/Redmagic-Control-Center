@@ -34,6 +34,7 @@ class GameModeService : Service() {
                     }
 
                     android.util.Log.i("RedmagicGameMode", "screen off: paused game mode polling")
+                    stopSelf()
                 }
 
                 Intent.ACTION_SCREEN_ON,
@@ -67,6 +68,7 @@ class GameModeService : Service() {
                         restoreNormalProfile()
                         setGameModeLedOverrideActiveStorage(this@GameModeService, false)
                         gameModeActiveFor = null
+                        stopSelf()
                     }
                 }
             } catch (_: Throwable) {
@@ -110,9 +112,26 @@ class GameModeService : Service() {
         if (pollingPausedForScreenOff) return
 
         val tracked = getSavedGamePackagesStorage(this)
-        if (!tracked.contains(currentPkg)) return
-
         handler.removeCallbacks(pollRunnable)
+
+        if (!tracked.contains(currentPkg)) {
+            if (
+                gameModeActiveFor != null ||
+                isGameModeLedOverrideActiveStorage(this)
+            ) {
+                restoreNormalProfile()
+                setGameModeLedOverrideActiveStorage(this, false)
+                gameModeActiveFor = null
+
+                android.util.Log.i(
+                    "RedmagicGameMode",
+                    "left tracked game: restored normal hardware profile"
+                )
+            }
+
+            stopSelf()
+            return
+        }
 
         if (gameModeActiveFor != currentPkg) {
             gameModeActiveFor = currentPkg

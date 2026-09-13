@@ -12,11 +12,17 @@ class TriggerAccessibilityService : AccessibilityService() {
         val pkg = event?.packageName?.toString() ?: return
         if (pkg.isBlank() || pkg == packageName || pkg == "com.android.systemui") return
 
-        if (getSavedGamePackagesStorage(this).contains(pkg)) {
-            startService(Intent(this, GameModeService::class.java).apply {
-                putExtra("foreground_pkg", pkg)
-            })
-        }
+        val isTrackedGame = getSavedGamePackagesStorage(this).contains(pkg)
+        val gameModeActive = isGameModeLedOverrideActiveStorage(this)
+
+        // Start GameModeService when entering a tracked game, or send one
+        // final foreground event while Game Mode is active so it can restore
+        // the normal profile immediately after leaving the game.
+        if (!isTrackedGame && !gameModeActive) return
+
+        startService(Intent(this, GameModeService::class.java).apply {
+            putExtra("foreground_pkg", pkg)
+        })
     }
     override fun onInterrupt() = Unit
 
