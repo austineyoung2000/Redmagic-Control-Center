@@ -150,22 +150,49 @@ class MainActivity : Activity() {
         initDefaultTriggerMappingsStorage(this)
         DeviceScanActions.runBackgroundScan(this)
 
-        if (!hasCachedRootAccessStorage(this)) {
-            if (!RootShell.hasRoot()) {
-                showRootRequiredDialog()
-                return
-            }
-            setCachedRootAccessStorage(this, true)
-        }
+        val needsFirstInstallSetup =
+            !isFirstInstallPermissionsPromptedStorage(this) ||
+                !PermissionActions.hasUsageStatsPermission(this)
 
-        if (!isFirstInstallPermissionsPromptedStorage(this) || !PermissionActions.hasUsageStatsPermission(this)) {
+        if (needsFirstInstallSetup) {
             FirstInstallPermissionsDialog.show(this) {
+                setCachedRootAccessStorage(this, true)
                 launchMainUi()
             }
             return
         }
 
-        launchMainUi()
+        verifyRootAndLaunch()
+    }
+
+    private fun verifyRootAndLaunch() {
+        if (hasCachedRootAccessStorage(this)) {
+            launchMainUi()
+            return
+        }
+
+        runCatching {
+            statusRefreshExecutor.execute {
+                val rooted = RootShell.hasRoot()
+
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) {
+                        return@runOnUiThread
+                    }
+
+                    if (rooted) {
+                        setCachedRootAccessStorage(this, true)
+                        launchMainUi()
+                    } else {
+                        showRootRequiredDialog()
+                    }
+                }
+            }
+        }.onFailure {
+            if (!isFinishing && !isDestroyed) {
+                showRootRequiredDialog()
+            }
+        }
     }
 
     private fun startStatusRefreshLoop() {
