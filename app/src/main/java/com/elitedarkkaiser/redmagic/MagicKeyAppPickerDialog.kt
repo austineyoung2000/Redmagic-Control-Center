@@ -11,12 +11,13 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 
 internal object MagicKeyAppPickerDialog {
     data class Deps(
@@ -92,14 +93,50 @@ internal object MagicKeyAppPickerDialog {
             setPadding(0, 0, 0, deps.dp(12))
         }
 
-        val searchInput = EditText(activity).apply {
+        val searchLayout = TextInputLayout(
+            activity,
+            null,
+            com.google.android.material.R.attr.textInputOutlinedStyle
+        ).apply {
             hint = "Search apps or package names"
-            setTextColor(deps.textPrimary)
-            setHintTextColor(deps.textSecondary)
-            textSize = 14f
-            setPadding(deps.dp(16), deps.dp(12), deps.dp(16), deps.dp(12))
-            background = deps.roundedBg(Color.parseColor("#121A27"), Color.parseColor("#263246"), 18)
+            boxBackgroundMode =
+                TextInputLayout.BOX_BACKGROUND_OUTLINE
+            boxBackgroundColor = Color.parseColor("#121A27")
+            boxStrokeColor = deps.borderColor
+            boxStrokeWidth = deps.dp(1)
+            boxStrokeWidthFocused = deps.dp(2)
+            defaultHintTextColor =
+                ColorStateList.valueOf(deps.textSecondary)
+            setBoxCornerRadii(
+                deps.dp(18).toFloat(),
+                deps.dp(18).toFloat(),
+                deps.dp(18).toFloat(),
+                deps.dp(18).toFloat()
+            )
         }
+
+        val searchInput =
+            TextInputEditText(searchLayout.context).apply {
+                setTextColor(deps.textPrimary)
+                setHintTextColor(deps.textSecondary)
+                textSize = 14f
+                isSingleLine = true
+                background = null
+                setPadding(
+                    deps.dp(16),
+                    deps.dp(12),
+                    deps.dp(16),
+                    deps.dp(12)
+                )
+            }
+
+        searchLayout.addView(
+            searchInput,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
 
         val listView = android.widget.ListView(activity).apply {
             divider = ColorDrawable(Color.parseColor("#263246"))
@@ -221,7 +258,7 @@ internal object MagicKeyAppPickerDialog {
             background = deps.roundedBg(deps.panelColor, deps.borderColor, 22)
             addView(titleView)
             addView(subtitleView)
-            addView(searchInput)
+            addView(searchLayout)
             addView(deps.space(deps.dp(12)))
             addView(
                 listView,
