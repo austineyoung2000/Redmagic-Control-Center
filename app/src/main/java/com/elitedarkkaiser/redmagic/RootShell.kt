@@ -1,10 +1,21 @@
 package com.elitedarkkaiser.redmagic
 
-import java.io.BufferedReader
-import java.io.DataOutputStream
-import java.io.InputStreamReader
+import android.util.Log
 
 object RootShell {
+
+    private const val TAG = "RedmagicRootShell"
+
+    /*
+     * Root commands can originate from multiple services. Serializing them
+     * prevents overlapping sysfs writes and keeps their results deterministic.
+     */
+    private val commandLock = Any()
+
+    private data class CommandResult(
+        val exitCode: Int,
+        val output: String
+    )
 
     fun hasRoot(): Boolean {
         val output = execForOutput("id")
@@ -12,87 +23,45 @@ object RootShell {
     }
 
     fun exec(command: String): Boolean {
-        return execInteractive(command) || execSuC(command)
+        return runCommand(command)?.exitCode == 0
     }
 
     fun execForOutput(command: String): String? {
-        return execForOutputInteractive(command) ?: execForOutputSuC(command)
+        val result = runCommand(command) ?: return null
+        if (result.exitCode != 0) return null
+        return result.output.ifEmpty { null }
     }
 
-    private fun execInteractive(command: String): Boolean {
-        return try {
-            val process = Runtime.getRuntime().exec("su")
-            val os = DataOutputStream(process.outputStream)
+    private fun runCommand(command: String): CommandResult? {
+        return synchronized(commandLock) {
+            try {
+                val process = ProcessBuilder("su", "-c", command)
+                    .redirectErrorStream(true)
+                    .start()
 
-            os.writeBytes("$command\n")
-            os.writeBytes("exit\n")
-            os.flush()
-            os.close()
+                /*
+                 * Drain output before waitFor(). A command producing enough
+                 * output could otherwise block while waiting for the pipe.
+                 */
+                val output = process.inputStream
+                    .bufferedReader()
+                    .use { it.readText() }
+                    .trim()
 
-            process.waitFor() == 0
-        } catch (e: Exception) {
-            false
-        }
-    }
+                val exitCode = process.waitFor()
 
-    private fun execSuC(command: String): Boolean {
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-            process.waitFor() == 0
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    private fun execForOutputInteractive(command: String): String? {
-        return try {
-            val process = Runtime.getRuntime().exec("su")
-            val os = DataOutputStream(process.outputStream)
-
-            os.writeBytes("$command\n")
-            os.writeBytes("exit\n")
-            os.flush()
-            os.close()
-
-            val stdout = BufferedReader(InputStreamReader(process.inputStream)).readText()
-            val stderr = BufferedReader(InputStreamReader(process.errorStream)).readText()
-
-            process.waitFor()
-
-            val result = buildString {
-                if (stdout.isNotBlank()) append(stdout)
-                if (stderr.isNotBlank()) {
-                    if (isNotEmpty()) append("\n")
-                    append(stderr)
+                if (exitCode != 0) {
+                    Log.w(TAG, "Root command failed with exit code $exitCode")
                 }
-            }.trim()
 
-            result.ifEmpty { null }
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun execForOutputSuC(command: String): String? {
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-
-            val stdout = BufferedReader(InputStreamReader(process.inputStream)).readText()
-            val stderr = BufferedReader(InputStreamReader(process.errorStream)).readText()
-
-            process.waitFor()
-
-            val result = buildString {
-                if (stdout.isNotBlank()) append(stdout)
-                if (stderr.isNotBlank()) {
-                    if (isNotEmpty()) append("\n")
-                    append(stderr)
-                }
-            }.trim()
-
-            result.ifEmpty { null }
-        } catch (e: Exception) {
-            null
+                CommandResult(
+                    exitCode = exitCode,
+                    output = output
+                )
+            } catch (error: Exception) {
+                Log.e(TAG, "Root command execution failed", error)
+                null
+            }
         }
     }
 }
