@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -95,8 +96,58 @@ internal object CallLightingProfileUi {
             setPadding(0, deps.dp(16), 0, 0)
         }
 
-        val cancelBtn = deps.filterChip("Cancel", false) {}
-        val saveBtn = deps.filterChip("Save", true) {}
+        val cancelBtn = MaterialButton(
+            activity,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
+            text = "Cancel"
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(deps.textPrimary)
+
+            backgroundTintList =
+                ColorStateList.valueOf(Color.TRANSPARENT)
+            strokeWidth = deps.dp(1)
+            strokeColor =
+                ColorStateList.valueOf(deps.borderColor)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
+        }
+
+        val saveBtn = MaterialButton(activity).apply {
+            text = "Save"
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(deps.textPrimary)
+
+            backgroundTintList =
+                ColorStateList.valueOf(deps.panelPressed)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(20),
+                deps.dp(10),
+                deps.dp(20),
+                deps.dp(10)
+            )
+        }
 
         buttonRow.addView(cancelBtn)
         buttonRow.addView(deps.space(deps.dp(10)))
@@ -152,10 +203,52 @@ internal object CallLightingProfileUi {
             onChanged(LedState(enabled, effect, color))
         }
 
+        fun updateEffectButton(
+            button: Button,
+            selected: Boolean
+        ) {
+            button.isSelected = selected
+
+            if (button is MaterialButton) {
+                button.backgroundTintList = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.panelPressed
+                    } else {
+                        Color.TRANSPARENT
+                    }
+                )
+                button.strokeColor = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.accent
+                    } else {
+                        deps.borderColor
+                    }
+                )
+            } else {
+                button.background = deps.roundedFill(
+                    if (selected) {
+                        deps.panelPressed
+                    } else {
+                        Color.parseColor("#1E2633")
+                    },
+                    18
+                )
+            }
+        }
+
         fun refreshEffects() {
-            steadyBtn.background = deps.roundedFill(if (effect == "steady") deps.panelPressed else Color.parseColor("#1E2633"), 18)
-            breatheBtn.background = deps.roundedFill(if (effect == "breathe") deps.panelPressed else Color.parseColor("#1E2633"), 18)
-            flashingBtn.background = deps.roundedFill(if (effect == "flashing") deps.panelPressed else Color.parseColor("#1E2633"), 18)
+            updateEffectButton(
+                steadyBtn,
+                effect == "steady"
+            )
+            updateEffectButton(
+                breatheBtn,
+                effect == "breathe"
+            )
+            updateEffectButton(
+                flashingBtn,
+                effect == "flashing"
+            )
         }
 
         fun refreshColors() {
