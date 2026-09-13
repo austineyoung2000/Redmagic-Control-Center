@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
+import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -128,7 +129,7 @@ object CoolingTabUi {
             setPadding(0, deps.dp(6), 0, deps.dp(4))
         }
 
-        autoCurveCheck = CheckBox(container.context).apply {
+        autoCurveCheck = MaterialCheckBox(container.context).apply {
             text = "Automatic fan control based on temperature"
             setTextColor(AppTheme.textPrimary)
             textSize = 13f

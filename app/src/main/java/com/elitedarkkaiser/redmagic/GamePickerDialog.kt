@@ -11,7 +11,7 @@ import android.view.ViewGroup
 import android.widget.AbsListView
 import android.widget.BaseAdapter
 import android.widget.Button
-import android.widget.CheckBox
+import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -103,7 +103,7 @@ fun showGamePickerDialogUI(
                 layoutParams = lp
             }
 
-            val check = CheckBox(context).apply {
+            val check = MaterialCheckBox(context).apply {
                 isChecked = isSelected
                 isClickable = false
                 isFocusable = false

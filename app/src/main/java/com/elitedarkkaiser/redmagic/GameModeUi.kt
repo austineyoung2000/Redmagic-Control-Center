@@ -10,7 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.CheckBox
+import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -80,7 +80,7 @@ internal object GameModeUi {
             setPadding(0, deps.dp(8), 0, deps.dp(10))
         }
 
-        val fanEnableCheck = CheckBox(activity).apply {
+        val fanEnableCheck = MaterialCheckBox(activity).apply {
             text = "Enable fan override"
             isChecked = gmFanEnabled
             textSize = 14f
@@ -109,7 +109,7 @@ internal object GameModeUi {
             })
         }
 
-        val pumpEnableCheck = CheckBox(activity).apply {
+        val pumpEnableCheck = MaterialCheckBox(activity).apply {
             text = "Enable pump override"
             isChecked = gmPumpEnabled
             textSize = 14f
@@ -166,7 +166,7 @@ internal object GameModeUi {
         pumpRow.addView(deps.space(deps.dp(8)))
         pumpRow.addView(quickBtn)
 
-        val ledEnableCheck = CheckBox(activity).apply {
+        val ledEnableCheck = MaterialCheckBox(activity).apply {
             text = "Enable fan LED override"
             isChecked = gmFanLedEnabled
             textSize = 14f
@@ -480,7 +480,7 @@ internal object GameModeUi {
             setPadding(0, deps.dp(12), 0, deps.dp(6))
         }
 
-        val logoEnable = CheckBox(activity).apply {
+        val logoEnable = MaterialCheckBox(activity).apply {
             text = "Enable logo LED"
             isChecked = gmLogoLedEnabled
             setTextColor(deps.textPrimary)
@@ -570,7 +570,7 @@ internal object GameModeUi {
             setPadding(0, deps.dp(12), 0, deps.dp(6))
         }
 
-        val shoulderEnable = CheckBox(activity).apply {
+        val shoulderEnable = MaterialCheckBox(activity).apply {
             text = "Enable shoulder LEDs"
             isChecked = gmShoulderLedEnabled
             textSize = 14f

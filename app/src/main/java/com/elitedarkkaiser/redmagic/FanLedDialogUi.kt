@@ -9,7 +9,7 @@ import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
-import android.widget.CheckBox
+import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -79,7 +79,7 @@ internal object FanLedDialogUi {
             setPadding(0, deps.dp(8), 0, 0)
         }
 
-        val enableCheck = CheckBox(activity).apply {
+        val enableCheck = MaterialCheckBox(activity).apply {
             text = enableLabel
             isChecked = currentEnabled()
             textSize = 14f

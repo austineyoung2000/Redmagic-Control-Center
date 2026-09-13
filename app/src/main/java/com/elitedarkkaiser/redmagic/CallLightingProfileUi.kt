@@ -9,7 +9,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.CheckBox
+import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -207,7 +207,7 @@ internal object CallLightingProfileUi {
             setPadding(0, deps.dp(4), 0, deps.dp(6))
         })
 
-        card.addView(CheckBox(activity).apply {
+        card.addView(MaterialCheckBox(activity).apply {
             text = "Enable $label for $modeLabel"
             isChecked = enabled
             textSize = 14f

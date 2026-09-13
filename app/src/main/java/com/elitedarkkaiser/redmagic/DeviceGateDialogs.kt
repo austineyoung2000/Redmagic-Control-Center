@@ -7,7 +7,7 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.widget.Button
-import android.widget.CheckBox
+import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -41,7 +41,7 @@ internal object DeviceGateDialogs {
             deps
         )
 
-        val dontShowAgain = CheckBox(activity).apply {
+        val dontShowAgain = MaterialCheckBox(activity).apply {
             text = "Never show again"
             isChecked = dontShowAgainChecked
             textSize = 13f
