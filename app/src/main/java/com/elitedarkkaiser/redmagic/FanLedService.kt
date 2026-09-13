@@ -10,8 +10,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
-import android.os.Looper
 
 class FanLedService : Service() {
 
@@ -20,26 +20,38 @@ class FanLedService : Service() {
         private const val NOTIF_ID = 1102
     }
 
-    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var workerThread: HandlerThread
+    private lateinit var handler: Handler
+
+    private val reapplyRunnable = Runnable {
+        reapplySavedLedState()
+    }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    if (ChargingLedState.isEnabled(this@FanLedService) &&
-                        ChargingLedState.isChargingNow(this@FanLedService)
-                    ) {
-                        ChargingLedState.setActive(this@FanLedService, true)
-                        ChargingLedState.applyChargingProfile(this@FanLedService)
-                    } else {
-                        turnOffAllManagedLeds()
+                    handler.removeCallbacks(reapplyRunnable)
+                    handler.post {
+                        if (
+                            ChargingLedState.isEnabled(this@FanLedService) &&
+                            ChargingLedState.isChargingNow(this@FanLedService)
+                        ) {
+                            ChargingLedState.setActive(
+                                this@FanLedService,
+                                true
+                            )
+                            ChargingLedState.applyChargingProfile(
+                                this@FanLedService
+                            )
+                        } else {
+                            turnOffAllManagedLeds()
+                        }
                     }
                 }
                 Intent.ACTION_SCREEN_ON,
                 Intent.ACTION_USER_PRESENT -> {
-                    handler.postDelayed({
-                        reapplySavedLedState()
-                    }, 1500)
+                    scheduleLedReapply(delayMs = 1_500L)
                 }
             }
         }
@@ -47,24 +59,49 @@ class FanLedService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        ChargingLedRecovery.repairStaleChargingOwnership(this)
         createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification("Fan LED persistence active"))
+        startForeground(
+            NOTIF_ID,
+            buildNotification("Fan LED persistence active")
+        )
+
+        workerThread = HandlerThread(
+            "RedMagicFanLed",
+            android.os.Process.THREAD_PRIORITY_BACKGROUND
+        ).apply {
+            start()
+        }
+        handler = Handler(workerThread.looper)
+
         registerFanLedReceiver()
-        reapplySavedLedState()
+        handler.post {
+            ChargingLedRecovery.repairStaleChargingOwnership(
+                this@FanLedService
+            )
+        }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        reapplySavedLedState()
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int
+    ): Int {
+        scheduleLedReapply()
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        try {
+        runCatching {
             unregisterReceiver(screenReceiver)
-        } catch (_: Throwable) {
         }
-        handler.removeCallbacksAndMessages(null)
+
+        if (::handler.isInitialized) {
+            handler.removeCallbacksAndMessages(null)
+        }
+        if (::workerThread.isInitialized) {
+            workerThread.quitSafely()
+        }
+
         super.onDestroy()
     }
 
@@ -77,6 +114,18 @@ class FanLedService : Service() {
             addAction(Intent.ACTION_USER_PRESENT)
         }
         registerReceiver(screenReceiver, filter)
+    }
+
+    private fun scheduleLedReapply(delayMs: Long = 0L) {
+        if (!::handler.isInitialized) return
+
+        handler.removeCallbacks(reapplyRunnable)
+
+        if (delayMs > 0L) {
+            handler.postDelayed(reapplyRunnable, delayMs)
+        } else {
+            handler.post(reapplyRunnable)
+        }
     }
 
     private fun reapplySavedLedState() {
