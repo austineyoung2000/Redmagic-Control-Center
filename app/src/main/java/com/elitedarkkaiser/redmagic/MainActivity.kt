@@ -1146,24 +1146,42 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun filterChip(label: String, selected: Boolean, onClick: () -> Unit): Button {
-        return Button(this).apply {
+    private fun filterChip(
+        label: String,
+        selected: Boolean,
+        onClick: () -> Unit
+    ): Button {
+        return MaterialButton(
+            this,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = label
             textSize = 11f
-            setAllCaps(false)
+            isAllCaps = false
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
             isSingleLine = true
             minWidth = 0
             minimumWidth = 0
             setTextColor(textPrimary)
-            background = roundedFill(
-                if (selected) panelPressed else Color.parseColor("#1E2633"),
-                16
+
+            backgroundTintList = ColorStateList.valueOf(
+                if (selected) panelPressed else Color.TRANSPARENT
             )
+            strokeWidth = dp(1)
+            strokeColor = ColorStateList.valueOf(
+                if (selected) highlightBorder else borderColor
+            )
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = dp(16)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = dp(40)
             setPadding(dp(10), dp(6), dp(10), dp(6))
             setOnClickListener { onClick() }
-            applyPressEffect(this)
         }
     }
 
