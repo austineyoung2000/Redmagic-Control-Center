@@ -22,17 +22,59 @@ object ControlsTabUi {
     fun create(activity: Activity, deps: ControlsTabDeps): Result {
         val container = deps.scrollTabContainer()
 
-        val rootCheckBtn = deps.actionButton("CHECK ROOT", false) {
-            val ok = RootShell.hasRoot()
-            MaterialAlertDialogBuilder(activity)
-                .setTitle("Root Status")
-                .setMessage(
-                    if (ok) "Root access granted\n\nApp is running as root"
-                    else "Root access NOT granted\n\nCheck your root manager"
-                )
-                .setPositiveButton("OK", null)
-                .show()
-            deps.refreshStatus()
+        lateinit var rootCheckBtn: Button
+
+        rootCheckBtn = deps.actionButton(
+            "CHECK ROOT",
+            false
+        ) {
+            rootCheckBtn.isEnabled = false
+            rootCheckBtn.text = "CHECKING…"
+
+            val submitted = deps.runBackground {
+                val rooted = RootShell.hasRoot()
+
+                rootCheckBtn.post {
+                    if (
+                        activity.isFinishing ||
+                        activity.isDestroyed
+                    ) {
+                        return@post
+                    }
+
+                    rootCheckBtn.text = "CHECK ROOT"
+                    rootCheckBtn.isEnabled = true
+
+                    MaterialAlertDialogBuilder(activity)
+                        .setTitle("Root Status")
+                        .setMessage(
+                            if (rooted) {
+                                "Root access granted\n\n" +
+                                    "App is running as root"
+                            } else {
+                                "Root access NOT granted\n\n" +
+                                    "Check your root manager"
+                            }
+                        )
+                        .setPositiveButton("OK", null)
+                        .show()
+
+                    deps.refreshStatus()
+                }
+            }
+
+            if (!submitted) {
+                rootCheckBtn.text = "CHECK ROOT"
+                rootCheckBtn.isEnabled = true
+
+                MaterialAlertDialogBuilder(activity)
+                    .setTitle("Root Status")
+                    .setMessage(
+                        "Unable to start the root check"
+                    )
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
         }
 
         val refreshBtn = deps.actionButton("REFRESH STATUS", false) {

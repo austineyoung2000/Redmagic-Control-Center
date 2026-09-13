@@ -2,6 +2,7 @@ package com.elitedarkkaiser.redmagic.ui
 
 import android.view.Gravity
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -187,19 +188,51 @@ object HomeTabUi {
             addView(deps.sectionHeader("◈", "LIVE DASHBOARD"))
 
             val dashboardText = TextView(context).apply {
-                text = DashboardSnapshot.buildSummary(context)
+                text = "Loading dashboard…"
                 textSize = 13f
                 setTextColor(AppTheme.textPrimary)
                 setLineSpacing(0f, 1.15f)
                 setPadding(0, 0, 0, deps.dp(12))
             }
 
-            val refreshBtn = deps.actionButton("REFRESH DASHBOARD", false) {
-                dashboardText.text = DashboardSnapshot.buildSummary(context)
+            lateinit var refreshBtn: Button
+
+            fun refreshDashboard() {
+                refreshBtn.isEnabled = false
+                refreshBtn.text = "REFRESHING…"
+
+                val submitted = deps.runBackground {
+                    val summary =
+                        DashboardSnapshot.buildSummary(context)
+
+                    dashboardText.post {
+                        dashboardText.text = summary
+                        refreshBtn.text = "REFRESH DASHBOARD"
+                        refreshBtn.isEnabled = true
+                    }
+                }
+
+                if (!submitted) {
+                    dashboardText.text =
+                        "Dashboard refresh unavailable"
+                    refreshBtn.text = "REFRESH DASHBOARD"
+                    refreshBtn.isEnabled = true
+                }
+            }
+
+            refreshBtn = deps.actionButton(
+                "REFRESH DASHBOARD",
+                false
+            ) {
+                refreshDashboard()
             }
 
             addView(dashboardText)
             addView(deps.singleRow(refreshBtn))
+
+            dashboardText.post {
+                refreshDashboard()
+            }
         }
 
         val automationCard = deps.sectionPanel().apply {
@@ -211,6 +244,8 @@ object HomeTabUi {
         container.addView(infoCard)
         container.addView(statusCard)
         container.addView(diagnosticsCard)
+        container.addView(dashboardCard)
+        container.addView(automationCard)
 
         return Result(
             view = container,

@@ -545,6 +545,15 @@ class MainActivity : Activity() {
         updateManualCurveUiState()
     }
 
+    private fun submitBackgroundTask(
+        task: () -> Unit
+    ): Boolean {
+        return runCatching {
+            statusRefreshExecutor.execute(task)
+            true
+        }.getOrDefault(false)
+    }
+
     private fun createHomeTab(): LinearLayout {
         val result = com.elitedarkkaiser.redmagic.ui.HomeTabUi.create(
             com.elitedarkkaiser.redmagic.ui.HomeTabDeps(
@@ -562,6 +571,9 @@ class MainActivity : Activity() {
                 segmentedChip = { label, selected, onClick -> segmentedChip(label, selected, onClick) },
                 space = { width -> space(width) },
                 dp = { value -> dp(value) },
+                runBackground = { task ->
+                    submitBackgroundTask(task)
+                },
                 hasUsageStatsPermission = { PermissionActions.hasUsageStatsPermission(this) },
                 openUsageStatsAccessSettings = { PermissionActions.openUsageStatsAccessSettings(this) },
                 showGamePickerDialog = { showGamePickerDialog() },
@@ -700,6 +712,9 @@ class MainActivity : Activity() {
                 space = { width -> space(width) },
                 spacer = { height -> spacer(height) },
                 dp = { value -> dp(value) },
+                runBackground = { task ->
+                    submitBackgroundTask(task)
+                },
 
                 refreshStatus = { refreshStatus() },
                 readMagicKeyModeLabel = { MagicKeyActions.readModeLabel() },

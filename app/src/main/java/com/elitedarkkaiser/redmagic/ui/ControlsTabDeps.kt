@@ -18,6 +18,7 @@ data class ControlsTabDeps(
     val space: (Int) -> TextView,
     val spacer: (Int) -> TextView,
     val dp: (Int) -> Int,
+    val runBackground: (() -> Unit) -> Boolean,
 
     val refreshStatus: () -> Unit,
     val readMagicKeyModeLabel: () -> String,
