@@ -2,25 +2,17 @@ package com.elitedarkkaiser.redmagic
 
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.GradientDrawable
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import com.elitedarkkaiser.redmagic.ui.AppTheme
+import com.google.android.material.button.MaterialButton
 
 object FirstInstallPermissionsDialog {
-    private fun roundedFill(color: Int, radius: Float): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = radius
-            setColor(color)
-        }
-    }
-
     fun show(
         activity: MainActivity,
         onSetupComplete: () -> Unit
@@ -54,12 +46,21 @@ object FirstInstallPermissionsDialog {
             setPadding(0, dp(12), 0, dp(18))
         }
 
-        val grantButton = Button(activity).apply {
-            text = "GRANT WITH ROOT"
+        val grantButton = MaterialButton(activity).apply {
+            text = "Grant with root"
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(AppTheme.textPrimary)
-            background = roundedFill(AppTheme.panelPressed, 16f)
+
+            backgroundTintList =
+                ColorStateList.valueOf(AppTheme.panelPressed)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = dp(16)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = dp(48)
             setPadding(dp(18), dp(12), dp(18), dp(12))
         }
 
@@ -73,27 +74,56 @@ object FirstInstallPermissionsDialog {
             .create()
 
         grantButton.setOnClickListener {
-            val ok = RootShell.exec(
-                "appops set ${activity.packageName} GET_USAGE_STATS allow; " +
-                    "appops set ${activity.packageName} SYSTEM_ALERT_WINDOW allow; " +
-                    "pm grant ${activity.packageName} android.permission.POST_NOTIFICATIONS || true; " +
-                    "pm grant ${activity.packageName} android.permission.READ_PHONE_STATE || true; " +
-                    "settings put secure accessibility_enabled 1; " +
-                    "settings put secure enabled_accessibility_services ${activity.packageName}/com.elitedarkkaiser.redmagic.TriggerAccessibilityService"
-            )
+            grantButton.isEnabled = false
+            grantButton.text = "Applying…"
 
-            if (ok && PermissionActions.hasUsageStatsPermission(activity)) {
-                setFirstInstallPermissionsPromptedStorage(activity, true)
-                Toast.makeText(activity, "Root permissions applied", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-                onSetupComplete()
-            } else {
-                Toast.makeText(
-                    activity,
-                    "Root permission setup failed. Check your root manager and try again.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            Thread({
+                android.os.Process.setThreadPriority(
+                    android.os.Process.THREAD_PRIORITY_BACKGROUND
+                )
+
+                val rootApplied = RootShell.exec(
+                    "appops set ${activity.packageName} GET_USAGE_STATS allow; " +
+                        "appops set ${activity.packageName} SYSTEM_ALERT_WINDOW allow; " +
+                        "pm grant ${activity.packageName} android.permission.POST_NOTIFICATIONS || true; " +
+                        "pm grant ${activity.packageName} android.permission.READ_PHONE_STATE || true; " +
+                        "settings put secure accessibility_enabled 1; " +
+                        "settings put secure enabled_accessibility_services ${activity.packageName}/com.elitedarkkaiser.redmagic.TriggerAccessibilityService"
+                )
+
+                val usageAccessGranted =
+                    rootApplied &&
+                        PermissionActions.hasUsageStatsPermission(activity)
+
+                activity.runOnUiThread {
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        return@runOnUiThread
+                    }
+
+                    if (usageAccessGranted) {
+                        setFirstInstallPermissionsPromptedStorage(
+                            activity,
+                            true
+                        )
+                        Toast.makeText(
+                            activity,
+                            "Root permissions applied",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        dialog.dismiss()
+                        onSetupComplete()
+                    } else {
+                        grantButton.isEnabled = true
+                        grantButton.text = "Grant with root"
+
+                        Toast.makeText(
+                            activity,
+                            "Root permission setup failed. Check your root manager and try again.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }, "RedMagicPermissionSetup").start()
         }
 
         dialog.show()
