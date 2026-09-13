@@ -2,7 +2,6 @@ package com.elitedarkkaiser.redmagic.ui
 
 import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -46,19 +45,11 @@ object HomeTabUi {
                     setPadding(0, deps.dp(6), 0, deps.dp(10))
                 }
 
-                val btn = Button(context).apply {
-                    text = "Grant Usage Access"
-                    textSize = 13f
-                    setAllCaps(false)
-                    setTextColor(AppTheme.textPrimary)
-                    background = AppTheme.roundedBg(
-                        AppTheme.panelPressed,
-                        AppTheme.panelPressed,
-                        deps.dp(14).toFloat()
-                    )
-                    setOnClickListener {
-                        deps.openUsageStatsAccessSettings()
-                    }
+                val btn = deps.actionButton(
+                    "Grant Usage Access",
+                    false
+                ) {
+                    deps.openUsageStatsAccessSettings()
                 }
 
                 addView(title)
@@ -68,19 +59,11 @@ object HomeTabUi {
 
             container.addView(usageCard)
 
-            val gameSelectBtn = Button(container.context).apply {
-                text = "Select Games for Game Mode"
-                textSize = 13f
-                setAllCaps(false)
-                setTextColor(AppTheme.textPrimary)
-                background = AppTheme.roundedBg(
-                    AppTheme.panelPressed,
-                    AppTheme.panelPressed,
-                    deps.dp(14).toFloat()
-                )
-                setOnClickListener {
-                    deps.showGamePickerDialog()
-                }
+            val gameSelectBtn = deps.actionButton(
+                "Select Games for Game Mode",
+                false
+            ) {
+                deps.showGamePickerDialog()
             }
 
             container.addView(gameSelectBtn)
