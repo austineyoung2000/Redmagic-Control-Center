@@ -7,8 +7,8 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
-import android.os.Looper
 
 class AutoFanService : Service() {
 
@@ -21,7 +21,8 @@ class AutoFanService : Service() {
         private const val HYSTERESIS_F = 5f
     }
 
-    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var workerThread: HandlerThread
+    private lateinit var handler: Handler
     private var lastAppliedLevel = -1
     private var lastNotificationText: String? = null
 
@@ -60,8 +61,19 @@ class AutoFanService : Service() {
         super.onCreate()
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification("Starting automatic fan control..."))
-        lastAppliedLevel = HardwareController.readFanLevel() ?: -1
-        handler.post(loop)
+
+        workerThread = HandlerThread(
+            "RedMagicAutoFan",
+            android.os.Process.THREAD_PRIORITY_BACKGROUND
+        ).apply {
+            start()
+        }
+        handler = Handler(workerThread.looper)
+
+        handler.post {
+            lastAppliedLevel = HardwareController.readFanLevel() ?: -1
+            loop.run()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -69,7 +81,12 @@ class AutoFanService : Service() {
     }
 
     override fun onDestroy() {
-        handler.removeCallbacks(loop)
+        if (::handler.isInitialized) {
+            handler.removeCallbacksAndMessages(null)
+        }
+        if (::workerThread.isInitialized) {
+            workerThread.quitSafely()
+        }
         super.onDestroy()
     }
 

@@ -7,8 +7,8 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
-import android.os.Looper
 
 class AutoPumpService : Service() {
 
@@ -20,7 +20,8 @@ class AutoPumpService : Service() {
         private const val NOTIF_ID = 2202
     }
 
-    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var workerThread: HandlerThread
+    private lateinit var handler: Handler
     private var lastProfile: String? = null
 
     private val pollRunnable = object : Runnable {
@@ -35,6 +36,14 @@ class AutoPumpService : Service() {
         super.onCreate()
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification("Auto pump active"))
+
+        workerThread = HandlerThread(
+            "RedMagicAutoPump",
+            android.os.Process.THREAD_PRIORITY_BACKGROUND
+        ).apply {
+            start()
+        }
+        handler = Handler(workerThread.looper)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -44,7 +53,12 @@ class AutoPumpService : Service() {
     }
 
     override fun onDestroy() {
-        handler.removeCallbacksAndMessages(null)
+        if (::handler.isInitialized) {
+            handler.removeCallbacksAndMessages(null)
+        }
+        if (::workerThread.isInitialized) {
+            workerThread.quitSafely()
+        }
         super.onDestroy()
     }
 
