@@ -1,6 +1,7 @@
 package com.elitedarkkaiser.redmagic
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
@@ -252,7 +253,7 @@ fun showGamePickerDialogUI(
         addView(container)
     }
 
-    val dialog = AlertDialog.Builder(context)
+    val dialog = MaterialAlertDialogBuilder(context)
         .setView(root)
         .setCancelable(true)
         .create()

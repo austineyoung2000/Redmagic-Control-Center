@@ -1,6 +1,7 @@
 package com.elitedarkkaiser.redmagic
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
@@ -151,7 +152,7 @@ internal object PumpDialogUi {
         container.addView(profilesRow)
         container.addView(buttonRow)
 
-        val dialog = AlertDialog.Builder(activity)
+        val dialog = MaterialAlertDialogBuilder(activity)
             .setView(container)
             .setCancelable(true)
             .create()

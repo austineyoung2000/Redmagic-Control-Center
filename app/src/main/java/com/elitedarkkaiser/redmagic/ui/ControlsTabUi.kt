@@ -1,7 +1,8 @@
 package com.elitedarkkaiser.redmagic.ui
 
 import android.app.Activity
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -23,7 +24,7 @@ object ControlsTabUi {
 
         val rootCheckBtn = deps.actionButton("CHECK ROOT", false) {
             val ok = RootShell.hasRoot()
-            AlertDialog.Builder(activity)
+            MaterialAlertDialogBuilder(activity)
                 .setTitle("Root Status")
                 .setMessage(
                     if (ok) "Root access granted\n\nApp is running as root"

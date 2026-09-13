@@ -1,6 +1,7 @@
 package com.elitedarkkaiser.redmagic
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -82,7 +83,7 @@ internal object ExperimentalPumpDialog {
         container.addView(messageView)
         container.addView(buttonRow)
 
-        val dialog = AlertDialog.Builder(activity)
+        val dialog = MaterialAlertDialogBuilder(activity)
             .setView(container)
             .setCancelable(true)
             .create()

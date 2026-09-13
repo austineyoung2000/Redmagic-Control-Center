@@ -1,7 +1,6 @@
 package com.elitedarkkaiser.redmagic
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -30,6 +29,8 @@ import android.widget.Toast
 import com.elitedarkkaiser.redmagic.storage.AppPrefs
 import com.elitedarkkaiser.redmagic.state.LedState
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.shape.MaterialShapeDrawable
+import com.google.android.material.shape.ShapeAppearanceModel
 
 class MainActivity : Activity() {
 
@@ -1635,17 +1636,25 @@ class MainActivity : Activity() {
     }
 
     private fun sectionPanel(): LinearLayout {
+        val shapeModel = ShapeAppearanceModel.builder()
+            .setAllCornerSizes(dp(22).toFloat())
+            .build()
+
+        val panelBackground = MaterialShapeDrawable(shapeModel).apply {
+            initializeElevationOverlay(this@MainActivity)
+            fillColor = ColorStateList.valueOf(panelColor)
+            strokeWidth = dp(1).toFloat()
+            strokeColor = ColorStateList.valueOf(Color.parseColor("#2A3444"))
+            elevation = dp(2).toFloat()
+        }
+
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(18))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(22).toFloat()
-                setColor(panelColor)
-                setStroke(dp(1), Color.parseColor("#2A3444"))
-            }
-            elevation = dp(3).toFloat()
-            translationZ = dp(1).toFloat()
+            background = panelBackground
+            elevation = dp(2).toFloat()
+            clipToOutline = true
+
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT

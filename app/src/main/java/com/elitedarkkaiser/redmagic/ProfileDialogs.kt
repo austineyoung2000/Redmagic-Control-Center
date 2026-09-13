@@ -1,6 +1,7 @@
 package com.elitedarkkaiser.redmagic
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
 import android.graphics.Typeface
 import android.view.Gravity
@@ -17,7 +18,7 @@ internal object ProfileDialogs {
         profileName: String,
         onConfirmDelete: () -> Unit
     ) {
-        AlertDialog.Builder(context)
+        MaterialAlertDialogBuilder(context)
             .setTitle("Delete Profile")
             .setMessage("Delete $profileName?")
             .setPositiveButton("Delete") { _, _ ->
@@ -129,7 +130,7 @@ internal object ProfileDialogs {
             addView(buttonRow)
         }
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setView(container)
             .setCancelable(true)
             .create()
@@ -208,7 +209,7 @@ internal object ProfileDialogs {
             addView(buttonRow)
         }
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setView(container)
             .setCancelable(true)
             .create()

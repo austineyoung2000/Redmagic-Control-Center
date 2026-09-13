@@ -1,6 +1,7 @@
 package com.elitedarkkaiser.redmagic
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -257,7 +258,7 @@ internal object ChargingLedProfileDialog {
         }
         container.addView(buttonRow)
 
-        val dialog = AlertDialog.Builder(activity)
+        val dialog = MaterialAlertDialogBuilder(activity)
             .setView(container)
             .setCancelable(true)
             .create()
