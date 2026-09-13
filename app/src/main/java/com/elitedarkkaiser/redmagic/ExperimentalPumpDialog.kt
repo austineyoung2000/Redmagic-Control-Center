@@ -2,15 +2,16 @@ package com.elitedarkkaiser.redmagic
 
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.android.material.button.MaterialButton
 
 internal object ExperimentalPumpDialog {
     data class Deps(
@@ -57,22 +58,57 @@ internal object ExperimentalPumpDialog {
             gravity = Gravity.END
         }
 
-        val cancelBtn = Button(activity).apply {
+        val cancelBtn = MaterialButton(
+            activity,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = "Cancel"
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(Color.parseColor("#1E2633"), 14)
-            setPadding(deps.dp(18), deps.dp(10), deps.dp(18), deps.dp(10))
+
+            backgroundTintList =
+                ColorStateList.valueOf(Color.TRANSPARENT)
+            strokeWidth = deps.dp(1)
+            strokeColor =
+                ColorStateList.valueOf(deps.borderColor)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
         }
 
-        val confirmBtn = Button(activity).apply {
+        val confirmBtn = MaterialButton(activity).apply {
             text = "I Understand"
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(deps.panelPressed, 14)
-            setPadding(deps.dp(18), deps.dp(10), deps.dp(18), deps.dp(10))
+
+            backgroundTintList =
+                ColorStateList.valueOf(deps.panelPressed)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
         }
 
         buttonRow.addView(cancelBtn)
