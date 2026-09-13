@@ -15,6 +15,15 @@ object HardwareController {
         ConcurrentHashMap<String, RecentHardwareWrite>()
 
     private const val DUPLICATE_WRITE_SKIP_MS = 2_000L
+    private const val TEMPERATURE_CACHE_MS = 10_000L
+
+    private val temperatureReadLock = Any()
+
+    @Volatile
+    private var cachedTemperatureC: Float? = null
+
+    @Volatile
+    private var cachedTemperatureAtMs = 0L
 
     @Synchronized
     private fun execHardwareWrite(resource: String, command: String): Boolean {
@@ -297,24 +306,56 @@ object HardwareController {
     }
 
     fun readTemperatureC(): Float? {
-        val candidates = listOf(
-            "/sys/class/thermal/thermal_zone0/temp",
-            "/sys/class/thermal/thermal_zone1/temp",
-            "/sys/class/thermal/thermal_zone2/temp",
-            "/sys/class/thermal/thermal_zone3/temp",
-            "/sys/devices/virtual/thermal/thermal_zone0/temp",
-            "/sys/devices/virtual/thermal/thermal_zone1/temp",
-            "/sys/devices/virtual/thermal/thermal_zone2/temp",
-            "/sys/devices/virtual/thermal/thermal_zone3/temp"
-        )
+        return synchronized(temperatureReadLock) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            val cached = cachedTemperatureC
 
-        for (path in candidates) {
-            val raw = RootShell.execForOutput("cat $path 2>/dev/null")?.trim()?.toFloatOrNull() ?: continue
-            if (raw > 1000f && raw < 200000f) return raw / 1000f
-            if (raw > 0f && raw < 200f) return raw
+            if (
+                cached != null &&
+                (now - cachedTemperatureAtMs) < TEMPERATURE_CACHE_MS
+            ) {
+                return@synchronized cached
+            }
+
+            val candidates = listOf(
+                "/sys/class/thermal/thermal_zone0/temp",
+                "/sys/class/thermal/thermal_zone1/temp",
+                "/sys/class/thermal/thermal_zone2/temp",
+                "/sys/class/thermal/thermal_zone3/temp",
+                "/sys/devices/virtual/thermal/thermal_zone0/temp",
+                "/sys/devices/virtual/thermal/thermal_zone1/temp",
+                "/sys/devices/virtual/thermal/thermal_zone2/temp",
+                "/sys/devices/virtual/thermal/thermal_zone3/temp"
+            )
+
+            val command = buildString {
+                for (path in candidates) {
+                    append("if [ -r '$path' ]; then cat '$path'; fi; ")
+                }
+                append("exit 0")
+            }
+
+            val output = RootShell.execForOutput(command)
+                ?: return@synchronized null
+
+            val temperature = output.lineSequence()
+                .mapNotNull { it.trim().toFloatOrNull() }
+                .mapNotNull { raw ->
+                    when {
+                        raw > 1000f && raw < 200000f -> raw / 1000f
+                        raw > 0f && raw < 200f -> raw
+                        else -> null
+                    }
+                }
+                .firstOrNull()
+                ?: return@synchronized null
+
+            cachedTemperatureC = temperature
+            cachedTemperatureAtMs =
+                android.os.SystemClock.elapsedRealtime()
+
+            temperature
         }
-
-        return null
     }
 
     fun readTemperatureF(): Float? {
