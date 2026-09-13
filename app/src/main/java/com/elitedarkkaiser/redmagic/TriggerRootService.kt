@@ -3,8 +3,6 @@ package com.elitedarkkaiser.redmagic
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -12,6 +10,8 @@ class TriggerRootService : Service() {
 
     
     private var rightTriggerUnlockedUntil: Long = 0L
+
+    @Volatile
     private var running = true
 
     private var leftUnlockArmedAt = 0L
@@ -19,6 +19,10 @@ class TriggerRootService : Service() {
     private var leftUnlockTapCount = 0
     private val held = ConcurrentHashMap<String, AtomicBoolean>()
     private val repeatThreads = ConcurrentHashMap<String, Thread>()
+    private val readerThreads = ConcurrentHashMap<String, Thread>()
+    private val readerProcesses = ConcurrentHashMap<String, Process>()
+
+    private var initializationThread: Thread? = null
 
     private var rightUnlockArmedAt = 0L
     private var rightUnlockTapCount = 0
@@ -33,23 +37,54 @@ class TriggerRootService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        
-        HardwareController.enableTriggers()
+
         android.util.Log.d("TRIGGER", "TriggerRootService onCreate")
-        startReader(findTriggerEvent("nubia_tgk_aw_sar0_ch0"), "left_trigger")
-        startReader(findTriggerEvent("nubia_tgk_aw_sar1_ch0"), "right_trigger")
+
+        initializationThread = Thread({
+            HardwareController.enableTriggers()
+
+            val leftDevice =
+                findTriggerEvent("nubia_tgk_aw_sar0_ch0")
+            if (running && leftDevice != null) {
+                startReader(leftDevice, "left_trigger")
+            }
+
+            val rightDevice =
+                findTriggerEvent("nubia_tgk_aw_sar1_ch0")
+            if (running && rightDevice != null) {
+                startReader(rightDevice, "right_trigger")
+            }
+        }, "RedMagicTriggerInit").apply {
+            priority = Thread.NORM_PRIORITY - 1
+            start()
+        }
     }
 
 
-    private fun findTriggerEvent(triggerName: String): String {
-        val cmd = "for ev in /sys/class/input/event*; do name=\$(cat \"\$ev/device/name\" 2>/dev/null); if [ \"\$name\" = \"$triggerName\" ]; then basename \"\$ev\"; exit 0; fi; done"
-        val eventName = RootShell.execForOutput(cmd)?.trim()?.lineSequence()?.firstOrNull()?.trim()
+    private fun findTriggerEvent(triggerName: String): String? {
+        val command =
+            "for ev in /sys/class/input/event*; do " +
+                "name=\$(cat \"\$ev/device/name\" 2>/dev/null); " +
+                "if [ \"\$name\" = \"$triggerName\" ]; then " +
+                "basename \"\$ev\"; exit 0; fi; done"
 
-        return if (!eventName.isNullOrBlank()) {
+        val eventName = RootShell.execForOutput(command)
+            ?.trim()
+            ?.lineSequence()
+            ?.firstOrNull()
+            ?.trim()
+
+        return if (
+            eventName != null &&
+            eventName.matches(Regex("event\\d+"))
+        ) {
             "/dev/input/$eventName"
         } else {
-            android.util.Log.e("TRIGGER", "failed to resolve trigger event for $triggerName")
-            "/dev/input/event0"
+            android.util.Log.e(
+                "TRIGGER",
+                "failed to resolve trigger event for $triggerName"
+            )
+            null
         }
     }
 
@@ -71,12 +106,14 @@ class TriggerRootService : Service() {
         return prefs().getBoolean("haptics_enabled", true)
     }
 
-    private fun runRoot(cmd: String) {
-        try {
-            android.util.Log.d("TRIGGER", "runRoot=" + cmd)
-            Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
-        } catch (t: Throwable) {
-            android.util.Log.e("TRIGGER", "runRoot failed: " + t)
+    private fun runRoot(command: String) {
+        android.util.Log.d("TRIGGER", "runRoot=$command")
+
+        if (!RootShell.exec(command)) {
+            android.util.Log.e(
+                "TRIGGER",
+                "root action failed"
+            )
         }
     }
 
@@ -338,38 +375,109 @@ class TriggerRootService : Service() {
 
 
     private fun startReader(device: String, prefKey: String) {
-        Thread {
+        val thread = Thread({
+            var process: Process? = null
+
             try {
-                android.util.Log.d("TRIGGER", "startReader device=" + device + " key=" + prefKey)
-                val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "getevent -l " + device))
-                val reader = BufferedReader(InputStreamReader(process.inputStream))
+                if (!running) return@Thread
 
-                while (running) {
-                    val line = reader.readLine() ?: break
+                android.util.Log.d(
+                    "TRIGGER",
+                    "startReader device=$device key=$prefKey"
+                )
 
-                    android.util.Log.d("TRIGGER", "raw device=$device key=$prefKey line=$line")
+                val startedProcess = ProcessBuilder(
+                    "su",
+                    "-c",
+                    "exec getevent -l '$device'"
+                )
+                    .redirectErrorStream(true)
+                    .start()
 
-                    if (isDownLine(line)) {
-                        if (prefKey == "left_trigger") {
-                            handleLeftDown(device, line)
-                        } else {
-                            handleRightDown(device, line)
+                process = startedProcess
+                readerProcesses[prefKey] = startedProcess
+
+                startedProcess.inputStream.bufferedReader().use { reader ->
+                    while (running) {
+                        val line = reader.readLine() ?: break
+
+                        android.util.Log.d(
+                            "TRIGGER",
+                            "raw device=$device key=$prefKey line=$line"
+                        )
+
+                        if (isDownLine(line)) {
+                            if (prefKey == "left_trigger") {
+                                handleLeftDown(device, line)
+                            } else {
+                                handleRightDown(device, line)
+                            }
+                        } else if (isUpLine(line)) {
+                            handleUp(prefKey, device, line)
                         }
-                    } else if (isUpLine(line)) {
-                        handleUp(prefKey, device, line)
                     }
                 }
-            } catch (t: Throwable) {
-                android.util.Log.e("TRIGGER", "startReader failed for " + device + ": " + t)
+            } catch (error: Throwable) {
+                if (running) {
+                    android.util.Log.e(
+                        "TRIGGER",
+                        "startReader failed for $device: $error"
+                    )
+                }
+            } finally {
+                process?.let { activeProcess ->
+                    runCatching {
+                        activeProcess.destroy()
+                    }
+                    if (activeProcess.isAlive) {
+                        runCatching {
+                            activeProcess.destroyForcibly()
+                        }
+                    }
+                }
+
+                readerProcesses.remove(prefKey)
+                readerThreads.remove(prefKey)
             }
-        }.start()
+        }, "RedMagicTriggerReader-$prefKey").apply {
+            priority = Thread.NORM_PRIORITY - 1
+        }
+
+        readerThreads[prefKey] = thread
+        thread.start()
     }
 
     override fun onDestroy() {
         running = false
+
+        initializationThread?.interrupt()
+        initializationThread = null
+
         stopRepeater("left_trigger")
         stopRepeater("right_trigger")
-        android.util.Log.d("TRIGGER", "TriggerRootService onDestroy")
+
+        readerProcesses.values.forEach { process ->
+            runCatching {
+                process.destroy()
+            }
+            if (process.isAlive) {
+                runCatching {
+                    process.destroyForcibly()
+                }
+            }
+        }
+
+        readerThreads.values.forEach { thread ->
+            thread.interrupt()
+        }
+
+        readerProcesses.clear()
+        readerThreads.clear()
+
+        android.util.Log.d(
+            "TRIGGER",
+            "TriggerRootService onDestroy"
+        )
         super.onDestroy()
     }
 }
