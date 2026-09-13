@@ -16,6 +16,7 @@ object HardwareController {
 
     private const val DUPLICATE_WRITE_SKIP_MS = 2_000L
 
+    @Synchronized
     private fun execHardwareWrite(resource: String, command: String): Boolean {
         val now = android.os.SystemClock.elapsedRealtime()
         val previous = recentHardwareWrites[resource]
