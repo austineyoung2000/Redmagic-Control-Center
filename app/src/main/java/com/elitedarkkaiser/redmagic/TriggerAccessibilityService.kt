@@ -5,8 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class TriggerAccessibilityService : AccessibilityService() {
+
+    private val rootExecutor: ExecutorService =
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "RedMagicTriggerActions").apply {
+                priority = Thread.NORM_PRIORITY - 1
+            }
+        }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
@@ -28,7 +37,14 @@ class TriggerAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        HardwareController.enableTriggers()
+        submitRootAction {
+            HardwareController.enableTriggers()
+        }
+    }
+
+    override fun onDestroy() {
+        rootExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun prefs() = getSharedPreferences("triggers", Context.MODE_PRIVATE)
@@ -37,10 +53,15 @@ class TriggerAccessibilityService : AccessibilityService() {
         return prefs().getString(key, "NONE") ?: "NONE"
     }
 
-    private fun runRoot(cmd: String) {
-        try {
-            Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
-        } catch (_: Throwable) {
+    private fun submitRootAction(action: () -> Unit) {
+        runCatching {
+            rootExecutor.execute(action)
+        }
+    }
+
+    private fun runRoot(command: String) {
+        submitRootAction {
+            RootShell.exec(command)
         }
     }
 
