@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -28,6 +29,7 @@ import android.animation.ArgbEvaluator
 import android.widget.Toast
 import com.elitedarkkaiser.redmagic.storage.AppPrefs
 import com.elitedarkkaiser.redmagic.state.LedState
+import com.google.android.material.button.MaterialButton
 
 class MainActivity : Activity() {
 
@@ -1699,31 +1701,54 @@ class MainActivity : Activity() {
         selected: Boolean,
         onClick: () -> Unit
     ): Button {
-        return Button(this).apply {
+        return MaterialButton(
+            this,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = label
             textSize = 12f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(textPrimary)
-            background = roundedFill(
-                if (selected) panelPressed else Color.parseColor("#1A2230"),
-                999
+
+            backgroundTintList = ColorStateList.valueOf(
+                if (selected) panelPressed else Color.TRANSPARENT
             )
+            strokeWidth = dp(1)
+            strokeColor = ColorStateList.valueOf(
+                if (selected) highlightBorder else borderColor
+            )
+            rippleColor = ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = dp(20)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = dp(48)
             setPadding(dp(16), dp(10), dp(16), dp(10))
             setOnClickListener { onClick() }
-            applyPressEffect(this)
         }
     }
 
     private fun actionButton(text: String, isDanger: Boolean = false, onClick: () -> Unit): Button {
-        return Button(this).apply {
+        return MaterialButton(this).apply {
             this.text = text
             textSize = 13f
+            isAllCaps = false
             setTextColor(textPrimary)
-            setAllCaps(false)
-            background = roundedFill(if (isDanger) danger else panelPressed, 16)
-            setPadding(dp(12), dp(14), dp(12), dp(14))
+
+            backgroundTintList = ColorStateList.valueOf(
+                if (isDanger) danger else panelPressed
+            )
+            rippleColor = ColorStateList.valueOf(
+                if (isDanger) Color.parseColor("#8F4651") else Color.parseColor("#33445A")
+            )
+            cornerRadius = dp(16)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = dp(48)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
             setOnClickListener { onClick() }
-            applyPressEffect(this, if (isDanger) Color.parseColor("#733943") else Color.parseColor("#293447"))
         }
     }
 
@@ -1827,15 +1852,25 @@ class MainActivity : Activity() {
     }
 
     private fun smallActionButton(label: String, isDanger: Boolean = false, onClick: () -> Unit): Button {
-        return Button(this).apply {
+        return MaterialButton(this).apply {
             text = label
             textSize = 12f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(textPrimary)
-            background = roundedFill(if (isDanger) danger else panelPressed, 14)
+
+            backgroundTintList = ColorStateList.valueOf(
+                if (isDanger) danger else panelPressed
+            )
+            rippleColor = ColorStateList.valueOf(
+                if (isDanger) Color.parseColor("#8F4651") else Color.parseColor("#33445A")
+            )
+            cornerRadius = dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = dp(44)
             setPadding(dp(12), dp(10), dp(12), dp(10))
             setOnClickListener { onClick() }
-            minHeight = dp(44)
         }
     }
 
