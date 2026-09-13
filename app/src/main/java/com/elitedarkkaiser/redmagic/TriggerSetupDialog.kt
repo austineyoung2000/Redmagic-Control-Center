@@ -3,6 +3,7 @@ package com.elitedarkkaiser.redmagic
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -10,11 +11,12 @@ import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.radiobutton.MaterialRadioButton
 
 internal object TriggerSetupDialog {
     data class Deps(
@@ -93,18 +95,18 @@ internal object TriggerSetupDialog {
         }
 
         labels.forEachIndexed { index, label ->
-            leftGroup.addView(android.widget.RadioButton(activity).apply {
+            leftGroup.addView(MaterialRadioButton(activity).apply {
                 id = View.generateViewId()
                 tag = index
                 text = label
                 textSize = 14f
                 setTextColor(deps.textPrimary)
-                buttonTintList = android.content.res.ColorStateList.valueOf(deps.accent)
+                buttonTintList = ColorStateList.valueOf(deps.accent)
                 isChecked = index == leftChoice
             })
         }
         leftGroup.setOnCheckedChangeListener { group, checkedId ->
-            val selected = group.findViewById<android.widget.RadioButton>(checkedId)
+            val selected = group.findViewById<MaterialRadioButton>(checkedId)
             leftChoice = selected?.tag as? Int ?: leftChoice
         }
 
@@ -120,18 +122,18 @@ internal object TriggerSetupDialog {
         }
 
         labels.forEachIndexed { index, label ->
-            rightGroup.addView(android.widget.RadioButton(activity).apply {
+            rightGroup.addView(MaterialRadioButton(activity).apply {
                 id = View.generateViewId()
                 tag = index
                 text = label
                 textSize = 14f
                 setTextColor(deps.textPrimary)
-                buttonTintList = android.content.res.ColorStateList.valueOf(deps.accent)
+                buttonTintList = ColorStateList.valueOf(deps.accent)
                 isChecked = index == rightChoice
             })
         }
         rightGroup.setOnCheckedChangeListener { group, checkedId ->
-            val selected = group.findViewById<android.widget.RadioButton>(checkedId)
+            val selected = group.findViewById<MaterialRadioButton>(checkedId)
             rightChoice = selected?.tag as? Int ?: rightChoice
         }
 
@@ -147,19 +149,19 @@ internal object TriggerSetupDialog {
         }
 
         listOf(1, 2, 3, 4).forEach { count ->
-            leftUnlockTapGroup.addView(android.widget.RadioButton(activity).apply {
+            leftUnlockTapGroup.addView(MaterialRadioButton(activity).apply {
                 id = View.generateViewId()
                 tag = count
                 text = if (count == 1) "Single" else "$count taps"
                 textSize = 14f
                 setTextColor(deps.textPrimary)
-                buttonTintList = android.content.res.ColorStateList.valueOf(deps.accent)
+                buttonTintList = ColorStateList.valueOf(deps.accent)
                 isChecked = count == leftUnlockTapCount
             })
         }
 
         leftUnlockTapGroup.setOnCheckedChangeListener { group, checkedId ->
-            val selected = group.findViewById<android.widget.RadioButton>(checkedId)
+            val selected = group.findViewById<MaterialRadioButton>(checkedId)
             leftUnlockTapCount = selected?.tag as? Int ?: leftUnlockTapCount
         }
 
@@ -175,19 +177,19 @@ internal object TriggerSetupDialog {
         }
 
         listOf(2, 3, 4).forEach { count ->
-            unlockTapGroup.addView(android.widget.RadioButton(activity).apply {
+            unlockTapGroup.addView(MaterialRadioButton(activity).apply {
                 id = View.generateViewId()
                 tag = count
                 text = "$count taps"
                 textSize = 14f
                 setTextColor(deps.textPrimary)
-                buttonTintList = android.content.res.ColorStateList.valueOf(deps.accent)
+                buttonTintList = ColorStateList.valueOf(deps.accent)
                 isChecked = count == unlockTapCount
             })
         }
 
         unlockTapGroup.setOnCheckedChangeListener { group, checkedId ->
-            val selected = group.findViewById<android.widget.RadioButton>(checkedId)
+            val selected = group.findViewById<MaterialRadioButton>(checkedId)
             unlockTapCount = selected?.tag as? Int ?: unlockTapCount
         }
 
@@ -197,22 +199,57 @@ internal object TriggerSetupDialog {
             setPadding(0, deps.dp(18), 0, 0)
         }
 
-        val cancelBtn = Button(activity).apply {
+        val cancelBtn = MaterialButton(
+            activity,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = "Cancel"
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(Color.parseColor("#1E2633"), 14)
-            setPadding(deps.dp(18), deps.dp(10), deps.dp(18), deps.dp(10))
+
+            backgroundTintList =
+                ColorStateList.valueOf(Color.TRANSPARENT)
+            strokeWidth = deps.dp(1)
+            strokeColor =
+                ColorStateList.valueOf(deps.borderColor)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
         }
 
-        val saveBtn = Button(activity).apply {
+        val saveBtn = MaterialButton(activity).apply {
             text = "Save"
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(deps.panelPressed, 14)
-            setPadding(deps.dp(20), deps.dp(10), deps.dp(20), deps.dp(10))
+
+            backgroundTintList =
+                ColorStateList.valueOf(deps.panelPressed)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(20),
+                deps.dp(10),
+                deps.dp(20),
+                deps.dp(10)
+            )
         }
 
         buttonRow.addView(cancelBtn)
