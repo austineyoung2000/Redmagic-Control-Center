@@ -3,6 +3,8 @@ package com.elitedarkkaiser.redmagic
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
@@ -12,31 +14,97 @@ import com.elitedarkkaiser.redmagic.state.LedState
 class CallLightingService : Service() {
 
     private var telephonyManager: TelephonyManager? = null
+
+    @Volatile
     private var lastState: Int = TelephonyManager.CALL_STATE_IDLE
+
+    private lateinit var workerThread: HandlerThread
+    private lateinit var handler: Handler
+
+    private val callStateLock = Any()
+    private var pendingCallState = TelephonyManager.CALL_STATE_IDLE
+
+    private val callStateRunnable = Runnable {
+        val state = synchronized(callStateLock) {
+            pendingCallState
+        }
+        handleCallState(state)
+    }
+
+    private val fanPauseRunnable = Runnable {
+        if (
+            CallLightingState.isActive(this) &&
+            CallLightingState.shouldPauseFanDuringCalls(this)
+        ) {
+            HardwareServiceActions.stopAutoFan(this)
+            HardwareController.setFanLevel(0)
+            HardwareController.enableFan(false)
+        }
+    }
 
     private val phoneListener = object : PhoneStateListener() {
         override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-            handleCallState(state)
+            scheduleCallState(state)
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-        telephonyManager?.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE)
+
+        workerThread = HandlerThread(
+            "RedMagicCallLighting",
+            android.os.Process.THREAD_PRIORITY_BACKGROUND
+        ).apply {
+            start()
+        }
+        handler = Handler(workerThread.looper)
+
+        telephonyManager =
+            getSystemService(Context.TELEPHONY_SERVICE)
+                as? TelephonyManager
+        telephonyManager?.listen(
+            phoneListener,
+            PhoneStateListener.LISTEN_CALL_STATE
+        )
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        handleCallState(lastState)
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int
+    ): Int {
+        scheduleCallState(lastState)
         return START_STICKY
     }
 
     override fun onDestroy() {
-        telephonyManager?.listen(phoneListener, PhoneStateListener.LISTEN_NONE)
+        telephonyManager?.listen(
+            phoneListener,
+            PhoneStateListener.LISTEN_NONE
+        )
+
+        if (::handler.isInitialized) {
+            handler.removeCallbacksAndMessages(null)
+        }
+        if (::workerThread.isInitialized) {
+            workerThread.quitSafely()
+        }
+
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun scheduleCallState(state: Int) {
+        if (!::handler.isInitialized) return
+
+        synchronized(callStateLock) {
+            pendingCallState = state
+        }
+
+        handler.removeCallbacks(callStateRunnable)
+        handler.post(callStateRunnable)
+    }
 
     private fun handleCallState(state: Int) {
         lastState = state
@@ -63,6 +131,8 @@ class CallLightingService : Service() {
                 enforceFanPauseIfNeeded()
             }
             TelephonyManager.CALL_STATE_IDLE -> {
+                handler.removeCallbacks(fanPauseRunnable)
+
                 if (CallLightingState.isActive(this)) {
                     CallLightingState.setActive(this, false)
                     restorePausedFanIfNeeded()
@@ -101,17 +171,13 @@ class CallLightingService : Service() {
 
     private fun enforceFanPauseIfNeeded() {
         if (CallLightingState.shouldPauseFanDuringCalls(this)) {
+            handler.removeCallbacks(fanPauseRunnable)
+
             HardwareServiceActions.stopAutoFan(this)
             HardwareController.setFanLevel(0)
             HardwareController.enableFan(false)
 
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                if (CallLightingState.isActive(this) && CallLightingState.shouldPauseFanDuringCalls(this)) {
-                    HardwareServiceActions.stopAutoFan(this)
-                    HardwareController.setFanLevel(0)
-                    HardwareController.enableFan(false)
-                }
-            }, 750L)
+            handler.postDelayed(fanPauseRunnable, 750L)
         }
     }
 
