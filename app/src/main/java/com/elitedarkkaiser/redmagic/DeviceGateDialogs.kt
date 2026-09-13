@@ -2,12 +2,14 @@ package com.elitedarkkaiser.redmagic
 
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.widget.Button
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -165,14 +167,32 @@ internal object DeviceGateDialogs {
         }
     }
 
-    private fun dialogButton(activity: MainActivity, textValue: String, deps: Deps): Button {
-        return Button(activity).apply {
+    private fun dialogButton(
+        activity: MainActivity,
+        textValue: String,
+        deps: Deps
+    ): Button {
+        return MaterialButton(activity).apply {
             text = textValue
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(deps.panelPressed, 14)
-            setPadding(deps.dp(20), deps.dp(10), deps.dp(20), deps.dp(10))
+
+            backgroundTintList =
+                ColorStateList.valueOf(deps.panelPressed)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(20),
+                deps.dp(10),
+                deps.dp(20),
+                deps.dp(10)
+            )
         }
     }
 
