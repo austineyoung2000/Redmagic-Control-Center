@@ -1,7 +1,9 @@
 package com.elitedarkkaiser.redmagic
 
+import android.content.res.ColorStateList
 import android.graphics.drawable.Drawable
 import android.widget.Button
+import com.google.android.material.button.MaterialButton
 
 internal object PumpActions {
 
@@ -36,6 +38,28 @@ internal object PumpActions {
         }
     }
 
+    private fun updateProfileButton(
+        button: Button,
+        selected: Boolean,
+        normalColor: Int,
+        roundedFill: (Int, Int) -> Drawable,
+        selectedColor: Int
+    ) {
+        val stateColor =
+            if (selected) selectedColor else normalColor
+
+        button.isSelected = selected
+
+        if (button is MaterialButton) {
+            button.backgroundTintList =
+                ColorStateList.valueOf(stateColor)
+            button.strokeColor =
+                ColorStateList.valueOf(stateColor)
+        } else {
+            button.background = roundedFill(stateColor, 999)
+        }
+    }
+
     fun repaintButtons(
         selectedProfile: String,
         slowBtn: Button,
@@ -47,21 +71,33 @@ internal object PumpActions {
         normalColor: Int,
         experimentalColor: Int
     ) {
-        slowBtn.background = roundedFill(
-            if (selectedProfile == "slow") selectedColor else normalColor,
-            999
+        updateProfileButton(
+            slowBtn,
+            selectedProfile == "slow",
+            normalColor,
+            roundedFill,
+            selectedColor
         )
-        mediumBtn.background = roundedFill(
-            if (selectedProfile == "medium") selectedColor else normalColor,
-            999
+        updateProfileButton(
+            mediumBtn,
+            selectedProfile == "medium",
+            normalColor,
+            roundedFill,
+            selectedColor
         )
-        quickBtn.background = roundedFill(
-            if (selectedProfile == "quick") selectedColor else normalColor,
-            999
+        updateProfileButton(
+            quickBtn,
+            selectedProfile == "quick",
+            normalColor,
+            roundedFill,
+            selectedColor
         )
-        experimentalBtn.background = roundedFill(
-            if (selectedProfile == "experimental") selectedColor else experimentalColor,
-            999
+        updateProfileButton(
+            experimentalBtn,
+            selectedProfile == "experimental",
+            experimentalColor,
+            roundedFill,
+            selectedColor
         )
     }
 }
