@@ -5,6 +5,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.android.material.materialswitch.MaterialSwitch
 
 object LightingTabUi {
     fun create(activity: Activity, deps: LightingTabDeps): LinearLayout {
@@ -19,7 +20,7 @@ object LightingTabUi {
                 setPadding(0, 0, 0, deps.dp(10))
             })
 
-            val previewSwitch = android.widget.Switch(activity).apply {
+            val previewSwitch = MaterialSwitch(activity).apply {
                 isChecked = deps.getRealTimePreviewEnabled()
                 setOnCheckedChangeListener { _, checked ->
                     deps.setRealTimePreviewEnabled(checked)
@@ -67,7 +68,7 @@ object LightingTabUi {
             addView(deps.sectionHeader("⚡", "CHARGING MODE"))
             addView(deps.bodyText("Applies only while the device is plugged in and charging. Charging Mode takes LED priority over Game Mode and normal LED profiles."))
 
-            val chargingSwitch = android.widget.Switch(activity).apply {
+            val chargingSwitch = MaterialSwitch(activity).apply {
                 isChecked = deps.getChargingLedEnabled()
                 setOnCheckedChangeListener { _, checked ->
                     deps.setChargingLedEnabled(checked)
@@ -102,7 +103,7 @@ object LightingTabUi {
             addView(deps.sectionHeader("☎", "CALL LIGHTING"))
             addView(deps.bodyText("Applies only during incoming calls and connected calls. Priority: Charging Mode > Call Lighting > Game Mode > Normal LEDs."))
 
-            val callSwitch = android.widget.Switch(activity).apply {
+            val callSwitch = MaterialSwitch(activity).apply {
                 isChecked = deps.getCallLightingEnabled()
                 setOnCheckedChangeListener { _, checked ->
                     deps.setCallLightingEnabled(checked)
@@ -120,7 +121,7 @@ object LightingTabUi {
                 addView(callSwitch)
             }
 
-            val pauseFanSwitch = android.widget.Switch(activity).apply {
+            val pauseFanSwitch = MaterialSwitch(activity).apply {
                 isChecked = deps.getPauseFanDuringCalls()
                 setOnCheckedChangeListener { _, checked ->
                     deps.setPauseFanDuringCalls(checked)

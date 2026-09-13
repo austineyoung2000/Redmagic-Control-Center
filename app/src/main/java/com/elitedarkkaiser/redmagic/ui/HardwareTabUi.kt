@@ -8,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import com.elitedarkkaiser.redmagic.ProfileDialogs
+import com.google.android.material.materialswitch.MaterialSwitch
 
 object HardwareTabUi {
     fun create(activity: Activity, deps: HardwareTabDeps): LinearLayout {
@@ -233,7 +234,7 @@ object HardwareTabUi {
     ): LinearLayout {
         val prefs = activity.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
-        val switch = android.widget.Switch(activity).apply {
+        val switch = MaterialSwitch(activity).apply {
             isChecked = prefs.getBoolean(key, defaultValue)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(key, checked).apply()

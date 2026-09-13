@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import com.elitedarkkaiser.redmagic.HardwareController
+import com.google.android.material.materialswitch.MaterialSwitch
 
 object CoolingTabUi {
     data class Refs(
@@ -171,7 +172,7 @@ object CoolingTabUi {
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             }
 
-            val tempUnitSwitch = android.widget.Switch(context).apply {
+            val tempUnitSwitch = MaterialSwitch(context).apply {
                 isChecked = deps.getUseFahrenheit()
                 setOnCheckedChangeListener { _, checked ->
                     deps.setUseFahrenheit(checked)
@@ -196,8 +197,8 @@ object CoolingTabUi {
                 addView(deps.bodyText("Liquid cooling pump control with manual speed, auto temperature control, and live diagnostics."))
                 addView(deps.spacer(deps.dp(10)))
 
-                lateinit var pumpPowerSwitch: android.widget.Switch
-                lateinit var autoPumpSwitch: android.widget.Switch
+                lateinit var pumpPowerSwitch: MaterialSwitch
+                lateinit var autoPumpSwitch: MaterialSwitch
 
                 fun manualSpeedLabel(): String {
                     return deps.getPumpProfile().replaceFirstChar {
@@ -252,7 +253,7 @@ object CoolingTabUi {
                     setPadding(0, deps.dp(4), 0, 0)
                 }
 
-                pumpPowerSwitch = android.widget.Switch(context).apply {
+                pumpPowerSwitch = MaterialSwitch(context).apply {
                     isChecked = deps.getPumpEnabled()
                     setOnCheckedChangeListener { _, checked ->
                         deps.setPumpEnabled(checked)
@@ -343,7 +344,7 @@ object CoolingTabUi {
                     setPadding(0, deps.dp(4), 0, 0)
                 }
 
-                autoPumpSwitch = android.widget.Switch(context).apply {
+                autoPumpSwitch = MaterialSwitch(context).apply {
                     isChecked = deps.getAutoPumpEnabled()
                     setOnCheckedChangeListener { _, checked ->
                         deps.setAutoPumpEnabled(checked)
