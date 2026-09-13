@@ -1,5 +1,8 @@
 package com.elitedarkkaiser.redmagic
 
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -118,11 +121,26 @@ class MainActivity : Activity() {
     private val textSecondary = Color.parseColor("#9AA8BA")
     private val typeface: Typeface? = Typeface.SANS_SERIF
     private val highlightBorder = Color.parseColor("#7F8EA3")
-    private val statusRefreshHandler = Handler(Looper.getMainLooper())
+    private val statusRefreshHandler =
+        Handler(Looper.getMainLooper())
+
+    private val statusRefreshExecutor: ExecutorService =
+        Executors.newSingleThreadExecutor { task ->
+            Thread({
+                android.os.Process.setThreadPriority(
+                    android.os.Process.THREAD_PRIORITY_BACKGROUND
+                )
+                task.run()
+            }, "RedMagicStatusRefresh")
+        }
+
+    private val statusRefreshRunning = AtomicBoolean(false)
+    private val statusRefreshPending = AtomicBoolean(false)
+
     private val statusRefreshRunnable = object : Runnable {
         override fun run() {
             refreshStatus()
-            statusRefreshHandler.postDelayed(this, 15000L)
+            statusRefreshHandler.postDelayed(this, 15_000L)
         }
     }
 
@@ -157,6 +175,8 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         statusRefreshHandler.removeCallbacks(statusRefreshRunnable)
+        statusRefreshPending.set(false)
+        statusRefreshExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -1448,63 +1468,125 @@ class MainActivity : Activity() {
     }
 
     private fun refreshStatus() {
-        Thread {
-            val rooted = hasCachedRootAccessStorage(this) || RootShell.hasRoot()
-            val fanEnabled = HardwareController.isFanEnabled()
-            val rpmRaw = HardwareController.readFanRpm()
-            val tempF = HardwareController.readTemperatureF()
-            val cachedDeviceInfo = loadDeviceInfoCacheStorage(this)
-            val deviceInfo = cachedDeviceInfo ?: DeviceInfoCache(
-                rom = HardwareController.readShortRomFingerprint(),
-                cpu = HardwareController.readCpuModel(),
-                ram = HardwareController.readRamInfo()
-            ).also {
-                saveDeviceInfoCacheStorage(this, it)
+        if (!statusRefreshRunning.compareAndSet(false, true)) {
+            statusRefreshPending.set(true)
+            return
+        }
+
+        runCatching {
+            statusRefreshExecutor.execute {
+                try {
+                    do {
+                        statusRefreshPending.set(false)
+                        refreshStatusOnce()
+                    } while (statusRefreshPending.getAndSet(false))
+                } finally {
+                    statusRefreshRunning.set(false)
+
+                    /*
+                     * Cover a request arriving after the loop's final pending
+                     * check but before the running flag was cleared.
+                     */
+                    if (statusRefreshPending.getAndSet(false)) {
+                        refreshStatus()
+                    }
+                }
+            }
+        }.onFailure {
+            statusRefreshRunning.set(false)
+        }
+    }
+
+    private fun refreshStatusOnce() {
+        val rooted =
+            hasCachedRootAccessStorage(this) || RootShell.hasRoot()
+        val fanEnabled = HardwareController.isFanEnabled()
+        val rpmRaw = HardwareController.readFanRpm()
+        val tempF = HardwareController.readTemperatureF()
+
+        val cachedDeviceInfo = loadDeviceInfoCacheStorage(this)
+        val deviceInfo = cachedDeviceInfo ?: DeviceInfoCache(
+            rom = HardwareController.readShortRomFingerprint(),
+            cpu = HardwareController.readCpuModel(),
+            ram = HardwareController.readRamInfo()
+        ).also {
+            saveDeviceInfoCacheStorage(this, it)
+        }
+
+        val romText = deviceInfo.rom
+        val cpuText = deviceInfo.cpu
+        val ramText = deviceInfo.ram
+        val modelText = Build.MODEL ?: "Unknown"
+
+        runOnUiThread {
+            if (isFinishing || isDestroyed) {
+                return@runOnUiThread
             }
 
-            val romText = deviceInfo.rom
-            val cpuText = deviceInfo.cpu
-            val ramText = deviceInfo.ram
-            val modelText = Build.MODEL ?: "Unknown"
-
-            runOnUiThread {
-                val rpm = when {
-                    rpmRaw == null -> lastDisplayedRpm.takeIf { it >= 0 }
-                    lastDisplayedRpm < 0 -> rpmRaw
-                    else -> ((lastDisplayedRpm * 0.7) + (rpmRaw * 0.3)).toInt()
-                }
-
-                if (rpm != null) lastDisplayedRpm = rpm
-
-                val previousTempF = lastDisplayedTempF
-                val tempTrend = when {
-                    tempF == null || previousTempF == null -> ""
-                    tempF > previousTempF + 1f -> " ↑"
-                    tempF < previousTempF - 1f -> " ↓"
-                    else -> " →"
-                }
-                if (tempF != null) lastDisplayedTempF = tempF
-
-                deviceModelValue.text = modelText
-                deviceRomValue.text = romText
-                deviceCpuValue.text = cpuText
-                deviceRamValue.text = ramText
-
-                rootChip.text = if (rooted) "ROOT ON" else "ROOT OFF"
-                fanChip.text = if (fanEnabled) "FAN ON" else "FAN OFF"
-                rpmChip.text = "RPM ${rpm ?: "--"}"
-                tempChip.text = if (tempF != null) "TEMP ${TempFormat.formatDisplayTempFromF(tempF, useFahrenheit)}$tempTrend" else "TEMP --"
-
-                if (::tempText.isInitialized) {
-                    tempText.text = if (tempF != null) "Current temp: ${TempFormat.formatDisplayTempFromF(tempF, useFahrenheit)}$tempTrend" else "Current temp: --"
-                }
-
-                setChipState(rootChip, rooted)
-                setChipState(fanChip, fanEnabled)
-                setChipState(rpmChip, (rpm ?: 0) > 0)
-                setChipState(tempChip, tempF != null)
+            val rpm = when {
+                rpmRaw == null ->
+                    lastDisplayedRpm.takeIf { it >= 0 }
+                lastDisplayedRpm < 0 -> rpmRaw
+                else ->
+                    ((lastDisplayedRpm * 0.7) + (rpmRaw * 0.3))
+                        .toInt()
             }
-        }.start()
+
+            if (rpm != null) {
+                lastDisplayedRpm = rpm
+            }
+
+            val previousTempF = lastDisplayedTempF
+            val tempTrend = when {
+                tempF == null || previousTempF == null -> ""
+                tempF > previousTempF + 1f -> " ↑"
+                tempF < previousTempF - 1f -> " ↓"
+                else -> " →"
+            }
+
+            if (tempF != null) {
+                lastDisplayedTempF = tempF
+            }
+
+            deviceModelValue.text = modelText
+            deviceRomValue.text = romText
+            deviceCpuValue.text = cpuText
+            deviceRamValue.text = ramText
+
+            rootChip.text =
+                if (rooted) "ROOT ON" else "ROOT OFF"
+            fanChip.text =
+                if (fanEnabled) "FAN ON" else "FAN OFF"
+            rpmChip.text = "RPM ${rpm ?: "--"}"
+            tempChip.text = if (tempF != null) {
+                "TEMP ${
+                    TempFormat.formatDisplayTempFromF(
+                        tempF,
+                        useFahrenheit
+                    )
+                }$tempTrend"
+            } else {
+                "TEMP --"
+            }
+
+            if (::tempText.isInitialized) {
+                tempText.text = if (tempF != null) {
+                    "Current temp: ${
+                        TempFormat.formatDisplayTempFromF(
+                            tempF,
+                            useFahrenheit
+                        )
+                    }$tempTrend"
+                } else {
+                    "Current temp: --"
+                }
+            }
+
+            setChipState(rootChip, rooted)
+            setChipState(fanChip, fanEnabled)
+            setChipState(rpmChip, (rpm ?: 0) > 0)
+            setChipState(tempChip, tempF != null)
+        }
     }
 
     private fun openUrl(url: String) {
