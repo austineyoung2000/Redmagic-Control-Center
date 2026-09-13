@@ -2,9 +2,11 @@ package com.elitedarkkaiser.redmagic
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.drawable.Drawable
 import android.widget.Button
 import android.widget.Toast
+import com.google.android.material.button.MaterialButton
 
 internal object GameModeActions {
 
@@ -70,6 +72,28 @@ internal object GameModeActions {
         onSaved()
     }
 
+    private fun updateSelectableButton(
+        button: Button,
+        selected: Boolean,
+        roundedFill: (Int, Int) -> Drawable,
+        selectedColor: Int,
+        unselectedColor: Int
+    ) {
+        val stateColor =
+            if (selected) selectedColor else unselectedColor
+
+        button.isSelected = selected
+
+        if (button is MaterialButton) {
+            button.backgroundTintList =
+                ColorStateList.valueOf(stateColor)
+            button.strokeColor =
+                ColorStateList.valueOf(stateColor)
+        } else {
+            button.background = roundedFill(stateColor, 999)
+        }
+    }
+
     fun refreshPumpButtons(
         selectedProfile: String,
         slowBtn: Button,
@@ -79,17 +103,26 @@ internal object GameModeActions {
         selectedColor: Int,
         unselectedColor: Int
     ) {
-        slowBtn.background = roundedFill(
-            if (selectedProfile == "slow") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            slowBtn,
+            selectedProfile == "slow",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
-        mediumBtn.background = roundedFill(
-            if (selectedProfile == "medium") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            mediumBtn,
+            selectedProfile == "medium",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
-        quickBtn.background = roundedFill(
-            if (selectedProfile == "quick") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            quickBtn,
+            selectedProfile == "quick",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
     }
 
@@ -111,17 +144,26 @@ internal object GameModeActions {
         selectedColor: Int,
         unselectedColor: Int
     ) {
-        steadyBtn.background = roundedFill(
-            if (selectedEffect == "steady") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            steadyBtn,
+            selectedEffect == "steady",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
-        breatheBtn.background = roundedFill(
-            if (selectedEffect == "breathe") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            breatheBtn,
+            selectedEffect == "breathe",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
-        flashingBtn.background = roundedFill(
-            if (selectedEffect == "flashing") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            flashingBtn,
+            selectedEffect == "flashing",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
     }
 
@@ -190,17 +232,26 @@ internal object GameModeActions {
         selectedColor: Int,
         unselectedColor: Int
     ) {
-        steadyBtn.background = roundedFill(
-            if (selectedEffect == "steady") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            steadyBtn,
+            selectedEffect == "steady",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
-        breatheBtn.background = roundedFill(
-            if (selectedEffect == "breathe") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            breatheBtn,
+            selectedEffect == "breathe",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
-        flashingBtn.background = roundedFill(
-            if (selectedEffect == "flashing") selectedColor else unselectedColor,
-            999
+        updateSelectableButton(
+            flashingBtn,
+            selectedEffect == "flashing",
+            roundedFill,
+            selectedColor,
+            unselectedColor
         )
     }
 
