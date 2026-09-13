@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -76,17 +77,52 @@ internal object ChargingLedProfileDialog {
             setOnCheckedChangeListener { _, checked -> enabled = checked }
         }
 
-        fun chip(label: String, selected: Boolean, onClick: () -> Unit): Button {
-            return Button(activity).apply {
+        fun chip(
+            label: String,
+            selected: Boolean,
+            onClick: () -> Unit
+        ): Button {
+            return MaterialButton(
+                activity,
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
                 text = label
                 textSize = 12f
-                setAllCaps(false)
+                isAllCaps = false
                 setTextColor(deps.textPrimary)
-                background = deps.roundedFill(
-                    if (selected) deps.panelPressed else Color.parseColor("#1E2633"),
-                    999
+                isSelected = selected
+
+                backgroundTintList = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.panelPressed
+                    } else {
+                        Color.TRANSPARENT
+                    }
                 )
-                setPadding(deps.dp(10), deps.dp(8), deps.dp(10), deps.dp(8))
+                strokeWidth = deps.dp(1)
+                strokeColor = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.accent
+                    } else {
+                        deps.borderColor
+                    }
+                )
+                rippleColor =
+                    ColorStateList.valueOf(Color.parseColor("#33445A"))
+                cornerRadius = deps.dp(16)
+
+                insetTop = 0
+                insetBottom = 0
+                minHeight = deps.dp(48)
+                minWidth = 0
+                minimumWidth = 0
+                setPadding(
+                    deps.dp(10),
+                    deps.dp(8),
+                    deps.dp(10),
+                    deps.dp(8)
+                )
                 setOnClickListener { onClick() }
             }
         }
@@ -98,10 +134,52 @@ internal object ChargingLedProfileDialog {
         lateinit var colorRow2: LinearLayout
         var colorRowsReady = false
 
+        fun updateEffectButton(
+            button: Button,
+            selected: Boolean
+        ) {
+            button.isSelected = selected
+
+            if (button is MaterialButton) {
+                button.backgroundTintList = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.panelPressed
+                    } else {
+                        Color.TRANSPARENT
+                    }
+                )
+                button.strokeColor = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.accent
+                    } else {
+                        deps.borderColor
+                    }
+                )
+            } else {
+                button.background = deps.roundedFill(
+                    if (selected) {
+                        deps.panelPressed
+                    } else {
+                        Color.parseColor("#1E2633")
+                    },
+                    999
+                )
+            }
+        }
+
         fun refreshButtons() {
-            steadyBtn.background = deps.roundedFill(if (effect == "steady") deps.panelPressed else Color.parseColor("#1E2633"), 999)
-            breatheBtn.background = deps.roundedFill(if (effect == "breathe") deps.panelPressed else Color.parseColor("#1E2633"), 999)
-            flashingBtn.background = deps.roundedFill(if (effect == "flashing") deps.panelPressed else Color.parseColor("#1E2633"), 999)
+            updateEffectButton(
+                steadyBtn,
+                effect == "steady"
+            )
+            updateEffectButton(
+                breatheBtn,
+                effect == "breathe"
+            )
+            updateEffectButton(
+                flashingBtn,
+                effect == "flashing"
+            )
 
             if (colorRowsReady) {
                 colorRow.getChildAt(0).background = deps.colorDotDrawable("#FF0000", color == 1)
@@ -133,11 +211,11 @@ internal object ChargingLedProfileDialog {
             refreshButtons()
         }
 
-        effectRow.addView(steadyBtn, LinearLayout.LayoutParams(0, deps.dp(42), 1f))
+        effectRow.addView(steadyBtn, LinearLayout.LayoutParams(0, deps.dp(48), 1f))
         effectRow.addView(deps.space(deps.dp(6)))
-        effectRow.addView(breatheBtn, LinearLayout.LayoutParams(0, deps.dp(42), 1f))
+        effectRow.addView(breatheBtn, LinearLayout.LayoutParams(0, deps.dp(48), 1f))
         effectRow.addView(deps.space(deps.dp(6)))
-        effectRow.addView(flashingBtn, LinearLayout.LayoutParams(0, deps.dp(42), 1f))
+        effectRow.addView(flashingBtn, LinearLayout.LayoutParams(0, deps.dp(48), 1f))
 
         colorRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -208,20 +286,57 @@ internal object ChargingLedProfileDialog {
             setPadding(0, deps.dp(18), 0, 0)
         }
 
-        val cancelBtn = Button(activity).apply {
+        val cancelBtn = MaterialButton(
+            activity,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = "Cancel"
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(Color.parseColor("#1E2633"), 14)
+
+            backgroundTintList =
+                ColorStateList.valueOf(Color.TRANSPARENT)
+            strokeWidth = deps.dp(1)
+            strokeColor =
+                ColorStateList.valueOf(deps.borderColor)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
         }
 
-        val saveBtn = Button(activity).apply {
+        val saveBtn = MaterialButton(activity).apply {
             text = "Save"
             textSize = 13f
-            setAllCaps(false)
+            isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(deps.panelPressed, 14)
+
+            backgroundTintList =
+                ColorStateList.valueOf(deps.panelPressed)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(20),
+                deps.dp(10),
+                deps.dp(20),
+                deps.dp(10)
+            )
         }
 
         buttonRow.addView(cancelBtn)
