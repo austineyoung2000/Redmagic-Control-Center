@@ -14,7 +14,7 @@ import android.widget.Button
 import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.SeekBar
+import com.google.android.material.slider.Slider
 import android.widget.TextView
 
 internal object GameModeUi {
@@ -97,17 +97,16 @@ internal object GameModeUi {
             setPadding(0, deps.dp(10), 0, deps.dp(4))
         }
 
-        val fanLevelSeek = SeekBar(activity).apply {
-            max = 5
-            progress = gmFanLevel
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    gmFanLevel = progress
-                    fanLevelLabel.text = "Fan level: $gmFanLevel"
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
+        val fanLevelSeek = Slider(activity).apply {
+            valueFrom = 0f
+            valueTo = 5f
+            stepSize = 1f
+            value = gmFanLevel.coerceIn(0, 5).toFloat()
+
+            addOnChangeListener { _, newValue, _ ->
+                gmFanLevel = newValue.toInt()
+                fanLevelLabel.text = "Fan level: $gmFanLevel"
+            }
         }
 
         val pumpEnableCheck = MaterialCheckBox(activity).apply {

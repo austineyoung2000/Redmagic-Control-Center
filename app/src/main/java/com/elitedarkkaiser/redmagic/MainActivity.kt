@@ -20,7 +20,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.SeekBar
+import com.google.android.material.slider.Slider
 import android.widget.TextView
 import android.view.animation.LinearInterpolator
 import android.animation.ValueAnimator
@@ -39,7 +39,7 @@ class MainActivity : Activity() {
 
     private lateinit var tempText: TextView
     private lateinit var curveStatusText: TextView
-    private lateinit var fanSeek: SeekBar
+    private lateinit var fanSeek: Slider
     private lateinit var autoCurveCheck: CheckBox
 
     private lateinit var quietCardRef: LinearLayout
@@ -227,7 +227,7 @@ class MainActivity : Activity() {
             name = name,
             input = ProfileStateHelpers.ProfileInputs(
                 fanEnabled = HardwareController.isFanEnabled(),
-                fanLevel = fanSeek.progress,
+                fanLevel = fanSeek.value.toInt(),
                 autoFanEnabled = autoFanCurveEnabled,
                 fanCurveMode = selectedCurve,
 
@@ -280,7 +280,7 @@ class MainActivity : Activity() {
             setShoulderLedEffect = { value -> shoulderLedEffect = value },
             setShoulderLedColor = { value -> shoulderLedColor = value },
 
-            setFanLevel = { value -> fanSeek.progress = value },
+            setFanLevel = { value -> fanSeek.value = value.toFloat() },
             saveTriggerPrefs = { applied -> saveTriggerPrefsStorage(this, applied) },
             enableTriggersIfNeeded = { applied ->
                 if (applied.triggersAutoStart) {
@@ -581,7 +581,7 @@ class MainActivity : Activity() {
                 getAutoPumpEnabled = { autoPumpEnabled },
                 setAutoPumpEnabled = { value -> autoPumpEnabled = value },
 
-                setSelectedFanProgress = { value -> fanSeek.progress = value },
+                setSelectedFanProgress = { value -> fanSeek.value = value.toFloat() },
                 startAutoFanService = { HardwareServiceActions.startAutoFan(this) },
                 stopAutoFanService = { HardwareServiceActions.stopAutoFan(this) },
                 startAutoPumpService = { HardwareServiceActions.startAutoPump(this) },

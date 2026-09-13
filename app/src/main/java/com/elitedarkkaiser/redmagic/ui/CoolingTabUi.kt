@@ -9,7 +9,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
-import android.widget.SeekBar
+import com.google.android.material.slider.Slider
 import android.widget.TextView
 import com.elitedarkkaiser.redmagic.HardwareController
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -18,7 +18,7 @@ object CoolingTabUi {
     data class Refs(
         val tempText: TextView,
         val curveStatusText: TextView,
-        val fanSeek: SeekBar,
+        val fanSeek: Slider,
         val autoCurveCheck: CheckBox,
         val quietCardRef: LinearLayout,
         val balancedCardRef: LinearLayout,
@@ -45,23 +45,18 @@ object CoolingTabUi {
         lateinit var curveStatusText: TextView
         lateinit var autoCurveCheck: CheckBox
 
-        val fanSeek = SeekBar(container.context).apply {
-            max = 5
-            progress = 0
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser && !deps.getAutoFanCurveEnabled()) {
-                        HardwareController.setFanLevel(progress)
-                        deps.refreshStatus()
-                    }
-                }
+        val fanSeek = Slider(container.context).apply {
+            valueFrom = 0f
+            valueTo = 5f
+            stepSize = 1f
+            value = 0f
 
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {
+            addOnChangeListener { _, newValue, fromUser ->
+                if (fromUser && !deps.getAutoFanCurveEnabled()) {
+                    HardwareController.setFanLevel(newValue.toInt())
+                    deps.refreshStatus()
                 }
-
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                }
-            })
+            }
         }
 
         val fanOnBtn = deps.actionButton("FAN ON", false) {
@@ -91,7 +86,7 @@ object CoolingTabUi {
             deps.setSelectedCurve("quiet")
             deps.setSelectedCurveSaved("quiet")
             val level = HardwareController.applyFanCurve("quiet")
-            if (level != null) fanSeek.progress = level
+            if (level != null) fanSeek.value = level.toFloat()
             curveStatusText.text = "Selected curve: Quiet • Applied immediately"
             deps.refreshStatus()
         }
@@ -101,7 +96,7 @@ object CoolingTabUi {
             deps.setSelectedCurve("balanced")
             deps.setSelectedCurveSaved("balanced")
             val level = HardwareController.applyFanCurve("balanced")
-            if (level != null) fanSeek.progress = level
+            if (level != null) fanSeek.value = level.toFloat()
             curveStatusText.text = "Selected curve: Balanced • Applied immediately"
             deps.refreshStatus()
         }
@@ -111,7 +106,7 @@ object CoolingTabUi {
             deps.setSelectedCurve("turbo")
             deps.setSelectedCurveSaved("turbo")
             val level = HardwareController.applyFanCurve("turbo")
-            if (level != null) fanSeek.progress = level
+            if (level != null) fanSeek.value = level.toFloat()
             curveStatusText.text = "Selected curve: Turbo • Applied immediately"
             deps.refreshStatus()
         }
