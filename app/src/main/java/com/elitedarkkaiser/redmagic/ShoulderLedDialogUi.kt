@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -230,22 +231,57 @@ internal object ShoulderLedDialogUi {
             setPadding(0, deps.dp(18), 0, 0)
         }
 
-        val cancelBtn = Button(activity).apply {
+        val cancelBtn = MaterialButton(
+            activity,
+            null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
             text = "Cancel"
             textSize = 13f
             isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(Color.parseColor("#1E2633"), 14)
-            setPadding(deps.dp(18), deps.dp(10), deps.dp(18), deps.dp(10))
+
+            backgroundTintList =
+                ColorStateList.valueOf(Color.TRANSPARENT)
+            strokeWidth = deps.dp(1)
+            strokeColor =
+                ColorStateList.valueOf(deps.borderColor)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
         }
 
-        val saveBtn = Button(activity).apply {
+        val saveBtn = MaterialButton(activity).apply {
             text = "Save"
             textSize = 13f
             isAllCaps = false
             setTextColor(deps.textPrimary)
-            background = deps.roundedFill(deps.panelPressed, 14)
-            setPadding(deps.dp(20), deps.dp(10), deps.dp(20), deps.dp(10))
+
+            backgroundTintList =
+                ColorStateList.valueOf(deps.panelPressed)
+            rippleColor =
+                ColorStateList.valueOf(Color.parseColor("#33445A"))
+            cornerRadius = deps.dp(14)
+
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(20),
+                deps.dp(10),
+                deps.dp(20),
+                deps.dp(10)
+            )
         }
 
         buttonRow.addView(cancelBtn)
@@ -271,18 +307,51 @@ internal object ShoulderLedDialogUi {
             android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
         )
 
+        fun updateEffectButton(
+            button: Button,
+            selected: Boolean
+        ) {
+            button.isSelected = selected
+
+            if (button is MaterialButton) {
+                button.backgroundTintList = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.panelPressed
+                    } else {
+                        Color.TRANSPARENT
+                    }
+                )
+                button.strokeColor = ColorStateList.valueOf(
+                    if (selected) {
+                        deps.accent
+                    } else {
+                        deps.borderColor
+                    }
+                )
+            } else {
+                button.background = deps.roundedFill(
+                    if (selected) {
+                        deps.panelPressed
+                    } else {
+                        Color.parseColor("#1E2633")
+                    },
+                    999
+                )
+            }
+        }
+
         fun repaint() {
-            steadyBtn.background = deps.roundedFill(
-                if (currentEffect() == "steady") deps.panelPressed else Color.parseColor("#1E2633"),
-                999
+            updateEffectButton(
+                steadyBtn,
+                currentEffect() == "steady"
             )
-            breatheBtn.background = deps.roundedFill(
-                if (currentEffect() == "breathe") deps.panelPressed else Color.parseColor("#1E2633"),
-                999
+            updateEffectButton(
+                breatheBtn,
+                currentEffect() == "breathe"
             )
-            flashingBtn.background = deps.roundedFill(
-                if (currentEffect() == "flashing") deps.panelPressed else Color.parseColor("#1E2633"),
-                999
+            updateEffectButton(
+                flashingBtn,
+                currentEffect() == "flashing"
             )
         }
 
