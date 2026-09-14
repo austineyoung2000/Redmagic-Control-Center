@@ -620,6 +620,9 @@ class MainActivity : Activity() {
                 spacer = { height -> spacer(height) },
                 dp = { value -> dp(value) },
                 roundedBg = { fill, stroke, radiusDp -> roundedBg(fill, stroke, radiusDp) },
+                runBackground = { task ->
+                    submitBackgroundTask(task)
+                },
 
                 getSelectedCurve = { selectedCurve },
                 setSelectedCurve = { value -> selectedCurve = value },

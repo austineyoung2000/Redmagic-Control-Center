@@ -18,6 +18,7 @@ data class CoolingTabDeps(
     val spacer: (Int) -> TextView,
     val dp: (Int) -> Int,
     val roundedBg: (Int, Int, Int) -> android.graphics.drawable.GradientDrawable,
+    val runBackground: (() -> Unit) -> Boolean,
 
     val getSelectedCurve: () -> String,
     val setSelectedCurve: (String) -> Unit,

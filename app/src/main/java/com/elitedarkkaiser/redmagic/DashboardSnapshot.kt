@@ -6,16 +6,79 @@ import android.app.usage.UsageStatsManager
 
 object DashboardSnapshot {
 
-    private fun read(path: String): String? {
-        return RootShell.execForOutput("cat $path")?.trim()?.ifEmpty { null }
+    private const val HARDWARE_CACHE_MS = 2_000L
+
+    private val hardwareReadLock = Any()
+
+    private val hardwarePaths = listOf(
+        "/sys/kernel/fan/fan_enable",
+        "/sys/kernel/fan/fan_speed_level",
+        "/sys/kernel/fan/fan_speed_count",
+        "/proc/driver/micropump/enable",
+        "/proc/driver/micropump/freq",
+        "/proc/driver/micropump/speed"
+    )
+
+    private data class HardwareSnapshot(
+        val fanEnabled: String,
+        val fanLevel: String,
+        val fanRpm: String,
+        val pumpEnabled: String,
+        val pumpFreq: String,
+        val pumpSpeed: String
+    )
+
+    private var cachedHardwareSnapshot: HardwareSnapshot? = null
+    private var cachedHardwareAtMs = 0L
+
+    private fun readHardwareSnapshot(): HardwareSnapshot {
+        return synchronized(hardwareReadLock) {
+            val now =
+                android.os.SystemClock.elapsedRealtime()
+            val cached = cachedHardwareSnapshot
+
+            if (
+                cached != null &&
+                (now - cachedHardwareAtMs) < HARDWARE_CACHE_MS
+            ) {
+                return@synchronized cached
+            }
+
+            val values = readHardwareValues(hardwarePaths)
+            val fresh = HardwareSnapshot(
+                fanEnabled = values[0],
+                fanLevel = values[1],
+                fanRpm = values[2],
+                pumpEnabled = values[3],
+                pumpFreq = values[4],
+                pumpSpeed = values[5]
+            )
+
+            cachedHardwareSnapshot = fresh
+            cachedHardwareAtMs =
+                android.os.SystemClock.elapsedRealtime()
+
+            fresh
+        }
     }
 
-    fun readFanEnabled(): String = read("/sys/kernel/fan/fan_enable") ?: "?"
-    fun readFanRpm(): String = read("/sys/kernel/fan/fan_speed_count") ?: "?"
-    fun readFanLevel(): String = read("/sys/kernel/fan/fan_speed_level") ?: "?"
-    fun readPumpEnabled(): String = read("/proc/driver/micropump/enable") ?: "?"
-    fun readPumpFreq(): String = read("/proc/driver/micropump/freq") ?: "?"
-    fun readPumpSpeed(): String = read("/proc/driver/micropump/speed") ?: "?"
+    fun readFanEnabled(): String =
+        readHardwareSnapshot().fanEnabled
+
+    fun readFanRpm(): String =
+        readHardwareSnapshot().fanRpm
+
+    fun readFanLevel(): String =
+        readHardwareSnapshot().fanLevel
+
+    fun readPumpEnabled(): String =
+        readHardwareSnapshot().pumpEnabled
+
+    fun readPumpFreq(): String =
+        readHardwareSnapshot().pumpFreq
+
+    fun readPumpSpeed(): String =
+        readHardwareSnapshot().pumpSpeed
 
     fun readCpuTempC(): String {
         val temperature =
@@ -75,22 +138,14 @@ object DashboardSnapshot {
     }
 
     fun buildSummary(context: Context): String {
-        val paths = listOf(
-            "/sys/kernel/fan/fan_enable",
-            "/sys/kernel/fan/fan_speed_level",
-            "/sys/kernel/fan/fan_speed_count",
-            "/proc/driver/micropump/enable",
-            "/proc/driver/micropump/freq",
-            "/proc/driver/micropump/speed"
-        )
-        val values = readHardwareValues(paths)
+        val hardware = readHardwareSnapshot()
 
-        val fanEnabled = values[0]
-        val fanLevel = values[1]
-        val fanRpm = values[2]
-        val pumpEnabled = values[3]
-        val pumpFreq = values[4]
-        val pumpSpeed = values[5]
+        val fanEnabled = hardware.fanEnabled
+        val fanLevel = hardware.fanLevel
+        val fanRpm = hardware.fanRpm
+        val pumpEnabled = hardware.pumpEnabled
+        val pumpFreq = hardware.pumpFreq
+        val pumpSpeed = hardware.pumpSpeed
 
         val rooted =
             hasCachedRootAccessStorage(context) ||

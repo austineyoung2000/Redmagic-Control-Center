@@ -51,22 +51,41 @@ object CoolingTabUi {
             stepSize = 1f
             value = 0f
 
-            addOnChangeListener { _, newValue, fromUser ->
-                if (fromUser && !deps.getAutoFanCurveEnabled()) {
-                    HardwareController.setFanLevel(newValue.toInt())
-                    deps.refreshStatus()
+            addOnSliderTouchListener(
+                object : Slider.OnSliderTouchListener {
+                    override fun onStartTrackingTouch(
+                        slider: Slider
+                    ) = Unit
+
+                    override fun onStopTrackingTouch(
+                        slider: Slider
+                    ) {
+                        if (deps.getAutoFanCurveEnabled()) {
+                            return
+                        }
+
+                        val level = slider.value.toInt()
+                        deps.runBackground {
+                            HardwareController.setFanLevel(level)
+                            deps.refreshStatus()
+                        }
+                    }
                 }
-            }
+            )
         }
 
         val fanOnBtn = deps.actionButton("FAN ON", false) {
-            HardwareController.enableFan(true)
-            deps.refreshStatus()
+            deps.runBackground {
+                HardwareController.enableFan(true)
+                deps.refreshStatus()
+            }
         }
 
         val fanOffBtn = deps.actionButton("FAN OFF", true) {
-            HardwareController.enableFan(false)
-            deps.refreshStatus()
+            deps.runBackground {
+                HardwareController.enableFan(false)
+                deps.refreshStatus()
+            }
         }
 
         val rpmBtn = deps.actionButton("READ RPM", false) {
@@ -81,34 +100,70 @@ object CoolingTabUi {
             orientation = LinearLayout.HORIZONTAL
         }
 
-        val quietChip = deps.segmentedChip("Quiet", deps.getSelectedCurve() == "quiet") {
-            if (deps.getAutoFanCurveEnabled()) return@segmentedChip
-            deps.setSelectedCurve("quiet")
-            deps.setSelectedCurveSaved("quiet")
-            val level = HardwareController.applyFanCurve("quiet")
-            if (level != null) fanSeek.value = level.toFloat()
-            curveStatusText.text = "Selected curve: Quiet • Applied immediately"
-            deps.refreshStatus()
+        fun applyFanCurve(
+            curve: String,
+            displayName: String
+        ) {
+            if (deps.getAutoFanCurveEnabled()) return
+
+            deps.setSelectedCurve(curve)
+            deps.setSelectedCurveSaved(curve)
+            curveStatusText.text =
+                "Selected curve: $displayName • Applying…"
+
+            val submitted = deps.runBackground {
+                val level =
+                    HardwareController.applyFanCurve(curve)
+
+                curveStatusText.post {
+                    /*
+                     * Ignore a completion from an older queued request
+                     * when the user has already selected another curve.
+                     */
+                    if (deps.getSelectedCurve() != curve) {
+                        return@post
+                    }
+
+                    if (level != null) {
+                        fanSeek.value = level.toFloat()
+                        curveStatusText.text =
+                            "Selected curve: $displayName • Applied"
+                    } else {
+                        curveStatusText.text =
+                            "Selected curve: $displayName • " +
+                                "Temperature unavailable"
+                    }
+                }
+
+                deps.refreshStatus()
+            }
+
+            if (!submitted) {
+                curveStatusText.text =
+                    "Selected curve: $displayName • " +
+                        "Unable to apply"
+            }
         }
 
-        val balancedChip = deps.segmentedChip("Balanced", deps.getSelectedCurve() == "balanced") {
-            if (deps.getAutoFanCurveEnabled()) return@segmentedChip
-            deps.setSelectedCurve("balanced")
-            deps.setSelectedCurveSaved("balanced")
-            val level = HardwareController.applyFanCurve("balanced")
-            if (level != null) fanSeek.value = level.toFloat()
-            curveStatusText.text = "Selected curve: Balanced • Applied immediately"
-            deps.refreshStatus()
+        val quietChip = deps.segmentedChip(
+            "Quiet",
+            deps.getSelectedCurve() == "quiet"
+        ) {
+            applyFanCurve("quiet", "Quiet")
         }
 
-        val turboChip = deps.segmentedChip("Turbo", deps.getSelectedCurve() == "turbo") {
-            if (deps.getAutoFanCurveEnabled()) return@segmentedChip
-            deps.setSelectedCurve("turbo")
-            deps.setSelectedCurveSaved("turbo")
-            val level = HardwareController.applyFanCurve("turbo")
-            if (level != null) fanSeek.value = level.toFloat()
-            curveStatusText.text = "Selected curve: Turbo • Applied immediately"
-            deps.refreshStatus()
+        val balancedChip = deps.segmentedChip(
+            "Balanced",
+            deps.getSelectedCurve() == "balanced"
+        ) {
+            applyFanCurve("balanced", "Balanced")
+        }
+
+        val turboChip = deps.segmentedChip(
+            "Turbo",
+            deps.getSelectedCurve() == "turbo"
+        ) {
+            applyFanCurve("turbo", "Turbo")
         }
 
         modeRow.addView(quietChip)
