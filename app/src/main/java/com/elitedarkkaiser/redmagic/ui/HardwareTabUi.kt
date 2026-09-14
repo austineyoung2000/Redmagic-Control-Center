@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -18,8 +19,28 @@ object HardwareTabUi {
             deps.showTriggerSetupDialog()
         }
 
-        val trigEnableBtn = deps.actionButton("ENABLE TRIGGERS", false) {
-            deps.enableTriggersAndService()
+        lateinit var trigEnableBtn: Button
+        trigEnableBtn = deps.actionButton(
+            "ENABLE TRIGGERS",
+            false
+        ) {
+            trigEnableBtn.isEnabled = false
+            trigEnableBtn.text = "ENABLING…"
+
+            deps.enableTriggersAndService { enabled ->
+                trigEnableBtn.isEnabled = true
+                trigEnableBtn.text = "ENABLE TRIGGERS"
+
+                Toast.makeText(
+                    activity,
+                    if (enabled) {
+                        "Triggers enabled"
+                    } else {
+                        "Failed to enable triggers"
+                    },
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
 
         val triggerCard = deps.sectionPanel().apply {
@@ -72,12 +93,26 @@ object HardwareTabUi {
                 defaultValue = false,
                 deps = deps
             ) { checked ->
-                if (checked) deps.enableTriggersAndService()
-                Toast.makeText(
-                    activity,
-                    "Auto-start triggers " + if (checked) "enabled" else "disabled",
-                    Toast.LENGTH_SHORT
-                ).show()
+                if (checked) {
+                    deps.enableTriggersAndService { enabled ->
+                        Toast.makeText(
+                            activity,
+                            if (enabled) {
+                                "Auto-start triggers enabled"
+                            } else {
+                                "Auto-start saved, but triggers " +
+                                    "could not be enabled"
+                            },
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } else {
+                    Toast.makeText(
+                        activity,
+                        "Auto-start triggers disabled",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             })
 
             addView(deps.space(deps.dp(4)))
@@ -85,8 +120,25 @@ object HardwareTabUi {
             addView(deps.row(configureTriggersBtn, trigEnableBtn))
         }
 
-        val vibrateBtn = deps.actionButton("TEST HAPTIC", false) {
-            deps.testHaptic()
+        lateinit var vibrateBtn: Button
+        vibrateBtn = deps.actionButton("TEST HAPTIC", false) {
+            vibrateBtn.isEnabled = false
+            vibrateBtn.text = "TESTING…"
+
+            deps.testHaptic { sent ->
+                vibrateBtn.isEnabled = true
+                vibrateBtn.text = "TEST HAPTIC"
+
+                Toast.makeText(
+                    activity,
+                    if (sent) {
+                        "Haptic test sent"
+                    } else {
+                        "Haptic test failed"
+                    },
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
 
         val hapticsCard = deps.sectionPanel().apply {
@@ -119,9 +171,21 @@ object HardwareTabUi {
                     space = { value -> deps.space(value) },
                     dp = { value -> deps.dp(value) },
                     onApplyProfile = { profile ->
-                        deps.applyHardwareProfile(profile)
-                        deps.applyProfileToUiState(profile)
-                        Toast.makeText(activity, "Applied ${profile.name}", Toast.LENGTH_SHORT).show()
+                        deps.applyHardwareProfile(profile) { applied ->
+                            if (applied) {
+                                deps.applyProfileToUiState(profile)
+                            }
+
+                            Toast.makeText(
+                                activity,
+                                if (applied) {
+                                    "Applied ${profile.name}"
+                                } else {
+                                    "Failed to apply ${profile.name}"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     },
                     onDeleteProfile = { profile ->
                         deps.showDeleteProfileDialog(profile.name) {
@@ -207,8 +271,11 @@ object HardwareTabUi {
                     actionButton = { text, isDanger, onClick -> deps.actionButton(text, isDanger, onClick) },
                     space = { value -> deps.space(value) },
                     onSave = { name ->
-                        deps.saveMasterProfile(name)
-                        renderMasterProfiles()
+                        deps.saveMasterProfile(name) { saved ->
+                            if (saved) {
+                                renderMasterProfiles()
+                            }
+                        }
                     }
                 )
             }

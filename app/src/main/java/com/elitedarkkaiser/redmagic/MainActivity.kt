@@ -270,14 +270,17 @@ class MainActivity : Activity() {
     }
 
 
-    private fun buildCurrentHardwareProfile(name: String): HardwareProfile {
+    private fun buildCurrentHardwareProfile(
+        name: String,
+        fanLevel: Int
+    ): HardwareProfile {
         val triggerPrefs = readTriggerPrefsSnapshot(this)
 
         return ProfileStateHelpers.buildCurrentHardwareProfile(
             name = name,
             input = ProfileStateHelpers.ProfileInputs(
                 fanEnabled = HardwareController.isFanEnabled(),
-                fanLevel = fanSeek.value.toInt(),
+                fanLevel = fanLevel,
                 autoFanEnabled = autoFanCurveEnabled,
                 fanCurveMode = selectedCurve,
 
@@ -332,11 +335,11 @@ class MainActivity : Activity() {
 
             setFanLevel = { value -> fanSeek.value = value.toFloat() },
             saveTriggerPrefs = { applied -> saveTriggerPrefsStorage(this, applied) },
-            enableTriggersIfNeeded = { applied ->
-                if (applied.triggersAutoStart) {
-                    HardwareController.enableTriggers()
-                    HardwareServiceActions.startTriggers(this)
-                }
+            enableTriggersIfNeeded = { _ ->
+                /*
+                 * Trigger hardware and service startup are performed by the
+                 * background profile application before UI state is updated.
+                 */
             },
             afterProfileApplied = { applied ->
                 ProfileActions.afterProfileApplied(
@@ -783,19 +786,85 @@ class MainActivity : Activity() {
                 dp = { value -> dp(value) },
 
                 showTriggerSetupDialog = { showTriggerSetupDialog() },
-                enableTriggersAndService = {
-                    HardwareController.enableTriggers()
-                    HardwareServiceActions.startTriggers(this)
-                    refreshStatus()
-                    Toast.makeText(this, "Triggers enabled", Toast.LENGTH_SHORT).show()
+                enableTriggersAndService = { onComplete ->
+                    val submitted = submitBackgroundTask {
+                        val enabled =
+                            HardwareController.enableTriggers()
+
+                        if (enabled) {
+                            HardwareServiceActions.startTriggers(this)
+                            refreshStatus()
+                        }
+
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) {
+                                return@runOnUiThread
+                            }
+                            onComplete(enabled)
+                        }
+                    }
+
+                    if (!submitted) {
+                        onComplete(false)
+                    }
                 },
-                testHaptic = {
-                    HardwareController.vibrate(durationMs = 100, gain = 220)
-                    Toast.makeText(this, "Haptic test sent", Toast.LENGTH_SHORT).show()
+                testHaptic = { onComplete ->
+                    val submitted = submitBackgroundTask {
+                        val sent = HardwareController.vibrate(
+                            durationMs = 100,
+                            gain = 220
+                        )
+
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) {
+                                return@runOnUiThread
+                            }
+                            onComplete(sent)
+                        }
+                    }
+
+                    if (!submitted) {
+                        onComplete(false)
+                    }
                 },
 
                 loadProfiles = { ProfileManager.loadProfiles(this) },
-                applyHardwareProfile = { profile -> HardwareController.applyHardwareProfile(profile) },
+                applyHardwareProfile = { profile, onComplete ->
+                    val submitted = submitBackgroundTask {
+                        val applied = runCatching {
+                            val hardwareApplied =
+                                HardwareController.applyHardwareProfile(
+                                    profile
+                                )
+
+                            if (profile.triggersAutoStart) {
+                                val triggersEnabled =
+                                    HardwareController.enableTriggers()
+
+                                if (triggersEnabled) {
+                                    HardwareServiceActions.startTriggers(
+                                        this
+                                    )
+                                }
+
+                                hardwareApplied && triggersEnabled
+                            } else {
+                                hardwareApplied
+                            }
+                        }.getOrDefault(false)
+
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) {
+                                return@runOnUiThread
+                            }
+                            onComplete(applied)
+                        }
+                    }
+
+                    if (!submitted) {
+                        onComplete(false)
+                    }
+                },
                 applyProfileToUiState = { profile -> applyProfileToUiState(profile) },
                 showSaveProfileDialog = { onSaved ->
                     ProfileDialogs.showStyledSaveProfileDialog(
@@ -811,7 +880,29 @@ class MainActivity : Activity() {
                             actionButton(text, isDanger = isDanger, onClick = onClick)
                         },
                         space = { value -> space(value) },
-                        buildProfile = { name -> buildCurrentHardwareProfile(name) },
+                        buildProfile = { name, onBuilt ->
+                            val fanLevel =
+                                fanSeek.value.toInt()
+
+                            submitBackgroundTask {
+                                val profile = runCatching {
+                                    buildCurrentHardwareProfile(
+                                        name,
+                                        fanLevel
+                                    )
+                                }.getOrNull()
+
+                                runOnUiThread {
+                                    if (
+                                        isFinishing ||
+                                        isDestroyed
+                                    ) {
+                                        return@runOnUiThread
+                                    }
+                                    onBuilt(profile)
+                                }
+                            }
+                        },
                         onSaved = onSaved
                     )
                 },
@@ -823,22 +914,97 @@ class MainActivity : Activity() {
                     }
                 },
                 loadMasterProfiles = { MasterProfileStorage.loadProfiles(this) },
-                saveMasterProfile = { name ->
-                    MasterProfileActions.captureAndSave(this, name)
-                    Toast.makeText(this, "Saved $name", Toast.LENGTH_SHORT).show()
+                saveMasterProfile = { name, onComplete ->
+                    val submitted = submitBackgroundTask {
+                        val saved = runCatching {
+                            MasterProfileActions.captureAndSave(
+                                this,
+                                name
+                            )
+                            true
+                        }.getOrDefault(false)
+
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) {
+                                return@runOnUiThread
+                            }
+
+                            Toast.makeText(
+                                this,
+                                if (saved) {
+                                    "Saved $name"
+                                } else {
+                                    "Failed to save $name"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            onComplete(saved)
+                        }
+                    }
+
+                    if (!submitted) {
+                        Toast.makeText(
+                            this,
+                            "Unable to start master-profile capture",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        onComplete(false)
+                    }
                 },
                 applyMasterProfile = { profile ->
-                    MasterProfileActions.applyProfile(this, profile)
-                    applyProfileToUiState(profile.hardware)
-                    selectedCurve = profile.selectedFanCurve
-                    autoFanCurveEnabled = profile.autoFanEnabled
-                    pumpEnabled = profile.pump.enabled
-                    pumpProfile = profile.pump.profile
-                    autoPumpEnabled = profile.pump.autoEnabled
-                    restoreFanCurveUiState()
-                    refreshSmartPumpStatusViews()
-                    refreshStatus()
-                    Toast.makeText(this, "Applied ${profile.name}", Toast.LENGTH_SHORT).show()
+                    val submitted = submitBackgroundTask {
+                        val applied = runCatching {
+                            MasterProfileActions.applyProfile(
+                                this,
+                                profile
+                            )
+                            true
+                        }.getOrDefault(false)
+
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) {
+                                return@runOnUiThread
+                            }
+
+                            if (applied) {
+                                applyProfileToUiState(
+                                    profile.hardware
+                                )
+                                selectedCurve =
+                                    profile.selectedFanCurve
+                                autoFanCurveEnabled =
+                                    profile.autoFanEnabled
+                                pumpEnabled =
+                                    profile.pump.enabled
+                                pumpProfile =
+                                    profile.pump.profile
+                                autoPumpEnabled =
+                                    profile.pump.autoEnabled
+                                restoreFanCurveUiState()
+                                refreshSmartPumpStatusViews()
+                                refreshStatus()
+                            }
+
+                            Toast.makeText(
+                                this,
+                                if (applied) {
+                                    "Applied ${profile.name}"
+                                } else {
+                                    "Failed to apply ${profile.name}"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+
+                    if (!submitted) {
+                        Toast.makeText(
+                            this,
+                            "Unable to start master-profile application",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 },
                 deleteMasterProfile = { name ->
                     MasterProfileStorage.deleteProfile(this, name)

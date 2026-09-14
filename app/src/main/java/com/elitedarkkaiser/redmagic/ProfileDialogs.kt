@@ -225,7 +225,8 @@ internal object ProfileDialogs {
         roundedBg: (Int, Int, Int) -> android.graphics.drawable.Drawable,
         actionButton: (String, Boolean, () -> Unit) -> View,
         space: (Int) -> View,
-        buildProfile: (String) -> HardwareProfile,
+        buildProfile:
+            (String, (HardwareProfile?) -> Unit) -> Boolean,
         onSaved: () -> Unit
     ) {
         val titleView = TextView(context).apply {
@@ -287,13 +288,45 @@ internal object ProfileDialogs {
         }
 
         saveBtn.setOnClickListener {
-            val name = input.text?.toString()?.trim().orEmpty()
-            if (name.isBlank()) return@setOnClickListener
+            val name =
+                input.text?.toString()?.trim().orEmpty()
+            if (name.isBlank()) {
+                return@setOnClickListener
+            }
 
-            val profile = buildProfile(name)
-            ProfileActions.saveProfile(context, name, profile) {
-                dialog.dismiss()
-                onSaved()
+            saveBtn.isEnabled = false
+
+            val submitted = buildProfile(name) { profile ->
+                if (dialog.isShowing) {
+                    if (profile != null) {
+                        ProfileActions.saveProfile(
+                            context,
+                            name,
+                            profile
+                        ) {
+                            dialog.dismiss()
+                            onSaved()
+                        }
+                    } else {
+                        saveBtn.isEnabled = true
+
+                        android.widget.Toast.makeText(
+                            context,
+                            "Unable to capture the hardware profile",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+
+            if (!submitted) {
+                saveBtn.isEnabled = true
+
+                android.widget.Toast.makeText(
+                    context,
+                    "Unable to start profile capture",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
             }
         }
 

@@ -19,17 +19,19 @@ data class HardwareTabDeps(
     val dp: (Int) -> Int,
 
     val showTriggerSetupDialog: () -> Unit,
-    val enableTriggersAndService: () -> Unit,
-    val testHaptic: () -> Unit,
+    val enableTriggersAndService: ((Boolean) -> Unit) -> Unit,
+    val testHaptic: ((Boolean) -> Unit) -> Unit,
 
     val loadProfiles: () -> List<HardwareProfile>,
-    val applyHardwareProfile: (HardwareProfile) -> Unit,
+    val applyHardwareProfile:
+        (HardwareProfile, (Boolean) -> Unit) -> Unit,
     val applyProfileToUiState: (HardwareProfile) -> Unit,
     val showSaveProfileDialog: (() -> Unit) -> Unit,
     val showDeleteProfileDialog: (String, () -> Unit) -> Unit,
 
     val loadMasterProfiles: () -> List<MasterProfile>,
-    val saveMasterProfile: (String) -> Unit,
+    val saveMasterProfile:
+        (String, (Boolean) -> Unit) -> Unit,
     val applyMasterProfile: (MasterProfile) -> Unit,
     val deleteMasterProfile: (String) -> Unit
 )
