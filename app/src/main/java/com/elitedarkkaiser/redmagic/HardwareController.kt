@@ -44,6 +44,7 @@ object HardwareController {
 
         val succeeded = RootShell.exec(command)
         if (succeeded) {
+            DashboardSnapshot.invalidateHardwareCache()
             recentHardwareWrites[resource] = RecentHardwareWrite(
                 command = command,
                 completedAtMs = android.os.SystemClock.elapsedRealtime()

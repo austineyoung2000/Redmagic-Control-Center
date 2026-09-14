@@ -31,6 +31,13 @@ object DashboardSnapshot {
     private var cachedHardwareSnapshot: HardwareSnapshot? = null
     private var cachedHardwareAtMs = 0L
 
+    fun invalidateHardwareCache() {
+        synchronized(hardwareReadLock) {
+            cachedHardwareSnapshot = null
+            cachedHardwareAtMs = 0L
+        }
+    }
+
     private fun readHardwareSnapshot(): HardwareSnapshot {
         return synchronized(hardwareReadLock) {
             val now =

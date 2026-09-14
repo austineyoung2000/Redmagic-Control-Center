@@ -50,6 +50,6 @@ data class CoolingTabDeps(
     val refreshSmartPumpStatusViews: () -> Unit,
     val buildAutoPumpStatusText: () -> Pair<String, String>,
     val applyPumpProfile: (String) -> Unit,
-    val confirmExperimentalPumpThenApply: () -> Unit,
+    val confirmExperimentalPumpThenApply: ((() -> Unit) -> Unit),
     val updateManualCurveUiState: () -> Unit
 )

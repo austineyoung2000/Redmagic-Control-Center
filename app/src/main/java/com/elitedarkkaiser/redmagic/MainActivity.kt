@@ -386,14 +386,20 @@ class MainActivity : Activity() {
         savePumpStateStorage(this, pumpEnabled, pumpProfile)
         saveAutoPumpStateStorage(this, autoPumpEnabled)
         HardwareServiceActions.stopAutoPump(this)
-        HardwareController.setPumpProfile(profile)
-        refreshStatus()
         refreshSmartPumpStatusViews()
+
+        submitBackgroundTask {
+            HardwareController.setPumpProfile(profile)
+            refreshStatus()
+        }
     }
 
-    private fun confirmExperimentalPumpThenApply() {
+    private fun confirmExperimentalPumpThenApply(
+        onApplied: () -> Unit = {}
+    ) {
         if (savedPumpStateStorage(this).experimentalAccepted) {
             applyPumpProfile("experimental")
+            onApplied()
             return
         }
 
@@ -403,6 +409,7 @@ class MainActivity : Activity() {
             onConfirm = {
                 setPumpExperimentalAcceptedStorage(this, true)
                 applyPumpProfile("experimental")
+                onApplied()
             },
             deps = ExperimentalPumpDialog.Deps(
                 textPrimary = textPrimary,
@@ -654,7 +661,9 @@ class MainActivity : Activity() {
                 refreshSmartPumpStatusViews = { refreshSmartPumpStatusViews() },
                 buildAutoPumpStatusText = { buildAutoPumpStatusText() },
                 applyPumpProfile = { profile -> applyPumpProfile(profile) },
-                confirmExperimentalPumpThenApply = { confirmExperimentalPumpThenApply() },
+                confirmExperimentalPumpThenApply = { onApplied ->
+                    confirmExperimentalPumpThenApply(onApplied)
+                },
                 updateManualCurveUiState = { updateManualCurveUiState() }
             )
     }

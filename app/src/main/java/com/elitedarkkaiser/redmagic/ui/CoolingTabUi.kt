@@ -250,6 +250,17 @@ object CoolingTabUi {
 
                 lateinit var pumpPowerSwitch: MaterialSwitch
                 lateinit var autoPumpSwitch: MaterialSwitch
+                var updatingPumpSwitches = false
+
+                fun syncPumpSwitches() {
+                    updatingPumpSwitches = true
+                    try {
+                        pumpPowerSwitch.isChecked = deps.getPumpEnabled()
+                        autoPumpSwitch.isChecked = deps.getAutoPumpEnabled()
+                    } finally {
+                        updatingPumpSwitches = false
+                    }
+                }
 
                 fun manualSpeedLabel(): String {
                     return deps.getPumpProfile().replaceFirstChar {
@@ -307,18 +318,39 @@ object CoolingTabUi {
                 pumpPowerSwitch = MaterialSwitch(context).apply {
                     isChecked = deps.getPumpEnabled()
                     setOnCheckedChangeListener { _, checked ->
+                        if (updatingPumpSwitches) {
+                            return@setOnCheckedChangeListener
+                        }
+
                         deps.setPumpEnabled(checked)
                         deps.savePumpState()
+
                         if (checked) {
-                            HardwareController.setPumpProfile(deps.getPumpProfile())
+                            deps.runBackground {
+                                HardwareController.setPumpProfile(
+                                    deps.getPumpProfile()
+                                )
+                                deps.refreshStatus()
+                            }
                         } else {
                             deps.setAutoPumpEnabled(false)
                             deps.saveAutoPumpState()
                             deps.stopAutoPumpService()
-                            HardwareController.enablePump(false)
+
+                            /*
+                             * Let the Auto listener restore the manual
+                             * controls. The unchanged Pump switch value
+                             * prevents a recursive Pump callback.
+                             */
+                            autoPumpSwitch.isChecked = false
+
+                            deps.runBackground {
+                                HardwareController.enablePump(false)
+                                deps.refreshStatus()
+                            }
                         }
-                        autoPumpSwitch.isChecked = deps.getAutoPumpEnabled()
-                        deps.refreshStatus()
+
+                        syncPumpSwitches()
                         refreshPumpDiagnostics()
                         deps.refreshSmartPumpStatusViews()
                     }
@@ -348,26 +380,27 @@ object CoolingTabUi {
 
                 val slowBtn = deps.segmentedChip("Slow", deps.getPumpProfile() == "slow") {
                     deps.applyPumpProfile("slow")
-                    pumpPowerSwitch.isChecked = true
+                    syncPumpSwitches()
                     refreshPumpDiagnostics()
                 }
 
                 val mediumBtn = deps.segmentedChip("Medium", deps.getPumpProfile() == "medium") {
                     deps.applyPumpProfile("medium")
-                    pumpPowerSwitch.isChecked = true
+                    syncPumpSwitches()
                     refreshPumpDiagnostics()
                 }
 
                 val quickBtn = deps.segmentedChip("Quick", deps.getPumpProfile() == "quick") {
                     deps.applyPumpProfile("quick")
-                    pumpPowerSwitch.isChecked = true
+                    syncPumpSwitches()
                     refreshPumpDiagnostics()
                 }
 
                 val experimentalBtn = deps.segmentedChip("OC", deps.getPumpProfile() == "experimental") {
-                    deps.confirmExperimentalPumpThenApply()
-                    pumpPowerSwitch.isChecked = true
-                    refreshPumpDiagnostics()
+                    deps.confirmExperimentalPumpThenApply {
+                        syncPumpSwitches()
+                        refreshPumpDiagnostics()
+                    }
                 }
 
                 speedRow.addView(slowBtn, chipParams)
@@ -398,17 +431,29 @@ object CoolingTabUi {
                 autoPumpSwitch = MaterialSwitch(context).apply {
                     isChecked = deps.getAutoPumpEnabled()
                     setOnCheckedChangeListener { _, checked ->
+                        if (updatingPumpSwitches) {
+                            return@setOnCheckedChangeListener
+                        }
+
                         deps.setAutoPumpEnabled(checked)
                         deps.saveAutoPumpState()
+
                         if (checked) {
                             deps.setPumpEnabled(true)
                             deps.savePumpState()
-                            HardwareController.setPumpProfile(deps.getPumpProfile())
-                            deps.startAutoPumpService()
+
+                            deps.runBackground {
+                                HardwareController.setPumpProfile(
+                                    deps.getPumpProfile()
+                                )
+                                deps.startAutoPumpService()
+                                deps.refreshStatus()
+                            }
                         } else {
                             deps.stopAutoPumpService()
                         }
-                        pumpPowerSwitch.isChecked = deps.getPumpEnabled()
+
+                        syncPumpSwitches()
                         setManualControlsEnabled(!checked)
                         refreshPumpDiagnostics()
                         deps.refreshSmartPumpStatusViews()
