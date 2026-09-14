@@ -30,23 +30,50 @@ object MagicKeyActions {
         applyMode: () -> Boolean,
         statusLabel: android.widget.TextView,
         sliderButton: android.widget.Button? = null,
+        runBackground: (() -> Unit) -> Boolean,
         refreshStatus: () -> Unit
     ) {
-        val ok = applyMode()
-        if (ok) {
-            saveMagicKeyAppPackageStorage(activity, null)
-            sliderButton?.text = "MAGIC KEY APP: Choose App"
-            statusLabel.text = "Current: $label"
-            refreshStatus()
+        statusLabel.text = "Current: Applying $label…"
+
+        val submitted = runBackground {
+            val ok = applyMode()
+
+            statusLabel.post {
+                if (activity.isFinishing || activity.isDestroyed) {
+                    return@post
+                }
+
+                if (ok) {
+                    saveMagicKeyAppPackageStorage(activity, null)
+                    sliderButton?.text =
+                        "MAGIC KEY APP: Choose App"
+                    statusLabel.text = "Current: $label"
+                    refreshStatus()
+
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Magic Key set to $label",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    statusLabel.text =
+                        "Current: Failed to apply $label"
+
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Failed to set Magic Key to $label",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+        if (!submitted) {
+            statusLabel.text = "Current: Unable to update"
+
             android.widget.Toast.makeText(
                 activity,
-                "Magic Key set to $label",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            android.widget.Toast.makeText(
-                activity,
-                "Failed to set Magic Key to $label",
+                "Unable to start the Magic Key update",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
         }
@@ -58,23 +85,53 @@ object MagicKeyActions {
         label: String,
         statusLabel: android.widget.TextView,
         sliderButton: android.widget.Button,
+        runBackground: (() -> Unit) -> Boolean,
         refreshStatus: () -> Unit
     ) {
-        val ok = HardwareController.setSliderLaunchApp(pkg)
-        if (ok) {
-            saveMagicKeyAppPackageStorage(activity, pkg)
-            sliderButton.text = "MAGIC KEY APP: $label"
-            statusLabel.text = "Current: Launch App"
-            refreshStatus()
+        statusLabel.text = "Current: Applying Launch App…"
+        sliderButton.isEnabled = false
+
+        val submitted = runBackground {
+            val ok = HardwareController.setSliderLaunchApp(pkg)
+
+            statusLabel.post {
+                if (activity.isFinishing || activity.isDestroyed) {
+                    return@post
+                }
+
+                sliderButton.isEnabled = true
+
+                if (ok) {
+                    saveMagicKeyAppPackageStorage(activity, pkg)
+                    sliderButton.text = "MAGIC KEY APP: $label"
+                    statusLabel.text = "Current: Launch App"
+                    refreshStatus()
+
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Magic Key set to launch $label",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    statusLabel.text =
+                        "Current: Failed to apply Launch App"
+
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Failed to set Magic Key app",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+        if (!submitted) {
+            sliderButton.isEnabled = true
+            statusLabel.text = "Current: Unable to update"
+
             android.widget.Toast.makeText(
                 activity,
-                "Magic Key set to launch $label",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            android.widget.Toast.makeText(
-                activity,
-                "Failed to set Magic Key app",
+                "Unable to start the Magic Key update",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
         }
@@ -84,23 +141,51 @@ object MagicKeyActions {
         activity: android.app.Activity,
         statusLabel: android.widget.TextView,
         sliderButton: android.widget.Button? = null,
+        runBackground: (() -> Unit) -> Boolean,
         refreshStatus: () -> Unit
     ) {
-        val ok = HardwareController.disableSliderSystemHandling()
-        if (ok) {
-            saveMagicKeyAppPackageStorage(activity, null)
-            sliderButton?.text = "MAGIC KEY APP: Choose App"
-            statusLabel.text = "Current: Disabled"
-            refreshStatus()
+        statusLabel.text = "Current: Disabling…"
+
+        val submitted = runBackground {
+            val ok =
+                HardwareController.disableSliderSystemHandling()
+
+            statusLabel.post {
+                if (activity.isFinishing || activity.isDestroyed) {
+                    return@post
+                }
+
+                if (ok) {
+                    saveMagicKeyAppPackageStorage(activity, null)
+                    sliderButton?.text =
+                        "MAGIC KEY APP: Choose App"
+                    statusLabel.text = "Current: Disabled"
+                    refreshStatus()
+
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Magic Key disabled",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    statusLabel.text =
+                        "Current: Failed to disable"
+
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Failed to disable Magic Key",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+        if (!submitted) {
+            statusLabel.text = "Current: Unable to update"
+
             android.widget.Toast.makeText(
                 activity,
-                "Magic Key disabled",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            android.widget.Toast.makeText(
-                activity,
-                "Failed to disable Magic Key",
+                "Unable to start the Magic Key update",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
         }

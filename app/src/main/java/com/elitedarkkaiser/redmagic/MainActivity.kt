@@ -219,7 +219,10 @@ class MainActivity : Activity() {
                     label = label,
                     statusLabel = statusLabel,
                     sliderButton = sliderButton,
-                    refreshStatus = { refreshStatus() }
+                    runBackground = { task ->
+                            submitBackgroundTask(task)
+                        },
+                        refreshStatus = { refreshStatus() }
                 )
             },
             deps = MagicKeyAppPickerDialog.Deps(
@@ -737,6 +740,9 @@ class MainActivity : Activity() {
                         applyMode = action,
                         statusLabel = statusLabel,
                         sliderButton = sliderButton,
+                        runBackground = { task ->
+                            submitBackgroundTask(task)
+                        },
                         refreshStatus = { refreshStatus() }
                     )
                 },
@@ -745,6 +751,9 @@ class MainActivity : Activity() {
                         activity = this,
                         statusLabel = statusLabel,
                         sliderButton = sliderButton,
+                        runBackground = { task ->
+                            submitBackgroundTask(task)
+                        },
                         refreshStatus = { refreshStatus() }
                     )
                 },
