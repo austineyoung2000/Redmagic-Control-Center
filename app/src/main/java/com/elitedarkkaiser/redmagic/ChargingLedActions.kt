@@ -31,6 +31,7 @@ object ChargingLedActions {
     }
     internal fun showLogoDialog(
         activity: MainActivity,
+        runBackground: (() -> Unit) -> Boolean,
         deps: ChargingLedProfileDialog.Deps
     ) {
         val profile = ChargingLedState.readProfile(
@@ -51,15 +52,17 @@ object ChargingLedActions {
             originalEffect = profile.effect,
             originalColor = profile.color,
             onSave = { enabled, effect, color ->
-                saveProfileAndApplyIfCharging(
-                    activity,
-                    ChargingLedState.LOGO_ENABLED_KEY,
-                    ChargingLedState.LOGO_EFFECT_KEY,
-                    ChargingLedState.LOGO_COLOR_KEY,
-                    enabled,
-                    effect,
-                    color
-                )
+                runBackground {
+                    saveProfileAndApplyIfCharging(
+                        activity,
+                        ChargingLedState.LOGO_ENABLED_KEY,
+                        ChargingLedState.LOGO_EFFECT_KEY,
+                        ChargingLedState.LOGO_COLOR_KEY,
+                        enabled,
+                        effect,
+                        color
+                    )
+                }
             },
             deps = deps
         )
@@ -67,6 +70,7 @@ object ChargingLedActions {
 
     internal fun showShoulderDialog(
         activity: MainActivity,
+        runBackground: (() -> Unit) -> Boolean,
         deps: ChargingLedProfileDialog.Deps
     ) {
         val profile = ChargingLedState.readProfile(
@@ -87,15 +91,17 @@ object ChargingLedActions {
             originalEffect = profile.effect,
             originalColor = profile.color,
             onSave = { enabled, effect, color ->
-                saveProfileAndApplyIfCharging(
-                    activity,
-                    ChargingLedState.SHOULDER_ENABLED_KEY,
-                    ChargingLedState.SHOULDER_EFFECT_KEY,
-                    ChargingLedState.SHOULDER_COLOR_KEY,
-                    enabled,
-                    effect,
-                    color
-                )
+                runBackground {
+                    saveProfileAndApplyIfCharging(
+                        activity,
+                        ChargingLedState.SHOULDER_ENABLED_KEY,
+                        ChargingLedState.SHOULDER_EFFECT_KEY,
+                        ChargingLedState.SHOULDER_COLOR_KEY,
+                        enabled,
+                        effect,
+                        color
+                    )
+                }
             },
             deps = deps
         )
@@ -103,6 +109,7 @@ object ChargingLedActions {
 
     internal fun showFanDialog(
         activity: MainActivity,
+        runBackground: (() -> Unit) -> Boolean,
         textPrimary: Int,
         textSecondary: Int,
         panelColor: Int,
@@ -149,49 +156,82 @@ object ChargingLedActions {
             setEffect = { value -> chargingFanEffect = value },
             setColor = { value -> chargingFanColor = value },
             applyPreviewIfEnabled = {
-                if (ChargingLedState.isEnabled(activity) && ChargingLedState.isChargingNow(activity)) {
+                val enabled = chargingFanEnabled
+                val effect = chargingFanEffect
+                val color = chargingFanColor
+
+                runBackground {
+                    if (
+                        ChargingLedState.isEnabled(activity) &&
+                        ChargingLedState.isChargingNow(activity)
+                    ) {
+                        saveProfileAndApplyIfCharging(
+                            activity,
+                            ChargingLedState.FAN_ENABLED_KEY,
+                            ChargingLedState.FAN_EFFECT_KEY,
+                            ChargingLedState.FAN_COLOR_KEY,
+                            enabled,
+                            effect,
+                            color
+                        )
+                    }
+                }
+            },
+            applySelection = { effect, color ->
+                runBackground {
+                    if (effect.startsWith("preset:")) {
+                        HardwareController.setFanLedStockPreset(
+                            effect.removePrefix("preset:")
+                        )
+                    } else {
+                        HardwareController.setFanLedEffect(
+                            effect,
+                            color
+                        )
+                    }
+                }
+            },
+            disableLed = {
+                runBackground {
+                    HardwareController.setFanLedEnabled(false)
+                }
+            },
+            saveState = {
+                val enabled = chargingFanEnabled
+                val effect = chargingFanEffect
+                val color = chargingFanColor
+
+                runBackground {
                     saveProfileAndApplyIfCharging(
                         activity,
                         ChargingLedState.FAN_ENABLED_KEY,
                         ChargingLedState.FAN_EFFECT_KEY,
                         ChargingLedState.FAN_COLOR_KEY,
-                        chargingFanEnabled,
-                        chargingFanEffect,
-                        chargingFanColor
+                        enabled,
+                        effect,
+                        color
                     )
                 }
             },
-            applySelection = { effect, color ->
-                if (effect.startsWith("preset:")) {
-                    HardwareController.setFanLedStockPreset(effect.removePrefix("preset:"))
-                } else {
-                    HardwareController.setFanLedEffect(effect, color)
+            startFanLedService = {
+                runBackground {
+                    HardwareServiceActions.startChargingMode(activity)
                 }
             },
-            disableLed = { HardwareController.setFanLedEnabled(false) },
-            saveState = {
-                saveProfileAndApplyIfCharging(
-                    activity,
-                    ChargingLedState.FAN_ENABLED_KEY,
-                    ChargingLedState.FAN_EFFECT_KEY,
-                    ChargingLedState.FAN_COLOR_KEY,
-                    chargingFanEnabled,
-                    chargingFanEffect,
-                    chargingFanColor
-                )
-            },
-            startFanLedService = {
-                HardwareServiceActions.startChargingMode(activity)
-            },
             stopFanLedService = {
-                HardwareServiceActions.startChargingMode(activity)
+                runBackground {
+                    HardwareServiceActions.startChargingMode(activity)
+                }
             },
             anyLedEnabled = { ChargingLedState.isEnabled(activity) },
             applyFanPreset = { value ->
                 chargingFanEnabled = true
                 chargingFanEffect = "preset:$value"
                 chargingFanColor = -1
-                HardwareController.setFanLedStockPreset(value)
+
+                runBackground {
+                    HardwareController.setFanLedStockPreset(value)
+                }
                 chargingFanDialogRefresh?.invoke()
             },
             setDialogRefresh = { callback -> chargingFanDialogRefresh = callback },

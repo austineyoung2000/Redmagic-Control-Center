@@ -239,9 +239,23 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun applyFanLedSelection(effect: String, color: Int) {
+    private fun applyFanLedSelection(
+        effect: String,
+        color: Int
+    ) {
+        submitBackgroundTask {
+            applyFanLedSelectionNow(effect, color)
+        }
+    }
+
+    private fun applyFanLedSelectionNow(
+        effect: String,
+        color: Int
+    ) {
         if (effect.startsWith("preset:")) {
-            applyFanPreset(effect.removePrefix("preset:"))
+            HardwareController.setFanLedStockPreset(
+                effect.removePrefix("preset:")
+            )
         } else {
             HardwareController.setFanLedEffect(effect, color)
         }
@@ -688,28 +702,55 @@ class MainActivity : Activity() {
 
     private fun applyFanLedPreviewIfEnabled() {
         if (!realTimePreviewEnabled) return
-        if (fanLedEnabled) {
-            applyFanLedSelection(fanLedEffect, fanLedColor)
+
+        val enabled = fanLedEnabled
+        val effect = fanLedEffect
+        val color = fanLedColor
+
+        if (enabled) {
+            applyFanLedSelection(effect, color)
         } else {
-            HardwareController.setFanLedEnabled(false)
+            submitBackgroundTask {
+                HardwareController.setFanLedEnabled(false)
+            }
         }
     }
 
     private fun applyLogoLedPreviewIfEnabled() {
         if (!realTimePreviewEnabled) return
-        if (logoLedEnabled) {
-            HardwareController.setLogoLedEffect(logoLedEffect, logoLedColor)
-        } else {
-            HardwareController.setLogoLedEnabled(false)
+
+        val enabled = logoLedEnabled
+        val effect = logoLedEffect
+        val color = logoLedColor
+
+        submitBackgroundTask {
+            if (enabled) {
+                HardwareController.setLogoLedEffect(
+                    effect,
+                    color
+                )
+            } else {
+                HardwareController.setLogoLedEnabled(false)
+            }
         }
     }
 
     private fun applyShoulderLedPreviewIfEnabled() {
         if (!realTimePreviewEnabled) return
-        if (shoulderLedEnabled) {
-            HardwareController.setShoulderLedEffect(shoulderLedEffect, shoulderLedColor)
-        } else {
-            HardwareController.setShoulderLedEnabled(false)
+
+        val enabled = shoulderLedEnabled
+        val effect = shoulderLedEffect
+        val color = shoulderLedColor
+
+        submitBackgroundTask {
+            if (enabled) {
+                HardwareController.setShoulderLedEffect(
+                    effect,
+                    color
+                )
+            } else {
+                HardwareController.setShoulderLedEnabled(false)
+            }
         }
     }
 
@@ -1048,6 +1089,9 @@ class MainActivity : Activity() {
                 showChargingFanLedDialog = {
                     ChargingLedActions.showFanDialog(
                         activity = this,
+                        runBackground = { task ->
+                            submitBackgroundTask(task)
+                        },
                         textPrimary = textPrimary,
                         textSecondary = textSecondary,
                         panelColor = panelColor,
@@ -1068,10 +1112,22 @@ class MainActivity : Activity() {
                     )
                 },
                 showChargingLogoLedDialog = {
-                    ChargingLedActions.showLogoDialog(this, chargingLedDialogDeps())
+                    ChargingLedActions.showLogoDialog(
+                        activity = this,
+                        runBackground = { task ->
+                            submitBackgroundTask(task)
+                        },
+                        deps = chargingLedDialogDeps()
+                    )
                 },
                 showChargingShoulderLedDialog = {
-                    ChargingLedActions.showShoulderDialog(this, chargingLedDialogDeps())
+                    ChargingLedActions.showShoulderDialog(
+                        activity = this,
+                        runBackground = { task ->
+                            submitBackgroundTask(task)
+                        },
+                        deps = chargingLedDialogDeps()
+                    )
                 },
                 getCallLightingEnabled = { CallLightingState.isEnabled(this) },
                 setCallLightingEnabled = { enabled ->
@@ -1287,11 +1343,30 @@ class MainActivity : Activity() {
             setEffect = { value -> shoulderLedEffect = value },
             setColor = { value -> shoulderLedColor = value },
             applyPreviewIfEnabled = { applyShoulderLedPreviewIfEnabled() },
-            applyEffect = { effect, color -> HardwareController.setShoulderLedEffect(effect, color) },
-            disableLed = { HardwareController.setShoulderLedEnabled(false) },
+            applyEffect = { effect, color ->
+                submitBackgroundTask {
+                    HardwareController.setShoulderLedEffect(
+                        effect,
+                        color
+                    )
+                }
+            },
+            disableLed = {
+                submitBackgroundTask {
+                    HardwareController.setShoulderLedEnabled(false)
+                }
+            },
             saveState = { saveShoulderLedStateStorage(this, LedState(shoulderLedEnabled, shoulderLedEffect, shoulderLedColor)) },
-            startFanLedService = { HardwareServiceActions.startFanLed(this) },
-            stopFanLedService = { HardwareServiceActions.stopFanLed(this) },
+            startFanLedService = {
+                submitBackgroundTask {
+                    HardwareServiceActions.startFanLed(this)
+                }
+            },
+            stopFanLedService = {
+                submitBackgroundTask {
+                    HardwareServiceActions.stopFanLed(this)
+                }
+            },
             anyLedEnabled = { fanLedEnabled || logoLedEnabled || shoulderLedEnabled },
             setDialogRefresh = { callback -> dialogRefreshShoulderLed = callback },
             deps = ShoulderLedDialogUi.Deps(
@@ -1326,11 +1401,30 @@ class MainActivity : Activity() {
             setEffect = { value -> logoLedEffect = value },
             setColor = { value -> logoLedColor = value },
             applyPreviewIfEnabled = { applyLogoLedPreviewIfEnabled() },
-            applyEffect = { effect, color -> HardwareController.setLogoLedEffect(effect, color) },
-            disableLed = { HardwareController.setLogoLedEnabled(false) },
+            applyEffect = { effect, color ->
+                submitBackgroundTask {
+                    HardwareController.setLogoLedEffect(
+                        effect,
+                        color
+                    )
+                }
+            },
+            disableLed = {
+                submitBackgroundTask {
+                    HardwareController.setLogoLedEnabled(false)
+                }
+            },
             saveState = { saveLogoLedStateStorage(this, LedState(logoLedEnabled, logoLedEffect, logoLedColor)) },
-            startFanLedService = { HardwareServiceActions.startFanLed(this) },
-            stopFanLedService = { HardwareServiceActions.stopFanLed(this) },
+            startFanLedService = {
+                submitBackgroundTask {
+                    HardwareServiceActions.startFanLed(this)
+                }
+            },
+            stopFanLedService = {
+                submitBackgroundTask {
+                    HardwareServiceActions.stopFanLed(this)
+                }
+            },
             anyLedEnabled = { fanLedEnabled || logoLedEnabled || shoulderLedEnabled },
             setDialogRefresh = { callback -> dialogRefreshLogoLed = callback },
             deps = LogoLedDialogUi.Deps(
@@ -1365,11 +1459,25 @@ class MainActivity : Activity() {
             setEffect = { value -> fanLedEffect = value },
             setColor = { value -> fanLedColor = value },
             applyPreviewIfEnabled = { applyFanLedPreviewIfEnabled() },
-            applySelection = { effect, color -> applyFanLedSelection(effect, color) },
-            disableLed = { HardwareController.setFanLedEnabled(false) },
+            applySelection = { effect, color ->
+                applyFanLedSelection(effect, color)
+            },
+            disableLed = {
+                submitBackgroundTask {
+                    HardwareController.setFanLedEnabled(false)
+                }
+            },
             saveState = { saveFanLedStateStorage(this, LedState(fanLedEnabled, fanLedEffect, fanLedColor)) },
-            startFanLedService = { HardwareServiceActions.startFanLed(this) },
-            stopFanLedService = { HardwareServiceActions.stopFanLed(this) },
+            startFanLedService = {
+                submitBackgroundTask {
+                    HardwareServiceActions.startFanLed(this)
+                }
+            },
+            stopFanLedService = {
+                submitBackgroundTask {
+                    HardwareServiceActions.stopFanLed(this)
+                }
+            },
             anyLedEnabled = { fanLedEnabled || logoLedEnabled || shoulderLedEnabled },
             applyFanPreset = { preset -> applyFanPreset(preset) },
             setDialogRefresh = { callback -> dialogRefreshFanLed = callback },
@@ -1439,7 +1547,10 @@ class MainActivity : Activity() {
         fanLedEffect = "preset:$effectValue"
         fanLedColor = -1
 
-        HardwareController.setFanLedStockPreset(effectValue)
+        applyFanLedSelection(
+            effect = fanLedEffect,
+            color = fanLedColor
+        )
         dialogRefreshFanLed?.invoke()
     }
 
