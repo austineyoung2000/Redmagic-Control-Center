@@ -405,10 +405,10 @@ class MainActivity : Activity() {
         autoPumpEnabled = false
         savePumpStateStorage(this, pumpEnabled, pumpProfile)
         saveAutoPumpStateStorage(this, autoPumpEnabled)
-        HardwareServiceActions.stopAutoPump(this)
         refreshSmartPumpStatusViews()
 
         submitBackgroundTask {
+            HardwareServiceActions.stopAutoPump(this)
             HardwareController.setPumpProfile(profile)
             refreshStatus()
         }
@@ -1309,8 +1309,16 @@ class MainActivity : Activity() {
             currentProfile = { pumpProfile },
             setPumpEnabled = { value -> pumpEnabled = value },
             setPumpProfile = { value -> pumpProfile = value },
-            applyHardwareProfile = { value -> HardwareController.setPumpProfile(value) },
-            disablePump = { HardwareController.enablePump(false) },
+            applyHardwareProfile = { value ->
+                submitBackgroundTask {
+                    HardwareController.setPumpProfile(value)
+                }
+            },
+            disablePump = {
+                submitBackgroundTask {
+                    HardwareController.enablePump(false)
+                }
+            },
             savePumpState = { savePumpStateStorage(this, pumpEnabled, pumpProfile) },
             confirmExperimentalPumpThenApply = { confirmExperimentalPumpThenApply() },
             setDialogRefreshPump = { callback -> dialogRefreshPump = callback },

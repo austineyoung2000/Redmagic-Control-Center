@@ -335,8 +335,6 @@ object CoolingTabUi {
                         } else {
                             deps.setAutoPumpEnabled(false)
                             deps.saveAutoPumpState()
-                            deps.stopAutoPumpService()
-
                             /*
                              * Let the Auto listener restore the manual
                              * controls. The unchanged Pump switch value
@@ -345,6 +343,7 @@ object CoolingTabUi {
                             autoPumpSwitch.isChecked = false
 
                             deps.runBackground {
+                                deps.stopAutoPumpService()
                                 HardwareController.enablePump(false)
                                 deps.refreshStatus()
                             }
