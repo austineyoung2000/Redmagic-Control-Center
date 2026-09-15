@@ -8,12 +8,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
-import android.os.Looper
 
 class GameModeService : Service() {
 
-    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var workerThread: HandlerThread
+    private lateinit var handler: Handler
+
     private var gameModeActiveFor: String? = null
     private var gameModeApplyPendingFor: String? = null
     private var pollingPausedForScreenOff = false
@@ -22,25 +24,38 @@ class GameModeService : Service() {
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                Intent.ACTION_SCREEN_OFF -> {
-                    pollingPausedForScreenOff = true
-                    handler.removeCallbacks(pollRunnable)
+            val action = intent.action
 
-                    if (gameModeActiveFor != null) {
-                        restoreNormalProfile()
-                        setGameModeLedOverrideActiveStorage(this@GameModeService, false)
-                        gameModeActiveFor = null
+            handler.post {
+                when (action) {
+                    Intent.ACTION_SCREEN_OFF -> {
+                        pollingPausedForScreenOff = true
+                        handler.removeCallbacks(pollRunnable)
+
+                        if (gameModeActiveFor != null) {
+                            restoreNormalProfile()
+                            setGameModeLedOverrideActiveStorage(
+                                this@GameModeService,
+                                false
+                            )
+                            gameModeActiveFor = null
+                        }
+
+                        android.util.Log.i(
+                            "RedmagicGameMode",
+                            "screen off: paused game mode polling"
+                        )
+                        stopSelf()
                     }
 
-                    android.util.Log.i("RedmagicGameMode", "screen off: paused game mode polling")
-                    stopSelf()
-                }
-
-                Intent.ACTION_SCREEN_ON,
-                Intent.ACTION_USER_PRESENT -> {
-                    pollingPausedForScreenOff = false
-                    android.util.Log.i("RedmagicGameMode", "screen on/unlock: waiting for foreground app event")
+                    Intent.ACTION_SCREEN_ON,
+                    Intent.ACTION_USER_PRESENT -> {
+                        pollingPausedForScreenOff = false
+                        android.util.Log.i(
+                            "RedmagicGameMode",
+                            "screen on/unlock: waiting for foreground app event"
+                        )
+                    }
                 }
             }
         }
@@ -82,7 +97,20 @@ class GameModeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        ChargingLedRecovery.repairStaleChargingOwnership(this)
+
+        workerThread = HandlerThread(
+            "RedMagicGameMode",
+            android.os.Process.THREAD_PRIORITY_BACKGROUND
+        ).apply {
+            start()
+        }
+        handler = Handler(workerThread.looper)
+
+        handler.post {
+            ChargingLedRecovery.repairStaleChargingOwnership(
+                this@GameModeService
+            )
+        }
 
         registerReceiver(
             screenReceiver,
@@ -96,13 +124,20 @@ class GameModeService : Service() {
         // No idle polling here. GameMode starts from an explicit foreground app event.
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int
+    ): Int {
         val pkg = intent?.getStringExtra("foreground_pkg")
-        if (!pkg.isNullOrBlank()) {
-            handleForegroundPackage(pkg)
-        } else if (gameModeActiveFor != null) {
-            handler.removeCallbacks(pollRunnable)
-            handler.post(pollRunnable)
+
+        handler.post {
+            if (!pkg.isNullOrBlank()) {
+                handleForegroundPackage(pkg)
+            } else if (gameModeActiveFor != null) {
+                handler.removeCallbacks(pollRunnable)
+                handler.post(pollRunnable)
+            }
         }
 
         return START_NOT_STICKY
@@ -149,13 +184,29 @@ class GameModeService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(pollRunnable)
-        runCatching { unregisterReceiver(screenReceiver) }
-
-        if (gameModeActiveFor != null) {
-            restoreNormalProfile()
-            setGameModeLedOverrideActiveStorage(this, false)
-            gameModeActiveFor = null
+        runCatching {
+            unregisterReceiver(screenReceiver)
         }
+
+        val cleanupPosted = handler.post {
+            handler.removeCallbacks(pollRunnable)
+
+            if (gameModeActiveFor != null) {
+                restoreNormalProfile()
+                setGameModeLedOverrideActiveStorage(
+                    this@GameModeService,
+                    false
+                )
+                gameModeActiveFor = null
+            }
+
+            workerThread.quitSafely()
+        }
+
+        if (!cleanupPosted) {
+            workerThread.quitSafely()
+        }
+
         super.onDestroy()
     }
 
