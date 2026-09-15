@@ -1295,8 +1295,7 @@ class MainActivity : Activity() {
             ),
             onSaveProfile = { profile ->
                 saveGameModeProfileStorage(this, profile)
-                GameModeActions.applyProfileNow(getSavedGameModeProfileStorage(this), applyFanLed = { effect, color -> applyFanLedSelection(effect, color) })
-                GameModeActions.startServiceIfPermitted(this)
+                GameModeActions.applySavedProfileThroughService(this)
             }
         )
     }

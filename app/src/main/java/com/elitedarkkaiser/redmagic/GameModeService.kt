@@ -13,6 +13,13 @@ import android.os.IBinder
 
 class GameModeService : Service() {
 
+    companion object {
+        const val EXTRA_APPLY_SAVED_PROFILE =
+            "apply_saved_game_mode_profile"
+        const val EXTRA_CONTINUE_AFTER_APPLY =
+            "continue_game_mode_after_profile_apply"
+    }
+
     private lateinit var workerThread: HandlerThread
     private lateinit var handler: Handler
 
@@ -130,17 +137,63 @@ class GameModeService : Service() {
         startId: Int
     ): Int {
         val pkg = intent?.getStringExtra("foreground_pkg")
+        val applySavedProfile =
+            intent?.getBooleanExtra(
+                EXTRA_APPLY_SAVED_PROFILE,
+                false
+            ) == true
+        val continueAfterApply =
+            intent?.getBooleanExtra(
+                EXTRA_CONTINUE_AFTER_APPLY,
+                false
+            ) == true
 
         handler.post {
-            if (!pkg.isNullOrBlank()) {
-                handleForegroundPackage(pkg)
-            } else if (gameModeActiveFor != null) {
-                handler.removeCallbacks(pollRunnable)
-                handler.post(pollRunnable)
+            when {
+                applySavedProfile -> {
+                    applySavedProfileNow()
+
+                    if (gameModeActiveFor != null) {
+                        handler.removeCallbacks(pollRunnable)
+                        handler.post(pollRunnable)
+                    } else if (!continueAfterApply) {
+                        stopSelf(startId)
+                    }
+                }
+
+                !pkg.isNullOrBlank() -> {
+                    handleForegroundPackage(pkg)
+                }
+
+                gameModeActiveFor != null -> {
+                    handler.removeCallbacks(pollRunnable)
+                    handler.post(pollRunnable)
+                }
             }
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun applySavedProfileNow() {
+        val profile =
+            getSavedGameModeProfileStorage(this)
+
+        GameModeActions.applyProfileNow(
+            profile = profile,
+            applyFanLed = { effect, color ->
+                if (effect.startsWith("preset:")) {
+                    HardwareController.setFanLedStockPreset(
+                        effect.removePrefix("preset:")
+                    )
+                } else {
+                    HardwareController.setFanLedEffect(
+                        effect,
+                        color
+                    )
+                }
+            }
+        )
     }
 
     private fun handleForegroundPackage(currentPkg: String) {

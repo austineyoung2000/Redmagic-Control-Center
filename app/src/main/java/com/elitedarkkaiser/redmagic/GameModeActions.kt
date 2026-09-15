@@ -29,6 +29,32 @@ internal object GameModeActions {
         context.startService(Intent(context, GameModeService::class.java))
     }
 
+    fun applySavedProfileThroughService(context: Context) {
+        val canContinue =
+            PermissionActions.hasUsageStatsPermission(context)
+
+        context.startService(
+            Intent(context, GameModeService::class.java).apply {
+                putExtra(
+                    GameModeService.EXTRA_APPLY_SAVED_PROFILE,
+                    true
+                )
+                putExtra(
+                    GameModeService.EXTRA_CONTINUE_AFTER_APPLY,
+                    canContinue
+                )
+            }
+        )
+
+        if (!canContinue) {
+            Toast.makeText(
+                context,
+                "Grant Usage Access to enable Game Mode",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     fun buildProfile(
         fanEnabled: Boolean,
         fanLevel: Int,
