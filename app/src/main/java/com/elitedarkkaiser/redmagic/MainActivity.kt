@@ -262,7 +262,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildAutoPumpStatusText(): Pair<String, String> {
-        val tempF = DashboardSnapshot.readCpuTempF().toFloatOrNull()
+        val tempF = lastDisplayedTempF
         if (tempF == null) {
             return "Pump Mode: AUTO • Unknown temp" to "Speed: ? • Freq: ?"
         }
@@ -1895,6 +1895,8 @@ class MainActivity : Activity() {
             if (tempF != null) {
                 lastDisplayedTempF = tempF
             }
+
+            refreshSmartPumpStatusViews()
 
             deviceModelValue.text = modelText
             deviceRomValue.text = romText
