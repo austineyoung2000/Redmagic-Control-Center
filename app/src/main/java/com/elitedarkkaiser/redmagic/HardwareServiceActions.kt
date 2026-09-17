@@ -37,6 +37,20 @@ object HardwareServiceActions {
         context.startService(Intent(context, TriggerRootService::class.java))
     }
 
+    fun startTriggersIfAutoStartEnabled(
+        context: Context
+    ): Boolean {
+        if (!readTriggerPrefsSnapshot(context).triggersAutoStart) {
+            return false
+        }
+
+        val enabled = HardwareController.enableTriggers()
+        if (enabled) {
+            startTriggers(context)
+        }
+        return enabled
+    }
+
     fun stopTriggers(context: Context) {
         context.stopService(Intent(context, TriggerRootService::class.java))
         HardwareController.disableTriggers()

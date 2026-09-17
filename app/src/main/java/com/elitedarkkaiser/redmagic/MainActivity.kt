@@ -543,6 +543,14 @@ class MainActivity : Activity() {
             HardwareServiceActions.startAutoPump(this)
         }
 
+        if (readTriggerPrefsSnapshot(this).triggersAutoStart) {
+            submitBackgroundTask {
+                HardwareServiceActions
+                    .startTriggersIfAutoStartEnabled(this)
+                refreshStatus()
+            }
+        }
+
         switchTab("home")
         statusRefreshHandler.postDelayed({
             refreshStatus()

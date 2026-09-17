@@ -38,7 +38,8 @@ class TriggerAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         submitRootAction {
-            HardwareController.enableTriggers()
+            HardwareServiceActions
+                .startTriggersIfAutoStartEnabled(this)
         }
     }
 

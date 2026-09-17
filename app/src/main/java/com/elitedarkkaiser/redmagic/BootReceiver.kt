@@ -16,6 +16,25 @@ class BootReceiver : BroadcastReceiver() {
             HardwareServiceActions.startCallLighting(context)
         }
 
+        if (readTriggerPrefsSnapshot(context).triggersAutoStart) {
+            val pendingResult = goAsync()
+
+            Thread({
+                android.os.Process.setThreadPriority(
+                    android.os.Process.THREAD_PRIORITY_BACKGROUND
+                )
+
+                try {
+                    HardwareServiceActions
+                        .startTriggersIfAutoStartEnabled(
+                            context.applicationContext
+                        )
+                } finally {
+                    pendingResult.finish()
+                }
+            }, "RedMagicTriggerAutoStart").start()
+        }
+
     }
 
 }
