@@ -1,11 +1,7 @@
 package com.elitedarkkaiser.redmagic
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
@@ -13,8 +9,6 @@ import android.os.IBinder
 class AutoFanService : Service() {
 
     companion object {
-        private const val CHANNEL_ID = "auto_fan_service_channel"
-        private const val NOTIF_ID = 1101
         private const val HOT_POLL_MS = 15000L
         private const val COOL_POLL_MS = 60000L
         private const val HOT_TEMP_THRESHOLD_F = 95f
@@ -24,7 +18,6 @@ class AutoFanService : Service() {
     private lateinit var workerThread: HandlerThread
     private lateinit var handler: Handler
     private var lastAppliedLevel = -1
-    private var lastNotificationText: String? = null
 
     private val loop = object : Runnable {
         override fun run() {
@@ -62,8 +55,10 @@ class AutoFanService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification("Starting automatic fan control..."))
+        startForeground(
+            CoolingControlNotification.NOTIFICATION_ID,
+            CoolingControlNotification.startFan(this)
+        )
 
         workerThread = HandlerThread(
             "RedMagicAutoFan",
@@ -90,6 +85,7 @@ class AutoFanService : Service() {
         if (::workerThread.isInitialized) {
             workerThread.quitSafely()
         }
+        CoolingControlNotification.stopFan(this)
         super.onDestroy()
     }
 
@@ -122,46 +118,14 @@ class AutoFanService : Service() {
         return currentLevel
     }
 
-    private fun updateNotification(tempF: Float?, level: Int?) {
-        val tempText = if (tempF != null) "${tempF.toInt()}°F" else "--°F"
-        val levelText = if (level != null && level >= 0) "Level $level" else "Unknown"
-
-        val text = "Auto Fan Active • Temp: $tempText • Fan: $levelText"
-        if (text == lastNotificationText) return
-
-        lastNotificationText = text
-        val notification = buildNotification(text)
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.notify(NOTIF_ID, notification)
-    }
-
-    private fun buildNotification(text: String): Notification {
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            Notification.Builder(this)
-        }
-
-        return builder
-            .setContentTitle("Redmagic HW Controls")
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_manage)
-            .setOngoing(true)
-            .build()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Auto Fan Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Keeps automatic fan control active in the background"
-            }
-
-            val nm = getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(channel)
-        }
+    private fun updateNotification(
+        tempF: Float?,
+        level: Int?
+    ) {
+        CoolingControlNotification.updateFan(
+            this,
+            tempF,
+            level
+        )
     }
 }
