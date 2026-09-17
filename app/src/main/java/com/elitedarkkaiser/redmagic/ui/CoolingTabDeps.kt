@@ -11,6 +11,7 @@ data class CoolingTabDeps(
     val subtleLabel: (String) -> TextView,
     val bodyText: (String) -> TextView,
     val segmentedChip: (String, Boolean, () -> Unit) -> Button,
+    val updateSelectableButton: (Button, Boolean) -> Unit,
     val actionButton: (String, Boolean, () -> Unit) -> Button,
     val row: (Button, Button) -> LinearLayout,
     val singleRow: (Button) -> LinearLayout,

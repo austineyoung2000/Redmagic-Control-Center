@@ -530,20 +530,41 @@ internal object GameModeUi {
             orientation = LinearLayout.HORIZONTAL
         }
 
+        lateinit var logoSteadyBtn: Button
+        lateinit var logoBreatheBtn: Button
+        lateinit var logoFlashingBtn: Button
+
+        fun refreshLogoEffectButtons() {
+            GameModeActions.refreshLedEffectButtons(
+                selectedEffect = gmLogoLedEffect,
+                steadyBtn = logoSteadyBtn,
+                breatheBtn = logoBreatheBtn,
+                flashingBtn = logoFlashingBtn,
+                roundedFill = deps.roundedFill,
+                selectedColor = deps.panelPressed,
+                unselectedColor = Color.parseColor("#1E2633")
+            )
+        }
+
         fun logoBtn(label: String, value: String): Button {
             return deps.filterChip(label, gmLogoLedEffect == value) {
                 GameModeActions.updateLogoLedEffect(
                     value = value,
                     onEffectChanged = { newValue -> gmLogoLedEffect = newValue }
                 )
+                refreshLogoEffectButtons()
             }
         }
 
-        logoEffectRow.addView(logoBtn("Steady", "steady"))
+        logoSteadyBtn = logoBtn("Steady", "steady")
+        logoBreatheBtn = logoBtn("Breathe", "breathe")
+        logoFlashingBtn = logoBtn("Flashing", "flashing")
+
+        logoEffectRow.addView(logoSteadyBtn)
         logoEffectRow.addView(deps.space(deps.dp(8)))
-        logoEffectRow.addView(logoBtn("Breathe", "breathe"))
+        logoEffectRow.addView(logoBreatheBtn)
         logoEffectRow.addView(deps.space(deps.dp(8)))
-        logoEffectRow.addView(logoBtn("Flashing", "flashing"))
+        logoEffectRow.addView(logoFlashingBtn)
 
         lateinit var logoColorRow: LinearLayout
         lateinit var logoColorRow2: LinearLayout
@@ -716,6 +737,7 @@ internal object GameModeUi {
         refreshLedEffectButtons()
         refreshLedColorDots()
         refreshPresetBubbles()
+        refreshLogoEffectButtons()
         refreshLogoColorDots()
         refreshShoulderEffectButtons()
         refreshShoulderColorDots()

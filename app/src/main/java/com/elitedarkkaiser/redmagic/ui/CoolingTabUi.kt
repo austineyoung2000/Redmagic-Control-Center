@@ -20,9 +20,9 @@ object CoolingTabUi {
         val curveStatusText: TextView,
         val fanSeek: Slider,
         val autoCurveCheck: CheckBox,
-        val quietCardRef: LinearLayout,
-        val balancedCardRef: LinearLayout,
-        val turboCardRef: LinearLayout,
+        val quietCurveButton: Button,
+        val balancedCurveButton: Button,
+        val turboCurveButton: Button,
         val smartPumpStatusView: TextView,
         val smartPumpSpeedView: TextView
     )
@@ -92,12 +92,19 @@ object CoolingTabUi {
             deps.refreshStatus()
         }
 
-        val quietCardRef = LinearLayout(container.context)
-        val balancedCardRef = LinearLayout(container.context)
-        val turboCardRef = LinearLayout(container.context)
-
         val modeRow = LinearLayout(container.context).apply {
             orientation = LinearLayout.HORIZONTAL
+        }
+
+        lateinit var quietChip: Button
+        lateinit var balancedChip: Button
+        lateinit var turboChip: Button
+
+        fun refreshFanCurveButtons() {
+            val selectedCurve = deps.getSelectedCurve()
+            deps.updateSelectableButton(quietChip, selectedCurve == "quiet")
+            deps.updateSelectableButton(balancedChip, selectedCurve == "balanced")
+            deps.updateSelectableButton(turboChip, selectedCurve == "turbo")
         }
 
         fun applyFanCurve(
@@ -108,6 +115,7 @@ object CoolingTabUi {
 
             deps.setSelectedCurve(curve)
             deps.setSelectedCurveSaved(curve)
+            refreshFanCurveButtons()
             curveStatusText.text =
                 "Selected curve: $displayName • Applying…"
 
@@ -145,21 +153,21 @@ object CoolingTabUi {
             }
         }
 
-        val quietChip = deps.segmentedChip(
+        quietChip = deps.segmentedChip(
             "Quiet",
             deps.getSelectedCurve() == "quiet"
         ) {
             applyFanCurve("quiet", "Quiet")
         }
 
-        val balancedChip = deps.segmentedChip(
+        balancedChip = deps.segmentedChip(
             "Balanced",
             deps.getSelectedCurve() == "balanced"
         ) {
             applyFanCurve("balanced", "Balanced")
         }
 
-        val turboChip = deps.segmentedChip(
+        turboChip = deps.segmentedChip(
             "Turbo",
             deps.getSelectedCurve() == "turbo"
         ) {
@@ -377,26 +385,55 @@ object CoolingTabUi {
                 val chipParams = LinearLayout.LayoutParams(0, deps.dp(42), 1f)
                 val gapParams = LinearLayout.LayoutParams(deps.dp(6), 1)
 
-                val slowBtn = deps.segmentedChip("Slow", deps.getPumpProfile() == "slow") {
+                lateinit var slowBtn: Button
+                lateinit var mediumBtn: Button
+                lateinit var quickBtn: Button
+                lateinit var experimentalBtn: Button
+
+                fun refreshPumpProfileButtons() {
+                    val selectedProfile = deps.getPumpProfile()
+                    deps.updateSelectableButton(
+                        slowBtn,
+                        selectedProfile == "slow"
+                    )
+                    deps.updateSelectableButton(
+                        mediumBtn,
+                        selectedProfile == "medium"
+                    )
+                    deps.updateSelectableButton(
+                        quickBtn,
+                        selectedProfile == "quick"
+                    )
+                    deps.updateSelectableButton(
+                        experimentalBtn,
+                        selectedProfile == "experimental"
+                    )
+                }
+
+                slowBtn = deps.segmentedChip("Slow", deps.getPumpProfile() == "slow") {
                     deps.applyPumpProfile("slow")
+                    refreshPumpProfileButtons()
                     syncPumpSwitches()
                     refreshPumpDiagnostics()
                 }
 
-                val mediumBtn = deps.segmentedChip("Medium", deps.getPumpProfile() == "medium") {
+                mediumBtn = deps.segmentedChip("Medium", deps.getPumpProfile() == "medium") {
                     deps.applyPumpProfile("medium")
+                    refreshPumpProfileButtons()
                     syncPumpSwitches()
                     refreshPumpDiagnostics()
                 }
 
-                val quickBtn = deps.segmentedChip("Quick", deps.getPumpProfile() == "quick") {
+                quickBtn = deps.segmentedChip("Quick", deps.getPumpProfile() == "quick") {
                     deps.applyPumpProfile("quick")
+                    refreshPumpProfileButtons()
                     syncPumpSwitches()
                     refreshPumpDiagnostics()
                 }
 
-                val experimentalBtn = deps.segmentedChip("OC", deps.getPumpProfile() == "experimental") {
+                experimentalBtn = deps.segmentedChip("OC", deps.getPumpProfile() == "experimental") {
                     deps.confirmExperimentalPumpThenApply {
+                        refreshPumpProfileButtons()
                         syncPumpSwitches()
                         refreshPumpDiagnostics()
                     }
@@ -515,9 +552,9 @@ object CoolingTabUi {
                 curveStatusText = curveStatusText,
                 fanSeek = fanSeek,
                 autoCurveCheck = autoCurveCheck,
-                quietCardRef = quietCardRef,
-                balancedCardRef = balancedCardRef,
-                turboCardRef = turboCardRef,
+                quietCurveButton = quietChip,
+                balancedCurveButton = balancedChip,
+                turboCurveButton = turboChip,
                 smartPumpStatusView = smartPumpStatusView,
                 smartPumpSpeedView = smartPumpSpeedView
             )

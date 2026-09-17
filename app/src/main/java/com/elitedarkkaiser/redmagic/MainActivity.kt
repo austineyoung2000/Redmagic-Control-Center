@@ -45,9 +45,9 @@ class MainActivity : Activity() {
     private lateinit var fanSeek: Slider
     private lateinit var autoCurveCheck: CheckBox
 
-    private lateinit var quietCardRef: LinearLayout
-    private lateinit var balancedCardRef: LinearLayout
-    private lateinit var turboCardRef: LinearLayout
+    private lateinit var quietCurveButton: Button
+    private lateinit var balancedCurveButton: Button
+    private lateinit var turboCurveButton: Button
 
     private lateinit var deviceModelValue: TextView
     private lateinit var deviceRomValue: TextView
@@ -565,9 +565,9 @@ class MainActivity : Activity() {
         }
 
         when (selectedCurve) {
-            "quiet" -> setActiveMode(quietCardRef)
-            "turbo" -> setActiveMode(turboCardRef)
-            else -> setActiveMode(balancedCardRef)
+            "quiet" -> setActiveMode(quietCurveButton)
+            "turbo" -> setActiveMode(turboCurveButton)
+            else -> setActiveMode(balancedCurveButton)
         }
         updateManualCurveUiState()
     }
@@ -640,6 +640,9 @@ class MainActivity : Activity() {
                 subtleLabel = { text -> subtleLabel(text) },
                 bodyText = { text -> bodyText(text) },
                 segmentedChip = { label, selected, onClick -> segmentedChip(label, selected, onClick) },
+                updateSelectableButton = { button, selected ->
+                    updateSelectableButton(button, selected)
+                },
                 actionButton = { text, isDanger, onClick -> actionButton(text, isDanger, onClick) },
                 row = { left, right -> row(left, right) },
                 singleRow = { button -> singleRow(button) },
@@ -693,9 +696,9 @@ class MainActivity : Activity() {
         curveStatusText = refs.curveStatusText
         fanSeek = refs.fanSeek
         autoCurveCheck = refs.autoCurveCheck
-        quietCardRef = refs.quietCardRef
-        balancedCardRef = refs.balancedCardRef
-        turboCardRef = refs.turboCardRef
+        quietCurveButton = refs.quietCurveButton
+        balancedCurveButton = refs.balancedCurveButton
+        turboCurveButton = refs.turboCurveButton
         smartPumpStatusView = refs.smartPumpStatusView
         smartPumpSpeedView = refs.smartPumpSpeedView
     }
@@ -1801,17 +1804,17 @@ class MainActivity : Activity() {
     private fun updateManualCurveUiState() {
         val alpha = if (autoFanCurveEnabled) 0.40f else 1f
 
-        quietCardRef.alpha = alpha
-        balancedCardRef.alpha = alpha
-        turboCardRef.alpha = alpha
+        quietCurveButton.alpha = alpha
+        balancedCurveButton.alpha = alpha
+        turboCurveButton.alpha = alpha
 
-        quietCardRef.isEnabled = !autoFanCurveEnabled
-        balancedCardRef.isEnabled = !autoFanCurveEnabled
-        turboCardRef.isEnabled = !autoFanCurveEnabled
+        quietCurveButton.isEnabled = !autoFanCurveEnabled
+        balancedCurveButton.isEnabled = !autoFanCurveEnabled
+        turboCurveButton.isEnabled = !autoFanCurveEnabled
 
-        quietCardRef.isClickable = !autoFanCurveEnabled
-        balancedCardRef.isClickable = !autoFanCurveEnabled
-        turboCardRef.isClickable = !autoFanCurveEnabled
+        quietCurveButton.isClickable = !autoFanCurveEnabled
+        balancedCurveButton.isClickable = !autoFanCurveEnabled
+        turboCurveButton.isClickable = !autoFanCurveEnabled
     }
 
     private fun refreshStatus() {
@@ -2134,15 +2137,35 @@ class MainActivity : Activity() {
         view.setTextColor(textPrimary)
     }
 
-    private fun setActiveMode(active: LinearLayout) {
-        val normal = roundedBg(panelColor, borderColor, 18)
-        val selected = roundedBg(panelPressed, highlightBorder, 18)
+    private fun setActiveMode(active: Button) {
+        updateSelectableButton(
+            quietCurveButton,
+            active === quietCurveButton
+        )
+        updateSelectableButton(
+            balancedCurveButton,
+            active === balancedCurveButton
+        )
+        updateSelectableButton(
+            turboCurveButton,
+            active === turboCurveButton
+        )
+    }
 
-        quietCardRef.background = normal
-        balancedCardRef.background = normal
-        turboCardRef.background = normal
+    private fun updateSelectableButton(
+        button: Button,
+        selected: Boolean
+    ) {
+        button.isSelected = selected
 
-        active.background = selected
+        if (button is MaterialButton) {
+            button.backgroundTintList = ColorStateList.valueOf(
+                if (selected) panelPressed else Color.TRANSPARENT
+            )
+            button.strokeColor = ColorStateList.valueOf(
+                if (selected) highlightBorder else borderColor
+            )
+        }
     }
 
     private fun subtleLabel(text: String): TextView {
@@ -2168,14 +2191,7 @@ class MainActivity : Activity() {
             textSize = 12f
             isAllCaps = false
             setTextColor(textPrimary)
-
-            backgroundTintList = ColorStateList.valueOf(
-                if (selected) panelPressed else Color.TRANSPARENT
-            )
             strokeWidth = dp(1)
-            strokeColor = ColorStateList.valueOf(
-                if (selected) highlightBorder else borderColor
-            )
             rippleColor = ColorStateList.valueOf(Color.parseColor("#33445A"))
             cornerRadius = dp(20)
 
@@ -2183,6 +2199,7 @@ class MainActivity : Activity() {
             insetBottom = 0
             minHeight = dp(48)
             setPadding(dp(16), dp(10), dp(16), dp(10))
+            updateSelectableButton(this, selected)
             setOnClickListener { onClick() }
         }
     }
