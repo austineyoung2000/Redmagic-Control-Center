@@ -23,7 +23,8 @@ object RgbStudioDialog {
         val filterChip: (String, Boolean, () -> Unit) -> Button,
         val updateSelectableButton: (Button, Boolean) -> Unit,
         val onSaveAndApply: (RgbStudioState) -> Unit,
-        val onApplyToAll: (String, Int) -> Unit
+        val onApplyToAll: (String, Int) -> Unit,
+        val onStopService: () -> Unit
     )
 
     private data class ColorChoice(
@@ -89,6 +90,31 @@ object RgbStudioDialog {
             setTextColor(AppTheme.textPrimary)
         }
         content.addView(syncSwitch)
+
+        val stopServiceButton = deps.filterChip(
+            "Stop RGB service",
+            false
+        ) {
+            enabled = false
+            enabledSwitch.isChecked = false
+            deps.onStopService()
+
+            Toast.makeText(
+                activity,
+                "RGB service stopped",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        content.addView(
+            stopServiceButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                deps.dp(44)
+            ).apply {
+                topMargin = deps.dp(8)
+            }
+        )
 
         content.addView(label("Effect"))
         val effectRow = LinearLayout(activity).apply {

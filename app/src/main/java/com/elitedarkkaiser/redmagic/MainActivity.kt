@@ -1162,6 +1162,16 @@ class MainActivity : Activity() {
                                     HardwareServiceActions.startFanLed(this)
                                 }
                                 onUpdated()
+                            },
+                            onStopService = {
+                                RgbStudioStorage.setEnabled(
+                                    this,
+                                    false
+                                )
+                                HardwareServiceActions.stopRgbCycle(
+                                    this
+                                )
+                                onUpdated()
                             }
                         )
                     )

@@ -26,7 +26,11 @@ object HardwareController {
     private var cachedTemperatureAtMs = 0L
 
     @Synchronized
-    private fun execHardwareWrite(resource: String, command: String): Boolean {
+    private fun execHardwareWrite(
+        resource: String,
+        command: String,
+        rootSession: RootShell.Session? = null
+    ): Boolean {
         val now = android.os.SystemClock.elapsedRealtime()
         val previous = recentHardwareWrites[resource]
 
@@ -42,7 +46,8 @@ object HardwareController {
             return true
         }
 
-        val succeeded = RootShell.exec(command)
+        val succeeded =
+            rootSession?.exec(command) ?: RootShell.exec(command)
         if (succeeded) {
             DashboardSnapshot.invalidateHardwareCache()
             recentHardwareWrites[resource] = RecentHardwareWrite(
@@ -253,7 +258,8 @@ object HardwareController {
         effectName: String,
         logoColor: Int?,
         shoulderColor: Int?,
-        fanColor: Int?
+        fanColor: Int?,
+        rootSession: RootShell.Session? = null
     ): Boolean {
         if (
             logoColor == null &&
@@ -287,17 +293,27 @@ object HardwareController {
             }
         }
 
-        return execHardwareWrite("led_control", commands)
+        return execHardwareWrite(
+            "led_control",
+            commands,
+            rootSession
+        )
     }
 
-    fun turnOffAllLeds(): Boolean {
+    fun turnOffAllLeds(
+        rootSession: RootShell.Session? = null
+    ): Boolean {
         val cmd = buildString {
             for (z in 1..3) {
                 append("echo 0x${z}000000 > $LED_EFFECT; ")
                 append("echo 1 > $LED_CFG; ")
             }
         }
-        return execHardwareWrite("led_control", cmd)
+        return execHardwareWrite(
+            "led_control",
+            cmd,
+            rootSession
+        )
     }
 
     fun enableTriggers(): Boolean {
