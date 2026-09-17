@@ -122,11 +122,19 @@ internal object LogoLedDialogUi {
             dialogRefresh?.invoke()
         }
 
-        effectsRow.addView(steadyBtn)
+        val rapidBtn = deps.filterChip("Rapid", currentEffect() == "rapid") {
+            setEffect("rapid")
+            if (currentEnabled()) applyEffect(currentEffect(), currentColor())
+            dialogRefresh?.invoke()
+        }
+
+        effectsRow.addView(steadyBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         effectsRow.addView(deps.space(deps.dp(8)))
-        effectsRow.addView(breatheBtn)
+        effectsRow.addView(breatheBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         effectsRow.addView(deps.space(deps.dp(8)))
-        effectsRow.addView(flashingBtn)
+        effectsRow.addView(flashingBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
+        effectsRow.addView(deps.space(deps.dp(8)))
+        effectsRow.addView(rapidBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
 
         val colorLabel = TextView(activity).apply {
             text = "Color"
@@ -329,6 +337,10 @@ internal object LogoLedDialogUi {
             updateEffectButton(
                 flashingBtn,
                 currentEffect() == "flashing"
+            )
+            updateEffectButton(
+                rapidBtn,
+                currentEffect() == "rapid"
             )
         }
 

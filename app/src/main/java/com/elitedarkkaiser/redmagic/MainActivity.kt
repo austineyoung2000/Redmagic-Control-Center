@@ -543,6 +543,10 @@ class MainActivity : Activity() {
             HardwareServiceActions.startAutoPump(this)
         }
 
+        if (RgbStudioStorage.isEnabled(this)) {
+            HardwareServiceActions.startRgbCycle(this)
+        }
+
         if (readTriggerPrefsSnapshot(this).triggersAutoStart) {
             submitBackgroundTask {
                 HardwareServiceActions
@@ -1077,6 +1081,12 @@ class MainActivity : Activity() {
                 subtleLabel = { text -> subtleLabel(text) },
                 infoRow = { label, valueView -> infoRow(label, valueView) },
                 actionButton = { text, isDanger, onClick -> actionButton(text, isDanger, onClick) },
+                filterChip = { label, selected, onClick ->
+                    filterChip(label, selected, onClick)
+                },
+                updateSelectableButton = { button, selected ->
+                    updateSelectableButton(button, selected)
+                },
                 singleRow = { button -> singleRow(button) },
                 row = { left, right -> row(left, right) },
                 dp = { value -> dp(value) },
@@ -1088,6 +1098,74 @@ class MainActivity : Activity() {
                 showFanLedDialog = { showFanLedDialog() },
                 showLogoLedDialog = { showLogoLedDialog() },
                 showShoulderLedDialog = { showShoulderLedDialog() },
+                rgbStudioSummary = {
+                    RgbStudioStorage.summary(this)
+                },
+                showRgbStudioDialog = { onUpdated ->
+                    RgbStudioDialog.show(
+                        activity = this,
+                        initial = RgbStudioStorage.read(this),
+                        deps = RgbStudioDialog.Deps(
+                            dp = { value -> dp(value) },
+                            filterChip = { label, selected, onClick ->
+                                filterChip(label, selected, onClick)
+                            },
+                            updateSelectableButton = { button, selected ->
+                                updateSelectableButton(button, selected)
+                            },
+                            onSaveAndApply = { state ->
+                                RgbStudioStorage.save(this, state)
+                                if (state.enabled) {
+                                    HardwareServiceActions.startRgbCycle(this)
+                                } else {
+                                    HardwareServiceActions.stopRgbCycle(this)
+                                }
+                                onUpdated()
+                            },
+                            onApplyToAll = { effect, color ->
+                                RgbStudioStorage.setEnabled(this, false)
+                                HardwareServiceActions.stopRgbCycle(
+                                    this,
+                                    restoreNormalLeds = false
+                                )
+
+                                fanLedEnabled = true
+                                fanLedEffect = effect
+                                fanLedColor = color
+                                logoLedEnabled = true
+                                logoLedEffect = effect
+                                logoLedColor = color
+                                shoulderLedEnabled = true
+                                shoulderLedEffect = effect
+                                shoulderLedColor = color
+
+                                saveFanLedStateStorage(
+                                    this,
+                                    LedState(true, effect, color)
+                                )
+                                saveLogoLedStateStorage(
+                                    this,
+                                    LedState(true, effect, color)
+                                )
+                                saveShoulderLedStateStorage(
+                                    this,
+                                    LedState(true, effect, color)
+                                )
+
+                                submitBackgroundTask {
+                                    HardwareController.setRgbCycleFrame(
+                                        effectName = effect,
+                                        logoColor = color,
+                                        shoulderColor = color,
+                                        fanColor = color
+                                    )
+                                    HardwareServiceActions.startFanLed(this)
+                                }
+                                onUpdated()
+                            }
+                        )
+                    )
+                },
                 showGameModeAppPicker = { showGamePickerDialog() },
                 showGameModeProfileDialog = { showGameModeProfileDialog() },
                 gameModeAppsSummary = { gameModeAppsSummaryStorage(this) },
@@ -1360,8 +1438,12 @@ class MainActivity : Activity() {
             setEnabled = { value -> shoulderLedEnabled = value },
             setEffect = { value -> shoulderLedEffect = value },
             setColor = { value -> shoulderLedColor = value },
-            applyPreviewIfEnabled = { applyShoulderLedPreviewIfEnabled() },
+            applyPreviewIfEnabled = {
+                disableRgbStudioForManualLedControl()
+                applyShoulderLedPreviewIfEnabled()
+            },
             applyEffect = { effect, color ->
+                disableRgbStudioForManualLedControl()
                 submitBackgroundTask {
                     HardwareController.setShoulderLedEffect(
                         effect,
@@ -1370,6 +1452,7 @@ class MainActivity : Activity() {
                 }
             },
             disableLed = {
+                disableRgbStudioForManualLedControl()
                 submitBackgroundTask {
                     HardwareController.setShoulderLedEnabled(false)
                 }
@@ -1418,8 +1501,12 @@ class MainActivity : Activity() {
             setEnabled = { value -> logoLedEnabled = value },
             setEffect = { value -> logoLedEffect = value },
             setColor = { value -> logoLedColor = value },
-            applyPreviewIfEnabled = { applyLogoLedPreviewIfEnabled() },
+            applyPreviewIfEnabled = {
+                disableRgbStudioForManualLedControl()
+                applyLogoLedPreviewIfEnabled()
+            },
             applyEffect = { effect, color ->
+                disableRgbStudioForManualLedControl()
                 submitBackgroundTask {
                     HardwareController.setLogoLedEffect(
                         effect,
@@ -1428,6 +1515,7 @@ class MainActivity : Activity() {
                 }
             },
             disableLed = {
+                disableRgbStudioForManualLedControl()
                 submitBackgroundTask {
                     HardwareController.setLogoLedEnabled(false)
                 }
@@ -1476,11 +1564,16 @@ class MainActivity : Activity() {
             setEnabled = { value -> fanLedEnabled = value },
             setEffect = { value -> fanLedEffect = value },
             setColor = { value -> fanLedColor = value },
-            applyPreviewIfEnabled = { applyFanLedPreviewIfEnabled() },
+            applyPreviewIfEnabled = {
+                disableRgbStudioForManualLedControl()
+                applyFanLedPreviewIfEnabled()
+            },
             applySelection = { effect, color ->
+                disableRgbStudioForManualLedControl()
                 applyFanLedSelection(effect, color)
             },
             disableLed = {
+                disableRgbStudioForManualLedControl()
                 submitBackgroundTask {
                     HardwareController.setFanLedEnabled(false)
                 }
@@ -1518,6 +1611,16 @@ class MainActivity : Activity() {
                     fanPresetBubble(c1, c2, c3, c4, presetValue = presetValue, onClick = onClick)
                 }
             )
+        )
+    }
+
+    private fun disableRgbStudioForManualLedControl() {
+        if (!RgbStudioStorage.isEnabled(this)) return
+
+        RgbStudioStorage.setEnabled(this, false)
+        HardwareServiceActions.stopRgbCycle(
+            this,
+            restoreNormalLeds = false
         )
     }
 
@@ -2389,4 +2492,3 @@ class MainActivity : Activity() {
 
 
 }
-

@@ -187,6 +187,7 @@ internal object GameModeUi {
         lateinit var ledSteadyBtn: Button
         lateinit var ledBreatheBtn: Button
         lateinit var ledFlashingBtn: Button
+        lateinit var ledRapidBtn: Button
 
         fun refreshLedEffectButtons() {
             GameModeActions.refreshLedEffectButtons(
@@ -194,6 +195,7 @@ internal object GameModeUi {
                 steadyBtn = ledSteadyBtn,
                 breatheBtn = ledBreatheBtn,
                 flashingBtn = ledFlashingBtn,
+                rapidBtn = ledRapidBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
                 unselectedColor = Color.parseColor("#1E2633")
@@ -217,12 +219,15 @@ internal object GameModeUi {
         ledSteadyBtn = gmLedEffectBtn("Steady", "steady")
         ledBreatheBtn = gmLedEffectBtn("Breathe", "breathe")
         ledFlashingBtn = gmLedEffectBtn("Flashing", "flashing")
+        ledRapidBtn = gmLedEffectBtn("Rapid", "rapid")
 
-        ledEffectRow.addView(ledSteadyBtn)
+        ledEffectRow.addView(ledSteadyBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         ledEffectRow.addView(deps.space(deps.dp(8)))
-        ledEffectRow.addView(ledBreatheBtn)
+        ledEffectRow.addView(ledBreatheBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         ledEffectRow.addView(deps.space(deps.dp(8)))
-        ledEffectRow.addView(ledFlashingBtn)
+        ledEffectRow.addView(ledFlashingBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
+        ledEffectRow.addView(deps.space(deps.dp(8)))
+        ledEffectRow.addView(ledRapidBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
 
         val ledColorLabel = TextView(activity).apply {
             text = "Fan LED color"
@@ -533,6 +538,7 @@ internal object GameModeUi {
         lateinit var logoSteadyBtn: Button
         lateinit var logoBreatheBtn: Button
         lateinit var logoFlashingBtn: Button
+        lateinit var logoRapidBtn: Button
 
         fun refreshLogoEffectButtons() {
             GameModeActions.refreshLedEffectButtons(
@@ -540,6 +546,7 @@ internal object GameModeUi {
                 steadyBtn = logoSteadyBtn,
                 breatheBtn = logoBreatheBtn,
                 flashingBtn = logoFlashingBtn,
+                rapidBtn = logoRapidBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
                 unselectedColor = Color.parseColor("#1E2633")
@@ -559,12 +566,15 @@ internal object GameModeUi {
         logoSteadyBtn = logoBtn("Steady", "steady")
         logoBreatheBtn = logoBtn("Breathe", "breathe")
         logoFlashingBtn = logoBtn("Flashing", "flashing")
+        logoRapidBtn = logoBtn("Rapid", "rapid")
 
-        logoEffectRow.addView(logoSteadyBtn)
+        logoEffectRow.addView(logoSteadyBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         logoEffectRow.addView(deps.space(deps.dp(8)))
-        logoEffectRow.addView(logoBreatheBtn)
+        logoEffectRow.addView(logoBreatheBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         logoEffectRow.addView(deps.space(deps.dp(8)))
-        logoEffectRow.addView(logoFlashingBtn)
+        logoEffectRow.addView(logoFlashingBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
+        logoEffectRow.addView(deps.space(deps.dp(8)))
+        logoEffectRow.addView(logoRapidBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
 
         lateinit var logoColorRow: LinearLayout
         lateinit var logoColorRow2: LinearLayout
@@ -641,6 +651,7 @@ internal object GameModeUi {
         lateinit var shoulderSteadyBtn: Button
         lateinit var shoulderBreatheBtn: Button
         lateinit var shoulderFlashingBtn: Button
+        lateinit var shoulderRapidBtn: Button
 
         fun refreshShoulderEffectButtons() {
             GameModeActions.refreshShoulderEffectButtons(
@@ -648,6 +659,7 @@ internal object GameModeUi {
                 steadyBtn = shoulderSteadyBtn,
                 breatheBtn = shoulderBreatheBtn,
                 flashingBtn = shoulderFlashingBtn,
+                rapidBtn = shoulderRapidBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
                 unselectedColor = Color.parseColor("#1E2633")
@@ -671,11 +683,14 @@ internal object GameModeUi {
         shoulderSteadyBtn = gmShoulderEffectBtn("Steady", "steady")
         shoulderBreatheBtn = gmShoulderEffectBtn("Breathe", "breathe")
         shoulderFlashingBtn = gmShoulderEffectBtn("Flashing", "flashing")
-        shoulderEffectRow.addView(shoulderSteadyBtn)
+        shoulderRapidBtn = gmShoulderEffectBtn("Rapid", "rapid")
+        shoulderEffectRow.addView(shoulderSteadyBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         shoulderEffectRow.addView(deps.space(deps.dp(8)))
-        shoulderEffectRow.addView(shoulderBreatheBtn)
+        shoulderEffectRow.addView(shoulderBreatheBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         shoulderEffectRow.addView(deps.space(deps.dp(8)))
-        shoulderEffectRow.addView(shoulderFlashingBtn)
+        shoulderEffectRow.addView(shoulderFlashingBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
+        shoulderEffectRow.addView(deps.space(deps.dp(8)))
+        shoulderEffectRow.addView(shoulderRapidBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
 
         lateinit var shoulderColorRow: LinearLayout
         lateinit var shoulderColorRow2: LinearLayout

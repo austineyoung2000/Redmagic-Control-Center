@@ -15,6 +15,9 @@ class BootReceiver : BroadcastReceiver() {
         if (CallLightingState.isEnabled(context)) {
             HardwareServiceActions.startCallLighting(context)
         }
+        if (RgbStudioStorage.isEnabled(context)) {
+            HardwareServiceActions.startRgbCycle(context)
+        }
 
         if (readTriggerPrefsSnapshot(context).triggersAutoStart) {
             val pendingResult = goAsync()

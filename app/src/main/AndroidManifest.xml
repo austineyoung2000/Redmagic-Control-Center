@@ -67,6 +67,11 @@
             android:foregroundServiceType="dataSync" />
 
         <service
+            android:name=".RgbCycleService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
             android:name=".AutoPumpService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

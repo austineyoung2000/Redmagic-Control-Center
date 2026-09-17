@@ -25,6 +25,21 @@ object HardwareServiceActions {
         context.stopService(Intent(context, FanLedService::class.java))
     }
 
+    fun startRgbCycle(context: Context) {
+        stopFanLed(context)
+        startForegroundCapableService(
+            context,
+            Intent(context, RgbCycleService::class.java)
+        )
+    }
+
+    fun stopRgbCycle(context: Context, restoreNormalLeds: Boolean = true) {
+        context.stopService(Intent(context, RgbCycleService::class.java))
+        if (restoreNormalLeds) {
+            startFanLed(context)
+        }
+    }
+
     fun startAutoPump(context: Context) {
         startForegroundCapableService(context, Intent(context, AutoPumpService::class.java))
     }

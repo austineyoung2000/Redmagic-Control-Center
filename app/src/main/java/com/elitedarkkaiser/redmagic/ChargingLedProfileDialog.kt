@@ -130,6 +130,7 @@ internal object ChargingLedProfileDialog {
         lateinit var steadyBtn: Button
         lateinit var breatheBtn: Button
         lateinit var flashingBtn: Button
+        lateinit var rapidBtn: Button
         lateinit var colorRow: LinearLayout
         lateinit var colorRow2: LinearLayout
         var colorRowsReady = false
@@ -180,6 +181,10 @@ internal object ChargingLedProfileDialog {
                 flashingBtn,
                 effect == "flashing"
             )
+            updateEffectButton(
+                rapidBtn,
+                effect == "rapid"
+            )
 
             if (colorRowsReady) {
                 colorRow.getChildAt(0).background = deps.colorDotDrawable("#FF0000", color == 1)
@@ -210,12 +215,18 @@ internal object ChargingLedProfileDialog {
             effect = "flashing"
             refreshButtons()
         }
+        rapidBtn = chip("Rapid", effect == "rapid") {
+            effect = "rapid"
+            refreshButtons()
+        }
 
         effectRow.addView(steadyBtn, LinearLayout.LayoutParams(0, deps.dp(48), 1f))
         effectRow.addView(deps.space(deps.dp(6)))
         effectRow.addView(breatheBtn, LinearLayout.LayoutParams(0, deps.dp(48), 1f))
         effectRow.addView(deps.space(deps.dp(6)))
         effectRow.addView(flashingBtn, LinearLayout.LayoutParams(0, deps.dp(48), 1f))
+        effectRow.addView(deps.space(deps.dp(6)))
+        effectRow.addView(rapidBtn, LinearLayout.LayoutParams(0, deps.dp(48), 1f))
 
         colorRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL

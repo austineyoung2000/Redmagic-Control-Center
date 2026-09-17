@@ -1,0 +1,280 @@
+package com.elitedarkkaiser.redmagic
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.IBinder
+import android.os.SystemClock
+
+class RgbCycleService : Service() {
+    companion object {
+        private const val CHANNEL_ID = "rgb_cycle_service_channel"
+        private const val NOTIFICATION_ID = 1105
+        private const val OWNER_RECHECK_MS = 750L
+    }
+
+    private lateinit var workerThread: HandlerThread
+    private lateinit var handler: Handler
+
+    private var state = RgbStudioState()
+    private var colorIndexLogo = 0
+    private var colorIndexShoulder = 0
+    private var colorIndexFan = 0
+    private var nextLogoAt = 0L
+    private var nextShoulderAt = 0L
+    private var nextFanAt = 0L
+    private var screenOffAt: Long? = null
+    private var ledsOffForTimeout = false
+
+    private val cycleRunnable = object : Runnable {
+        override fun run() {
+            runCycleTick()
+        }
+    }
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    screenOffAt = SystemClock.elapsedRealtime()
+                    scheduleNext(0L)
+                }
+                Intent.ACTION_SCREEN_ON,
+                Intent.ACTION_USER_PRESENT -> {
+                    screenOffAt = null
+                    ledsOffForTimeout = false
+                    resetDeadlines()
+                    scheduleNext(0L)
+                }
+            }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        startForeground(
+            NOTIFICATION_ID,
+            buildNotification("RGB Studio starting")
+        )
+
+        workerThread = HandlerThread(
+            "RedMagicRgbCycle",
+            android.os.Process.THREAD_PRIORITY_BACKGROUND
+        ).apply { start() }
+        handler = Handler(workerThread.looper)
+
+        registerReceiver(
+            screenReceiver,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+        )
+
+        if (!LedScreenPolicy.isScreenInteractive(this)) {
+            screenOffAt = SystemClock.elapsedRealtime()
+        }
+    }
+
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int
+    ): Int {
+        state = RgbStudioStorage.read(this)
+        if (!state.enabled) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        normalizeIndexes()
+        resetDeadlines()
+        updateNotification()
+        scheduleNext(0L)
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(screenReceiver) }
+        if (::handler.isInitialized) {
+            handler.removeCallbacksAndMessages(null)
+        }
+        if (::workerThread.isInitialized) {
+            workerThread.quitSafely()
+        }
+        super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun runCycleTick() {
+        state = RgbStudioStorage.read(this)
+        if (!state.enabled) {
+            stopSelf()
+            return
+        }
+
+        if (LedOwnership.current(this) != LedOwner.RGB_CYCLE) {
+            scheduleNext(OWNER_RECHECK_MS)
+            return
+        }
+
+        if (shouldPauseForScreenTimeout()) {
+            if (!ledsOffForTimeout) {
+                HardwareController.turnOffAllLeds()
+                ledsOffForTimeout = true
+            }
+            scheduleNext(OWNER_RECHECK_MS)
+            return
+        }
+
+        if (ledsOffForTimeout) {
+            ledsOffForTimeout = false
+            resetDeadlines()
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        if (state.syncZones) {
+            if (now >= nextLogoAt) {
+                val color = nextColor(colorIndexLogo)
+                HardwareController.setRgbCycleFrame(
+                    effectName = state.effect,
+                    logoColor = color,
+                    shoulderColor = color,
+                    fanColor = color
+                )
+                colorIndexLogo = advanceIndex(colorIndexLogo)
+                colorIndexShoulder = colorIndexLogo
+                colorIndexFan = colorIndexLogo
+                nextLogoAt = now + state.logoSpeedMs
+                nextShoulderAt = nextLogoAt
+                nextFanAt = nextLogoAt
+            }
+        } else {
+            var logoColor: Int? = null
+            var shoulderColor: Int? = null
+            var fanColor: Int? = null
+
+            if (now >= nextLogoAt) {
+                logoColor = nextColor(colorIndexLogo)
+                colorIndexLogo = advanceIndex(colorIndexLogo)
+                nextLogoAt = now + state.logoSpeedMs
+            }
+            if (now >= nextShoulderAt) {
+                shoulderColor = nextColor(colorIndexShoulder)
+                colorIndexShoulder = advanceIndex(colorIndexShoulder)
+                nextShoulderAt = now + state.shoulderSpeedMs
+            }
+            if (now >= nextFanAt) {
+                fanColor = nextColor(colorIndexFan)
+                colorIndexFan = advanceIndex(colorIndexFan)
+                nextFanAt = now + state.fanSpeedMs
+            }
+
+            if (
+                logoColor != null ||
+                shoulderColor != null ||
+                fanColor != null
+            ) {
+                HardwareController.setRgbCycleFrame(
+                    effectName = state.effect,
+                    logoColor = logoColor,
+                    shoulderColor = shoulderColor,
+                    fanColor = fanColor
+                )
+            }
+        }
+
+        val nextAt = minOf(nextLogoAt, nextShoulderAt, nextFanAt)
+        scheduleNext((nextAt - SystemClock.elapsedRealtime()).coerceAtLeast(100L))
+    }
+
+    private fun shouldPauseForScreenTimeout(): Boolean {
+        if (LedScreenPolicy.isScreenInteractive(this)) {
+            screenOffAt = null
+            return false
+        }
+
+        val offAt = screenOffAt ?: SystemClock.elapsedRealtime().also {
+            screenOffAt = it
+        }
+        val timeoutMs = state.screenOffTimeoutMinutes * 60_000L
+        return SystemClock.elapsedRealtime() - offAt >= timeoutMs
+    }
+
+    private fun resetDeadlines() {
+        val now = SystemClock.elapsedRealtime()
+        nextLogoAt = now
+        nextShoulderAt = now
+        nextFanAt = now
+    }
+
+    private fun normalizeIndexes() {
+        val size = state.colors.size.coerceAtLeast(1)
+        colorIndexLogo %= size
+        colorIndexShoulder %= size
+        colorIndexFan %= size
+    }
+
+    private fun nextColor(index: Int): Int {
+        return state.colors[index.coerceIn(0, state.colors.lastIndex)]
+    }
+
+    private fun advanceIndex(index: Int): Int {
+        return (index + 1) % state.colors.size
+    }
+
+    private fun scheduleNext(delayMs: Long) {
+        if (!::handler.isInitialized) return
+        handler.removeCallbacks(cycleRunnable)
+        handler.postDelayed(cycleRunnable, delayMs)
+    }
+
+    private fun updateNotification() {
+        val mode = if (state.syncZones) "synchronized" else "per-zone"
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(
+            NOTIFICATION_ID,
+            buildNotification("RGB cycle active • $mode")
+        )
+    }
+
+    private fun buildNotification(text: String): Notification {
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, CHANNEL_ID)
+        } else {
+            Notification.Builder(this)
+        }
+
+        return builder
+            .setContentTitle("RedMagic RGB Studio")
+            .setContentText(text)
+            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setOngoing(true)
+            .build()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "RGB Studio",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Runs synchronized and per-zone RGB color cycles"
+        }
+        getSystemService(NotificationManager::class.java)
+            .createNotificationChannel(channel)
+    }
+}

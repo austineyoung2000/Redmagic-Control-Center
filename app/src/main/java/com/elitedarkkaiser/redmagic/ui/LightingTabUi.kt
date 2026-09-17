@@ -54,6 +54,18 @@ object LightingTabUi {
             ))
         }
 
+        val rgbStudioStatus = deps.subtleLabel(deps.rgbStudioSummary())
+        val rgbStudioCard = deps.sectionPanel().apply {
+            addView(deps.sectionHeader("◈", "RGB STUDIO"))
+            addView(deps.bodyText("Synchronize all LED zones or build a selectable color cycle with independent zone speeds."))
+            addView(deps.infoRow("Cycle", rgbStudioStatus))
+            addView(deps.singleRow(deps.actionButton("OPEN RGB STUDIO", false) {
+                deps.showRgbStudioDialog {
+                    rgbStudioStatus.text = deps.rgbStudioSummary()
+                }
+            }))
+        }
+
         val gameModeCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("🎮", "GAME MODE"))
             addView(deps.bodyText("Pick apps and configure a full hardware profile to apply while a game is active."))
@@ -99,6 +111,7 @@ object LightingTabUi {
 
         container.addView(previewCard)
         container.addView(zonesCard)
+        container.addView(rgbStudioCard)
         val callLightingCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("☎", "CALL LIGHTING"))
             addView(deps.bodyText("Applies only during incoming calls and connected calls. Priority: Charging Mode > Call Lighting > Game Mode > Normal LEDs."))

@@ -194,6 +194,7 @@ internal object CallLightingProfileUi {
         lateinit var steadyBtn: Button
         lateinit var breatheBtn: Button
         lateinit var flashingBtn: Button
+        lateinit var rapidBtn: Button
         lateinit var row1: LinearLayout
         lateinit var row2: LinearLayout
         lateinit var presetRow1: LinearLayout
@@ -248,6 +249,10 @@ internal object CallLightingProfileUi {
             updateEffectButton(
                 flashingBtn,
                 effect == "flashing"
+            )
+            updateEffectButton(
+                rapidBtn,
+                effect == "rapid"
             )
         }
 
@@ -320,11 +325,14 @@ internal object CallLightingProfileUi {
         steadyBtn = effectButton("Steady", "steady")
         breatheBtn = effectButton("Breathe", "breathe")
         flashingBtn = effectButton("Flashing", "flashing")
-        effectRow.addView(steadyBtn)
+        rapidBtn = effectButton("Rapid", "rapid")
+        effectRow.addView(steadyBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         effectRow.addView(deps.space(deps.dp(8)))
-        effectRow.addView(breatheBtn)
+        effectRow.addView(breatheBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
         effectRow.addView(deps.space(deps.dp(8)))
-        effectRow.addView(flashingBtn)
+        effectRow.addView(flashingBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
+        effectRow.addView(deps.space(deps.dp(8)))
+        effectRow.addView(rapidBtn, LinearLayout.LayoutParams(0, deps.dp(44), 1f))
 
         row1 = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL

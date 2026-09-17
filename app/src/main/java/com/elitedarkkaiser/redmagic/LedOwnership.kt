@@ -7,7 +7,8 @@ enum class LedOwner {
     NORMAL,
     GAME_MODE,
     CALL,
-    CHARGING
+    CHARGING,
+    RGB_CYCLE
 }
 
 object LedOwnership {
@@ -16,6 +17,7 @@ object LedOwnership {
             ChargingLedState.isActive(context) -> LedOwner.CHARGING
             CallLightingState.isActive(context) -> LedOwner.CALL
             isGameModeLedOverrideActiveStorage(context) -> LedOwner.GAME_MODE
+            RgbStudioStorage.isEnabled(context) -> LedOwner.RGB_CYCLE
             else -> LedOwner.NORMAL
         }
     }

@@ -166,6 +166,7 @@ internal object GameModeActions {
         steadyBtn: Button,
         breatheBtn: Button,
         flashingBtn: Button,
+        rapidBtn: Button,
         roundedFill: (Int, Int) -> Drawable,
         selectedColor: Int,
         unselectedColor: Int
@@ -187,6 +188,13 @@ internal object GameModeActions {
         updateSelectableButton(
             flashingBtn,
             selectedEffect == "flashing",
+            roundedFill,
+            selectedColor,
+            unselectedColor
+        )
+        updateSelectableButton(
+            rapidBtn,
+            selectedEffect == "rapid",
             roundedFill,
             selectedColor,
             unselectedColor
@@ -254,6 +262,7 @@ internal object GameModeActions {
         steadyBtn: Button,
         breatheBtn: Button,
         flashingBtn: Button,
+        rapidBtn: Button,
         roundedFill: (Int, Int) -> Drawable,
         selectedColor: Int,
         unselectedColor: Int
@@ -275,6 +284,13 @@ internal object GameModeActions {
         updateSelectableButton(
             flashingBtn,
             selectedEffect == "flashing",
+            roundedFill,
+            selectedColor,
+            unselectedColor
+        )
+        updateSelectableButton(
+            rapidBtn,
+            selectedEffect == "rapid",
             roundedFill,
             selectedColor,
             unselectedColor

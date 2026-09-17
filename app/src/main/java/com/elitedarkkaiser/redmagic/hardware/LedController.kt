@@ -8,6 +8,7 @@ object LedController {
     const val EFFECT_STEADY = "steady"
     const val EFFECT_BREATHE = "breathe"
     const val EFFECT_FLASHING = "flashing"
+    const val EFFECT_RAPID = "rapid"
 
     fun setFanEnabled(enabled: Boolean): Boolean {
         return HardwareController.setFanLedEnabled(enabled)
@@ -76,6 +77,7 @@ object LedController {
         return when (effect.lowercase()) {
             EFFECT_BREATHE -> EFFECT_BREATHE
             EFFECT_FLASHING -> EFFECT_FLASHING
+            EFFECT_RAPID -> EFFECT_RAPID
             else -> EFFECT_STEADY
         }
     }
