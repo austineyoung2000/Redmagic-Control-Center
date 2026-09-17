@@ -69,7 +69,9 @@ class AutoPumpService : Service() {
 
         if (!HardwareScreenPolicy.isScreenInteractive(this@AutoPumpService)) {
             if (HardwareScreenPolicy.coolingShouldStopWhileScreenOff(tempF)) {
-                HardwareController.enablePump(false)
+                if (lastProfile != "off") {
+                    HardwareController.enablePump(false)
+                }
                 lastProfile = "off"
                 return tempF
             }
@@ -82,7 +84,10 @@ class AutoPumpService : Service() {
         }
 
         if (profile != lastProfile) {
-            if (HardwareScreenPolicy.blockCoolingWhileScreenOffUnlessHot(this@AutoPumpService, "auto-pump-screen-off")) return tempF
+            if (HardwareScreenPolicy.blockCoolingWhileScreenOffUnlessHot(this@AutoPumpService, "auto-pump-screen-off")) {
+                lastProfile = "off"
+                return tempF
+            }
             HardwareController.setPumpProfile(profile)
             lastProfile = profile
 

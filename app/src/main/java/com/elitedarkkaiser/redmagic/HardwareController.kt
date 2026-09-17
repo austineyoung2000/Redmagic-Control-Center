@@ -40,7 +40,12 @@ object HardwareController {
         val succeeded =
             rootSession?.exec(command) ?: RootShell.exec(command)
         if (succeeded) {
-            DashboardSnapshot.invalidateHardwareCache()
+            if (
+                resource == "fan_control" ||
+                resource == "pump_control"
+            ) {
+                DashboardSnapshot.invalidateHardwareCache()
+            }
             recentHardwareWrites[resource] = RecentHardwareWrite(
                 command = command,
                 completedAtMs = android.os.SystemClock.elapsedRealtime()
@@ -74,7 +79,7 @@ object HardwareController {
     }
 
     fun isFanEnabled(): Boolean {
-        return RootShell.execForOutput("cat $FAN_ENABLE")?.trim() == "1"
+        return HardwareTelemetry.read().fanEnabled == true
     }
 
     fun setFanLevel(level: Int): Boolean {
@@ -98,11 +103,11 @@ object HardwareController {
     }
 
     fun readFanRpm(): Int? {
-        return RootShell.execForOutput("cat $FAN_RPM")?.trim()?.toIntOrNull()
+        return HardwareTelemetry.read().fanRpm
     }
 
     fun readFanLevel(): Int? {
-        return RootShell.execForOutput("cat $FAN_LEVEL")?.trim()?.toIntOrNull()?.coerceIn(0, 5)
+        return HardwareTelemetry.read().fanLevel
     }
 
     fun enablePump(enabled: Boolean): Boolean {
@@ -121,9 +126,14 @@ object HardwareController {
         return execHardwareWrite("pump_control", cmd)
     }
 
-    fun readPumpEnabled(): String? = RootShell.execForOutput("cat $PUMP_ENABLE")
-    fun readPumpFreq(): String? = RootShell.execForOutput("cat $PUMP_FREQ")
-    fun readPumpSpeed(): String? = RootShell.execForOutput("cat $PUMP_SPEED")
+    fun readPumpEnabled(): String? =
+        HardwareTelemetry.read().pumpEnabled
+
+    fun readPumpFreq(): String? =
+        HardwareTelemetry.read().pumpFreq
+
+    fun readPumpSpeed(): String? =
+        HardwareTelemetry.read().pumpSpeed
 
     fun setFanLedEnabled(enabled: Boolean): Boolean {
         return if (enabled) {
@@ -307,8 +317,14 @@ object HardwareController {
         )
     }
 
-    fun enableTriggers(): Boolean {
-        return execHardwareWrite("trigger_control", "echo 1 > $SAR0_MODE; echo 1 > $SAR1_MODE")
+    fun enableTriggers(
+        rootSession: RootShell.Session? = null
+    ): Boolean {
+        return execHardwareWrite(
+            "trigger_control",
+            "echo 1 > $SAR0_MODE; echo 1 > $SAR1_MODE",
+            rootSession
+        )
     }
 
     fun disableTriggers(): Boolean {
@@ -349,64 +365,23 @@ object HardwareController {
         return RootShell.execForOutput("settings get global zte_keypad_slide_on_or_off")?.trim()
     }
 
-    fun vibrate(durationMs: Int, gain: Int): Boolean {
+    fun vibrate(
+        durationMs: Int,
+        gain: Int,
+        rootSession: RootShell.Session? = null
+    ): Boolean {
         val d = durationMs.coerceIn(1, 5000)
         val g = gain.coerceIn(0, 255)
-        val cmd = "echo $d > $HAPTIC_DURATION; echo $g > $HAPTIC_GAIN; echo 1 > $HAPTIC_ACTIVATE"
-        return RootShell.exec(cmd)
+        val cmd =
+            "echo $d > $HAPTIC_DURATION; " +
+                "echo $g > $HAPTIC_GAIN; " +
+                "echo 1 > $HAPTIC_ACTIVATE"
+
+        return rootSession?.exec(cmd) ?: RootShell.exec(cmd)
     }
 
     fun readTemperatureC(): Float? {
-        return synchronized(temperatureReadLock) {
-            val now = android.os.SystemClock.elapsedRealtime()
-            val cached = cachedTemperatureC
-
-            if (
-                cached != null &&
-                (now - cachedTemperatureAtMs) < TEMPERATURE_CACHE_MS
-            ) {
-                return@synchronized cached
-            }
-
-            val candidates = listOf(
-                "/sys/class/thermal/thermal_zone0/temp",
-                "/sys/class/thermal/thermal_zone1/temp",
-                "/sys/class/thermal/thermal_zone2/temp",
-                "/sys/class/thermal/thermal_zone3/temp",
-                "/sys/devices/virtual/thermal/thermal_zone0/temp",
-                "/sys/devices/virtual/thermal/thermal_zone1/temp",
-                "/sys/devices/virtual/thermal/thermal_zone2/temp",
-                "/sys/devices/virtual/thermal/thermal_zone3/temp"
-            )
-
-            val command = buildString {
-                for (path in candidates) {
-                    append("if [ -r '$path' ]; then cat '$path'; fi; ")
-                }
-                append("exit 0")
-            }
-
-            val output = RootShell.execForOutput(command)
-                ?: return@synchronized null
-
-            val temperature = output.lineSequence()
-                .mapNotNull { it.trim().toFloatOrNull() }
-                .mapNotNull { raw ->
-                    when {
-                        raw > 1000f && raw < 200000f -> raw / 1000f
-                        raw > 0f && raw < 200f -> raw
-                        else -> null
-                    }
-                }
-                .firstOrNull()
-                ?: return@synchronized null
-
-            cachedTemperatureC = temperature
-            cachedTemperatureAtMs =
-                android.os.SystemClock.elapsedRealtime()
-
-            temperature
-        }
+        return HardwareTelemetry.readTemperatureC()
     }
 
     fun readTemperatureF(): Float? {

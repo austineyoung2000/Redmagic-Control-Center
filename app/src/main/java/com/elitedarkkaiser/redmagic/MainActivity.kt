@@ -144,6 +144,21 @@ class MainActivity : Activity() {
         }
     }
 
+    private var mainUiReady = false
+
+    private val initialStatusRefreshRunnable = Runnable {
+        if (
+            !mainUiReady ||
+            isFinishing ||
+            isDestroyed
+        ) {
+            return@Runnable
+        }
+
+        refreshStatus()
+        startStatusRefreshLoop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -197,11 +212,43 @@ class MainActivity : Activity() {
 
     private fun startStatusRefreshLoop() {
         statusRefreshHandler.removeCallbacks(statusRefreshRunnable)
-        statusRefreshHandler.postDelayed(statusRefreshRunnable, 15000L)
+        statusRefreshHandler.postDelayed(
+            statusRefreshRunnable,
+            15_000L
+        )
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        if (mainUiReady) {
+            statusRefreshHandler.removeCallbacks(
+                initialStatusRefreshRunnable
+            )
+            statusRefreshHandler.post(
+                initialStatusRefreshRunnable
+            )
+        }
+    }
+
+    override fun onStop() {
+        statusRefreshHandler.removeCallbacks(
+            initialStatusRefreshRunnable
+        )
+        statusRefreshHandler.removeCallbacks(
+            statusRefreshRunnable
+        )
+        statusRefreshPending.set(false)
+        super.onStop()
     }
 
     override fun onDestroy() {
-        statusRefreshHandler.removeCallbacks(statusRefreshRunnable)
+        statusRefreshHandler.removeCallbacks(
+            statusRefreshRunnable
+        )
+        statusRefreshHandler.removeCallbacks(
+            initialStatusRefreshRunnable
+        )
         statusRefreshPending.set(false)
         statusRefreshExecutor.shutdownNow()
         super.onDestroy()
@@ -556,10 +603,11 @@ class MainActivity : Activity() {
         }
 
         switchTab("home")
-        statusRefreshHandler.postDelayed({
-            refreshStatus()
-            startStatusRefreshLoop()
-        }, 2500L)
+        mainUiReady = true
+        statusRefreshHandler.postDelayed(
+            initialStatusRefreshRunnable,
+            2_500L
+        )
         // Do not start background services just because the UI opened.
         // Game Mode starts from selected-app foreground events.
         // Charging Mode starts from boot, plug state, or explicit toggle.
@@ -1971,9 +2019,11 @@ class MainActivity : Activity() {
     private fun refreshStatusOnce() {
         val rooted =
             hasCachedRootAccessStorage(this) || RootShell.hasRoot()
-        val fanEnabled = HardwareController.isFanEnabled()
-        val rpmRaw = HardwareController.readFanRpm()
-        val tempF = HardwareController.readTemperatureF()
+
+        val telemetry = HardwareTelemetry.read()
+        val fanEnabled = telemetry.fanEnabled == true
+        val rpmRaw = telemetry.fanRpm
+        val tempF = telemetry.temperatureF
 
         val cachedDeviceInfo = loadDeviceInfoCacheStorage(this)
         val deviceInfo = cachedDeviceInfo ?: DeviceInfoCache(

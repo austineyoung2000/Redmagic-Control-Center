@@ -23,6 +23,7 @@ class TriggerRootService : Service() {
     private val readerProcesses = ConcurrentHashMap<String, Process>()
 
     private var initializationThread: Thread? = null
+    private var actionRootSession: RootShell.Session? = null
 
     private var rightUnlockArmedAt = 0L
     private var rightUnlockTapCount = 0
@@ -41,7 +42,8 @@ class TriggerRootService : Service() {
         android.util.Log.d("TRIGGER", "TriggerRootService onCreate")
 
         initializationThread = Thread({
-            HardwareController.enableTriggers()
+            val session = activeActionRootSession()
+            HardwareController.enableTriggers(session)
 
             val leftDevice =
                 findTriggerEvent("nubia_tgk_aw_sar0_ch0")
@@ -109,7 +111,11 @@ class TriggerRootService : Service() {
     private fun runRoot(command: String) {
         android.util.Log.d("TRIGGER", "runRoot=$command")
 
-        if (!RootShell.exec(command)) {
+        val session = activeActionRootSession()
+        val succeeded =
+            session?.exec(command) ?: RootShell.exec(command)
+
+        if (!succeeded) {
             android.util.Log.e(
                 "TRIGGER",
                 "root action failed"
@@ -120,7 +126,11 @@ class TriggerRootService : Service() {
     private fun hapticTap() {
         if (!hapticsEnabled()) return
         try {
-            HardwareController.vibrate(durationMs = 20, gain = 180)
+            HardwareController.vibrate(
+                durationMs = 20,
+                gain = 180,
+                rootSession = activeActionRootSession()
+            )
         } catch (t: Throwable) {
             android.util.Log.e("TRIGGER", "hapticTap failed: " + t)
         }
@@ -129,7 +139,11 @@ class TriggerRootService : Service() {
     private fun hapticUnlock() {
         if (!hapticsEnabled()) return
         try {
-            HardwareController.vibrate(durationMs = 40, gain = 255)
+            HardwareController.vibrate(
+                durationMs = 40,
+                gain = 255,
+                rootSession = activeActionRootSession()
+            )
         } catch (t: Throwable) {
             android.util.Log.e("TRIGGER", "hapticUnlock failed: " + t)
         }
@@ -138,7 +152,11 @@ class TriggerRootService : Service() {
     private fun hapticHoldStart() {
         if (!hapticsEnabled()) return
         try {
-            HardwareController.vibrate(durationMs = 35, gain = 255)
+            HardwareController.vibrate(
+                durationMs = 35,
+                gain = 255,
+                rootSession = activeActionRootSession()
+            )
         } catch (t: Throwable) {
             android.util.Log.e("TRIGGER", "hapticHoldStart failed: " + t)
         }
@@ -374,6 +392,27 @@ class TriggerRootService : Service() {
     }
 
 
+    @Synchronized
+    private fun activeActionRootSession(): RootShell.Session? {
+        val current = actionRootSession
+
+        if (current?.isAlive == true) {
+            return current
+        }
+
+        current?.close()
+
+        return RootShell.openSession().also {
+            actionRootSession = it
+        }
+    }
+
+    @Synchronized
+    private fun closeActionRootSession() {
+        actionRootSession?.close()
+        actionRootSession = null
+    }
+
     private fun startReader(device: String, prefKey: String) {
         val thread = Thread({
             var process: Process? = null
@@ -473,6 +512,7 @@ class TriggerRootService : Service() {
 
         readerProcesses.clear()
         readerThreads.clear()
+        closeActionRootSession()
 
         android.util.Log.d(
             "TRIGGER",

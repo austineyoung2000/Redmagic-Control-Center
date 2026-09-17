@@ -1,95 +1,50 @@
 package com.elitedarkkaiser.redmagic
 
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
-import android.app.usage.UsageStatsManager
 
 object DashboardSnapshot {
 
-    private const val HARDWARE_CACHE_MS = 2_000L
-
-    private val hardwareReadLock = Any()
-
-    private val hardwarePaths = listOf(
-        "/sys/kernel/fan/fan_enable",
-        "/sys/kernel/fan/fan_speed_level",
-        "/sys/kernel/fan/fan_speed_count",
-        "/proc/driver/micropump/enable",
-        "/proc/driver/micropump/freq",
-        "/proc/driver/micropump/speed"
-    )
-
-    private data class HardwareSnapshot(
-        val fanEnabled: String,
-        val fanLevel: String,
-        val fanRpm: String,
-        val pumpEnabled: String,
-        val pumpFreq: String,
-        val pumpSpeed: String
-    )
-
-    private var cachedHardwareSnapshot: HardwareSnapshot? = null
-    private var cachedHardwareAtMs = 0L
-
     fun invalidateHardwareCache() {
-        synchronized(hardwareReadLock) {
-            cachedHardwareSnapshot = null
-            cachedHardwareAtMs = 0L
-        }
+        HardwareTelemetry.invalidateHardwareCache()
     }
 
-    private fun readHardwareSnapshot(): HardwareSnapshot {
-        return synchronized(hardwareReadLock) {
-            val now =
-                android.os.SystemClock.elapsedRealtime()
-            val cached = cachedHardwareSnapshot
-
-            if (
-                cached != null &&
-                (now - cachedHardwareAtMs) < HARDWARE_CACHE_MS
-            ) {
-                return@synchronized cached
-            }
-
-            val values = readHardwareValues(hardwarePaths)
-            val fresh = HardwareSnapshot(
-                fanEnabled = values[0],
-                fanLevel = values[1],
-                fanRpm = values[2],
-                pumpEnabled = values[3],
-                pumpFreq = values[4],
-                pumpSpeed = values[5]
-            )
-
-            cachedHardwareSnapshot = fresh
-            cachedHardwareAtMs =
-                android.os.SystemClock.elapsedRealtime()
-
-            fresh
-        }
+    fun readFanEnabled(): String {
+        return HardwareTelemetry.read().fanEnabled?.let {
+            if (it) "1" else "0"
+        } ?: "?"
     }
 
-    fun readFanEnabled(): String =
-        readHardwareSnapshot().fanEnabled
+    fun readFanRpm(): String {
+        return HardwareTelemetry.read()
+            .fanRpm
+            ?.toString()
+            ?: "?"
+    }
 
-    fun readFanRpm(): String =
-        readHardwareSnapshot().fanRpm
+    fun readFanLevel(): String {
+        return HardwareTelemetry.read()
+            .fanLevel
+            ?.toString()
+            ?: "?"
+    }
 
-    fun readFanLevel(): String =
-        readHardwareSnapshot().fanLevel
+    fun readPumpEnabled(): String {
+        return HardwareTelemetry.read().pumpEnabled ?: "?"
+    }
 
-    fun readPumpEnabled(): String =
-        readHardwareSnapshot().pumpEnabled
+    fun readPumpFreq(): String {
+        return HardwareTelemetry.read().pumpFreq ?: "?"
+    }
 
-    fun readPumpFreq(): String =
-        readHardwareSnapshot().pumpFreq
-
-    fun readPumpSpeed(): String =
-        readHardwareSnapshot().pumpSpeed
+    fun readPumpSpeed(): String {
+        return HardwareTelemetry.read().pumpSpeed ?: "?"
+    }
 
     fun readCpuTempC(): String {
         val temperature =
-            HardwareController.readTemperatureC()
+            HardwareTelemetry.readTemperatureC()
                 ?: return "?"
 
         return String.format("%.1f", temperature)
@@ -97,67 +52,62 @@ object DashboardSnapshot {
 
     fun readCpuTempF(): String {
         val temperature =
-            HardwareController.readTemperatureF()
+            HardwareTelemetry.readTemperatureC()
                 ?: return "?"
 
-        return String.format("%.1f", temperature)
+        return String.format(
+            "%.1f",
+            (temperature * 9f / 5f) + 32f
+        )
     }
 
-    private fun readHardwareValues(
-        paths: List<String>
-    ): List<String> {
-        val command = buildString {
-            for (path in paths) {
-                append(
-                    "value=\$(cat '$path' 2>/dev/null); "
-                )
-                append(
-                    "if [ -n \"\$value\" ]; then " +
-                        "printf '%s\\n' \"\$value\"; " +
-                        "else echo '?'; fi; "
-                )
-            }
-        }
+    fun currentForegroundPackage(
+        context: Context
+    ): String? {
+        val manager =
+            context.getSystemService(
+                Context.USAGE_STATS_SERVICE
+            ) as UsageStatsManager
 
-        val output =
-            RootShell.execForOutput(command)
-                ?: return List(paths.size) { "?" }
-
-        val values = output.lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .toList()
-
-        return List(paths.size) { index ->
-            values.getOrNull(index) ?: "?"
-        }
-    }
-
-    fun currentForegroundPackage(context: Context): String? {
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val now = System.currentTimeMillis()
-        val stats = usm.queryUsageStats(
+        val stats = manager.queryUsageStats(
             UsageStatsManager.INTERVAL_DAILY,
             now - 60_000L,
             now
         )
-        return stats.maxByOrNull { it.lastTimeUsed }?.packageName
+
+        return stats.maxByOrNull {
+            it.lastTimeUsed
+        }?.packageName
     }
 
     fun buildSummary(context: Context): String {
-        val hardware = readHardwareSnapshot()
+        val hardware = HardwareTelemetry.read()
 
-        val fanEnabled = hardware.fanEnabled
-        val fanLevel = hardware.fanLevel
-        val fanRpm = hardware.fanRpm
-        val pumpEnabled = hardware.pumpEnabled
-        val pumpFreq = hardware.pumpFreq
-        val pumpSpeed = hardware.pumpSpeed
+        val fanEnabled = hardware.fanEnabled?.let {
+            if (it) "1" else "0"
+        } ?: "?"
+
+        val fanLevel =
+            hardware.fanLevel?.toString() ?: "?"
+        val fanRpm =
+            hardware.fanRpm?.toString() ?: "?"
+        val pumpEnabled =
+            hardware.pumpEnabled ?: "?"
+        val pumpFreq =
+            hardware.pumpFreq ?: "?"
+        val pumpSpeed =
+            hardware.pumpSpeed ?: "?"
 
         val rooted =
             hasCachedRootAccessStorage(context) ||
                 RootShell.hasRoot()
-        val temperatureF = readCpuTempF()
+
+        val temperatureF =
+            hardware.temperatureF?.let {
+                String.format("%.1f", it)
+            } ?: "?"
+
         val foregroundPackage =
             currentForegroundPackage(context)
                 ?: "Unavailable"
@@ -176,7 +126,9 @@ object DashboardSnapshot {
                 "Pump: $pumpEnabled • Freq $pumpFreq • " +
                     "Speed $pumpSpeed\n"
             )
-            append("Foreground app: $foregroundPackage")
+            append(
+                "Foreground app: $foregroundPackage"
+            )
         }
     }
 }

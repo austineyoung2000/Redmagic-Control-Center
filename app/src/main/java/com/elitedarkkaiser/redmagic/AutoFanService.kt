@@ -33,7 +33,9 @@ class AutoFanService : Service() {
 
             if (!HardwareScreenPolicy.isScreenInteractive(this@AutoFanService)) {
                 if (HardwareScreenPolicy.coolingShouldStopWhileScreenOff(tempF)) {
-                    HardwareController.enableFan(false)
+                    if (lastAppliedLevel != 0) {
+                        HardwareController.enableFan(false)
+                    }
                     lastAppliedLevel = 0
                     updateNotification(tempF, lastAppliedLevel)
                     handler.postDelayed(this, COOL_POLL_MS)
@@ -43,6 +45,7 @@ class AutoFanService : Service() {
 
             if (nextLevel != null && nextLevel != lastAppliedLevel) {
                 if (HardwareScreenPolicy.blockCoolingWhileScreenOffUnlessHot(this@AutoFanService, "auto-fan-screen-off")) {
+                    lastAppliedLevel = 0
                     updateNotification(tempF, lastAppliedLevel)
                     handler.postDelayed(this, COOL_POLL_MS)
                     return
