@@ -15,15 +15,6 @@ object HardwareController {
         ConcurrentHashMap<String, RecentHardwareWrite>()
 
     private const val DUPLICATE_WRITE_SKIP_MS = 2_000L
-    private const val TEMPERATURE_CACHE_MS = 10_000L
-
-    private val temperatureReadLock = Any()
-
-    @Volatile
-    private var cachedTemperatureC: Float? = null
-
-    @Volatile
-    private var cachedTemperatureAtMs = 0L
 
     @Synchronized
     private fun execHardwareWrite(
