@@ -9,15 +9,14 @@ import android.os.IBinder
 class AutoFanService : Service() {
 
     companion object {
-        private const val HOT_POLL_MS = 15000L
-        private const val COOL_POLL_MS = 60000L
-        private const val HOT_TEMP_THRESHOLD_F = 95f
         private const val HYSTERESIS_F = 5f
     }
 
     private lateinit var workerThread: HandlerThread
     private lateinit var handler: Handler
     private var lastAppliedLevel = -1
+    private var temperatureSubscription:
+        DeviceTemperatureMonitor.Subscription? = null
 
     private val loop = object : Runnable {
         override fun run() {
@@ -31,7 +30,6 @@ class AutoFanService : Service() {
                     }
                     lastAppliedLevel = 0
                     updateNotification(tempF, lastAppliedLevel)
-                    handler.postDelayed(this, COOL_POLL_MS)
                     return
                 }
             }
@@ -40,16 +38,16 @@ class AutoFanService : Service() {
                 if (HardwareScreenPolicy.blockCoolingWhileScreenOffUnlessHot(this@AutoFanService, "auto-fan-screen-off")) {
                     lastAppliedLevel = 0
                     updateNotification(tempF, lastAppliedLevel)
-                    handler.postDelayed(this, COOL_POLL_MS)
                     return
                 }
                 HardwareController.setFanLevel(nextLevel)
                 lastAppliedLevel = nextLevel
             }
 
-            updateNotification(tempF, lastAppliedLevel)
-            val nextDelay = if ((tempF ?: 0f) >= HOT_TEMP_THRESHOLD_F) HOT_POLL_MS else COOL_POLL_MS
-            handler.postDelayed(this, nextDelay)
+            updateNotification(
+                tempF,
+                lastAppliedLevel
+            )
         }
     }
 
@@ -72,6 +70,14 @@ class AutoFanService : Service() {
             lastAppliedLevel = HardwareController.readFanLevel() ?: -1
             loop.run()
         }
+
+        temperatureSubscription =
+            DeviceTemperatureMonitor.subscribe(this) {
+                if (::handler.isInitialized) {
+                    handler.removeCallbacks(loop)
+                    handler.post(loop)
+                }
+            }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -79,6 +85,9 @@ class AutoFanService : Service() {
     }
 
     override fun onDestroy() {
+        temperatureSubscription?.close()
+        temperatureSubscription = null
+
         if (::handler.isInitialized) {
             handler.removeCallbacksAndMessages(null)
         }

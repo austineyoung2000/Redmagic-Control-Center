@@ -145,6 +145,8 @@ class MainActivity : Activity() {
     }
 
     private var mainUiReady = false
+    private var temperatureSubscription:
+        DeviceTemperatureMonitor.Subscription? = null
 
     private val initialStatusRefreshRunnable = Runnable {
         if (
@@ -218,10 +220,26 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun startLiveTemperatureUpdates() {
+        if (temperatureSubscription != null) return
+
+        temperatureSubscription =
+            DeviceTemperatureMonitor.subscribe(this) {
+                refreshStatus()
+            }
+    }
+
+    private fun stopLiveTemperatureUpdates() {
+        temperatureSubscription?.close()
+        temperatureSubscription = null
+    }
+
+
     override fun onStart() {
         super.onStart()
 
         if (mainUiReady) {
+            startLiveTemperatureUpdates()
             statusRefreshHandler.removeCallbacks(
                 initialStatusRefreshRunnable
             )
@@ -232,6 +250,7 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        stopLiveTemperatureUpdates()
         statusRefreshHandler.removeCallbacks(
             initialStatusRefreshRunnable
         )
@@ -243,6 +262,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        stopLiveTemperatureUpdates()
         statusRefreshHandler.removeCallbacks(
             statusRefreshRunnable
         )
@@ -603,6 +623,7 @@ class MainActivity : Activity() {
 
         switchTab("home")
         mainUiReady = true
+        startLiveTemperatureUpdates()
         statusRefreshHandler.postDelayed(
             initialStatusRefreshRunnable,
             2_500L

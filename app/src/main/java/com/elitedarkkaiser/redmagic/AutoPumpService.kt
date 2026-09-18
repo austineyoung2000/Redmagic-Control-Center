@@ -8,15 +8,11 @@ import android.os.IBinder
 
 class AutoPumpService : Service() {
 
-    companion object {
-        private const val HOT_POLL_MS = 15000L
-        private const val COOL_POLL_MS = 60000L
-        private const val HOT_TEMP_THRESHOLD_F = 95f
-    }
-
     private lateinit var workerThread: HandlerThread
     private lateinit var handler: Handler
     private var lastProfile: String? = null
+    private var temperatureSubscription:
+        DeviceTemperatureMonitor.Subscription? = null
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -26,8 +22,6 @@ class AutoPumpService : Service() {
                 tempF,
                 lastProfile
             )
-            val nextDelay = if ((tempF ?: 0f) >= HOT_TEMP_THRESHOLD_F) HOT_POLL_MS else COOL_POLL_MS
-            handler.postDelayed(this, nextDelay)
         }
     }
 
@@ -45,6 +39,14 @@ class AutoPumpService : Service() {
             start()
         }
         handler = Handler(workerThread.looper)
+
+        temperatureSubscription =
+            DeviceTemperatureMonitor.subscribe(this) {
+                if (::handler.isInitialized) {
+                    handler.removeCallbacks(pollRunnable)
+                    handler.post(pollRunnable)
+                }
+            }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -54,6 +56,9 @@ class AutoPumpService : Service() {
     }
 
     override fun onDestroy() {
+        temperatureSubscription?.close()
+        temperatureSubscription = null
+
         if (::handler.isInitialized) {
             handler.removeCallbacksAndMessages(null)
         }
