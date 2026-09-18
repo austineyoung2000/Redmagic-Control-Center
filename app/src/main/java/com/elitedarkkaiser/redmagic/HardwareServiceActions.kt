@@ -48,14 +48,38 @@ object HardwareServiceActions {
         context.stopService(Intent(context, AutoPumpService::class.java))
     }
 
-    fun startTriggers(context: Context) {
-        context.startService(Intent(context, TriggerRootService::class.java))
+    fun startTriggers(context: Context): Boolean {
+        if (triggersDisabledUntilRestartStorage(context)) {
+            return false
+        }
+
+        context.startService(
+            Intent(context, TriggerRootService::class.java)
+        )
+        return true
+    }
+
+    fun enableTriggersManually(context: Context): Boolean {
+        setTriggersDisabledUntilRestartStorage(
+            context,
+            false
+        )
+
+        val enabled = HardwareController.enableTriggers()
+        if (enabled) {
+            startTriggers(context)
+        }
+        return enabled
     }
 
     fun startTriggersIfAutoStartEnabled(
         context: Context
     ): Boolean {
         if (!readTriggerPrefsSnapshot(context).triggersAutoStart) {
+            return false
+        }
+
+        if (triggersDisabledUntilRestartStorage(context)) {
             return false
         }
 
@@ -67,8 +91,25 @@ object HardwareServiceActions {
     }
 
     fun stopTriggers(context: Context) {
-        context.stopService(Intent(context, TriggerRootService::class.java))
+        context.stopService(
+            Intent(context, TriggerRootService::class.java)
+        )
         HardwareController.disableTriggers()
+    }
+
+    fun disableTriggersUntilRestart(
+        context: Context
+    ): Boolean {
+        setTriggersDisabledUntilRestartStorage(
+            context,
+            true
+        )
+
+        context.stopService(
+            Intent(context, TriggerRootService::class.java)
+        )
+
+        return HardwareController.disableTriggers()
     }
 
     fun startChargingMode(context: Context) {

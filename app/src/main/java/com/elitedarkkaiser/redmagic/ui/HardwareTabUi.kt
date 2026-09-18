@@ -43,27 +43,34 @@ object HardwareTabUi {
             }
         }
 
+        lateinit var trigDisableBtn: Button
+        trigDisableBtn = deps.actionButton(
+            "DISABLE TRIGGERS",
+            true
+        ) {
+            trigDisableBtn.isEnabled = false
+            trigDisableBtn.text = "DISABLING…"
+
+            deps.disableTriggersAndService { disabled ->
+                trigDisableBtn.isEnabled = true
+                trigDisableBtn.text = "DISABLE TRIGGERS"
+
+                Toast.makeText(
+                    activity,
+                    if (disabled) {
+                        "Triggers disabled until enabled or restarted"
+                    } else {
+                        "Service stopped, but hardware disable failed"
+                    },
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         val triggerCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("⌥", "TRIGGERS"))
             addView(deps.bodyText("Map shoulder triggers to quick actions or re-enable them if the system has disabled them."))
             addView(deps.space(deps.dp(10)))
-
-            addView(switchRow(
-                activity = activity,
-                label = "Haptic feedback",
-                prefsName = "triggers",
-                key = "haptics_enabled",
-                defaultValue = true,
-                deps = deps
-            ) { checked ->
-                Toast.makeText(
-                    activity,
-                    "Haptics " + if (checked) "enabled" else "disabled",
-                    Toast.LENGTH_SHORT
-                ).show()
-            })
-
-            addView(deps.space(deps.dp(8)))
 
             addView(switchRow(
                 activity = activity,
@@ -116,44 +123,17 @@ object HardwareTabUi {
             })
 
             addView(deps.space(deps.dp(4)))
-            addView(deps.bodyText("Automatically enable triggers and start the service on boot or when the app launches."))
-            addView(deps.row(configureTriggersBtn, trigEnableBtn))
-        }
-
-        lateinit var vibrateBtn: Button
-        vibrateBtn = deps.actionButton("TEST HAPTIC", false) {
-            vibrateBtn.isEnabled = false
-            vibrateBtn.text = "TESTING…"
-
-            deps.testHaptic { sent ->
-                vibrateBtn.isEnabled = true
-                vibrateBtn.text = "TEST HAPTIC"
-
-                Toast.makeText(
-                    activity,
-                    if (sent) {
-                        "Haptic test sent"
-                    } else {
-                        "Haptic test failed"
-                    },
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-        val hapticsCard = deps.sectionPanel().apply {
-            addView(deps.sectionHeader("≈", "HAPTICS"))
-            addView(deps.bodyText("Quick vibration test for hardware haptics."))
-            addView(deps.space(deps.dp(10)))
-            addView(deps.singleRow(vibrateBtn))
+            addView(deps.bodyText("Automatically enable triggers and start the service on boot or when the app launches. Manual Disable pauses Auto Start until Enable Triggers is pressed or the phone restarts."))
+            addView(deps.singleRow(configureTriggersBtn))
+            addView(deps.space(deps.dp(8)))
+            addView(deps.row(trigEnableBtn, trigDisableBtn))
         }
 
         container.addView(triggerCard)
-        container.addView(hapticsCard)
 
         val profilesCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("★", "HARDWARE PROFILES"))
-            addView(deps.bodyText("Save and apply full hardware presets for fan, pump, LEDs, triggers, and haptics."))
+            addView(deps.bodyText("Save and apply full hardware presets for fan, pump, LEDs, and triggers."))
 
             val profileList = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL

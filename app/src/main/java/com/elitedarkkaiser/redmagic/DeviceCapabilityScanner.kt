@@ -12,7 +12,6 @@ data class DeviceCapabilityReport(
     val ledAvailable: Boolean,
     val triggersAvailable: Boolean,
     val sliderAvailable: Boolean,
-    val hapticsAvailable: Boolean,
     val summary: String
 )
 
@@ -56,10 +55,6 @@ object DeviceCapabilityScanner {
             exists("/proc/driver/slider") ||
             prop("persist.sys.nubia.slider").isNotBlank()
 
-        val hapticsAvailable =
-            exists("/sys/class/leds/vibrator/activate") ||
-            exists("/sys/class/timed_output/vibrator/enable")
-
         val summary = buildString {
             append("Model: ").append(model.ifBlank { "unknown" })
             if (marketName.isNotBlank()) append(" / ").append(marketName)
@@ -68,7 +63,6 @@ object DeviceCapabilityScanner {
             append("\nLED: ").append(if (ledAvailable) "available" else "missing")
             append("\nTriggers: ").append(if (triggersAvailable) "available" else "missing")
             append("\nSlider: ").append(if (sliderAvailable) "available" else "unknown/missing")
-            append("\nHaptics: ").append(if (hapticsAvailable) "available" else "unknown/missing")
         }
 
         return DeviceCapabilityReport(
@@ -81,7 +75,6 @@ object DeviceCapabilityScanner {
             ledAvailable = ledAvailable,
             triggersAvailable = triggersAvailable,
             sliderAvailable = sliderAvailable,
-            hapticsAvailable = hapticsAvailable,
             summary = summary
         )
     }

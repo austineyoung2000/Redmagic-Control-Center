@@ -42,7 +42,6 @@ object ProfileManager {
                     shoulderLedColor = o.getInt("shoulderLedColor"),
 
                     triggerEnabled = o.optBoolean("triggerEnabled", false),
-                    hapticsEnabled = o.optBoolean("hapticsEnabled", true),
                     leftTriggerAction = o.optString("leftTriggerAction", "NONE"),
                     rightTriggerAction = o.optString("rightTriggerAction", "NONE"),
                     intentUnlockRightTrigger = o.optBoolean("intentUnlockRightTrigger", true),
@@ -83,7 +82,6 @@ object ProfileManager {
             o.put("shoulderLedColor", p.shoulderLedColor)
 
             o.put("triggerEnabled", p.triggerEnabled)
-            o.put("hapticsEnabled", p.hapticsEnabled)
             o.put("leftTriggerAction", p.leftTriggerAction)
             o.put("rightTriggerAction", p.rightTriggerAction)
             o.put("intentUnlockRightTrigger", p.intentUnlockRightTrigger)

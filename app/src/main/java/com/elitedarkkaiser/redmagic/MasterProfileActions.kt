@@ -36,7 +36,6 @@ object MasterProfileActions {
             shoulderLedEffect = shoulderState.effect,
             shoulderLedColor = shoulderState.color,
             triggerEnabled = triggerState.triggerEnabled,
-            hapticsEnabled = triggerState.hapticsEnabled,
             leftTriggerAction = triggerState.leftTriggerAction,
             rightTriggerAction = triggerState.rightTriggerAction,
             intentUnlockRightTrigger = triggerState.intentUnlockRightTrigger,
@@ -290,7 +289,10 @@ object MasterProfileActions {
             HardwareServiceActions.startFanLed(context)
         }
 
-        if (hardware.triggersAutoStart) {
+        if (
+            hardware.triggersAutoStart &&
+            !triggersDisabledUntilRestartStorage(context)
+        ) {
             HardwareController.enableTriggers()
             HardwareServiceActions.startTriggers(context)
         } else {

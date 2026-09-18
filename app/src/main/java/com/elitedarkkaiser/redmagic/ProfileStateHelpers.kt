@@ -25,7 +25,6 @@ internal object ProfileStateHelpers {
         val shoulderLedColor: Int,
 
         val triggerEnabled: Boolean,
-        val hapticsEnabled: Boolean,
         val leftTriggerAction: String,
         val rightTriggerAction: String,
         val intentUnlockRightTrigger: Boolean,
@@ -61,7 +60,6 @@ internal object ProfileStateHelpers {
             shoulderLedColor = input.shoulderLedColor,
 
             triggerEnabled = input.triggerEnabled,
-            hapticsEnabled = input.hapticsEnabled,
             leftTriggerAction = input.leftTriggerAction,
             rightTriggerAction = input.rightTriggerAction,
             intentUnlockRightTrigger = input.intentUnlockRightTrigger,

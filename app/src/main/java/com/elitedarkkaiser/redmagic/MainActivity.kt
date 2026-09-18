@@ -362,7 +362,6 @@ class MainActivity : Activity() {
                 shoulderLedColor = shoulderLedColor,
 
                 triggerEnabled = triggerPrefs.triggerEnabled,
-                hapticsEnabled = triggerPrefs.hapticsEnabled,
                 leftTriggerAction = triggerPrefs.leftTriggerAction,
                 rightTriggerAction = triggerPrefs.rightTriggerAction,
                 intentUnlockRightTrigger = triggerPrefs.intentUnlockRightTrigger,
@@ -893,10 +892,12 @@ class MainActivity : Activity() {
                 enableTriggersAndService = { onComplete ->
                     val submitted = submitBackgroundTask {
                         val enabled =
-                            HardwareController.enableTriggers()
+                            HardwareServiceActions
+                                .enableTriggersManually(
+                                    this
+                                )
 
                         if (enabled) {
-                            HardwareServiceActions.startTriggers(this)
                             refreshStatus()
                         }
 
@@ -912,18 +913,21 @@ class MainActivity : Activity() {
                         onComplete(false)
                     }
                 },
-                testHaptic = { onComplete ->
+                disableTriggersAndService = { onComplete ->
                     val submitted = submitBackgroundTask {
-                        val sent = HardwareController.vibrate(
-                            durationMs = 100,
-                            gain = 220
-                        )
+                        val disabled =
+                            HardwareServiceActions
+                                .disableTriggersUntilRestart(
+                                    this
+                                )
+
+                        refreshStatus()
 
                         runOnUiThread {
                             if (isFinishing || isDestroyed) {
                                 return@runOnUiThread
                             }
-                            onComplete(sent)
+                            onComplete(disabled)
                         }
                     }
 
@@ -941,7 +945,10 @@ class MainActivity : Activity() {
                                     profile
                                 )
 
-                            if (profile.triggersAutoStart) {
+                            if (
+                                profile.triggersAutoStart &&
+                                !triggersDisabledUntilRestartStorage(this)
+                            ) {
                                 val triggersEnabled =
                                     HardwareController.enableTriggers()
 

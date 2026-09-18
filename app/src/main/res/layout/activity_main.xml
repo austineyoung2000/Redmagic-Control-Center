@@ -45,7 +45,5 @@
         <Button android:id="@+id/btnDisableTriggers" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Disable triggers" />
         <Button android:id="@+id/btnSliderApp" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Set slider to launch this app" />
         <Button android:id="@+id/btnSliderRaw" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Disable slider system handling" />
-        <Button android:id="@+id/btnVibrate" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Test haptic" />
-
     </LinearLayout>
 </ScrollView>

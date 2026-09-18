@@ -102,7 +102,7 @@ object HomeTabUi {
         val summaryCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("⌂", "WELCOME"))
             addView(deps.bodyText("RedMagic HW Controls is a root-powered control center for RedMagic 11 Pro that brings key hardware features into one place with a cleaner interface than stock tools."))
-            addView(deps.bodyText("It lets you manage cooling behavior, fan profiles, micropump control, fan LED effects, logo lighting, shoulder LED strips, trigger tools, slider actions, and haptics directly from the app."))
+            addView(deps.bodyText("It lets you manage cooling behavior, fan profiles, micropump control, fan LED effects, logo lighting, shoulder LED strips, trigger tools, and slider actions directly from the app."))
             addView(deps.bodyText("The app is built around real device paths and behavior confirmed on hardware so the controls feel practical, focused, and close to an OEM-style utility."))
 
             val linksRow = LinearLayout(context).apply {

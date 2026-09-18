@@ -39,6 +39,11 @@ class TriggerRootService : Service() {
     override fun onCreate() {
         super.onCreate()
 
+        if (triggersDisabledUntilRestartStorage(this)) {
+            stopSelf()
+            return
+        }
+
         android.util.Log.d("TRIGGER", "TriggerRootService onCreate")
 
         initializationThread = Thread({
@@ -104,10 +109,6 @@ class TriggerRootService : Service() {
         return value
     }
 
-    private fun hapticsEnabled(): Boolean {
-        return prefs().getBoolean("haptics_enabled", true)
-    }
-
     private fun runRoot(command: String) {
         android.util.Log.d("TRIGGER", "runRoot=$command")
 
@@ -120,45 +121,6 @@ class TriggerRootService : Service() {
                 "TRIGGER",
                 "root action failed"
             )
-        }
-    }
-
-    private fun hapticTap() {
-        if (!hapticsEnabled()) return
-        try {
-            HardwareController.vibrate(
-                durationMs = 20,
-                gain = 180,
-                rootSession = activeActionRootSession()
-            )
-        } catch (t: Throwable) {
-            android.util.Log.e("TRIGGER", "hapticTap failed: " + t)
-        }
-    }
-
-    private fun hapticUnlock() {
-        if (!hapticsEnabled()) return
-        try {
-            HardwareController.vibrate(
-                durationMs = 40,
-                gain = 255,
-                rootSession = activeActionRootSession()
-            )
-        } catch (t: Throwable) {
-            android.util.Log.e("TRIGGER", "hapticUnlock failed: " + t)
-        }
-    }
-
-    private fun hapticHoldStart() {
-        if (!hapticsEnabled()) return
-        try {
-            HardwareController.vibrate(
-                durationMs = 35,
-                gain = 255,
-                rootSession = activeActionRootSession()
-            )
-        } catch (t: Throwable) {
-            android.util.Log.e("TRIGGER", "hapticHoldStart failed: " + t)
         }
     }
 
@@ -195,10 +157,6 @@ class TriggerRootService : Service() {
         val thread = Thread {
             try {
                 Thread.sleep(HOLD_REPEAT_START_MS)
-
-                if (running && flag.get()) {
-                    hapticHoldStart()
-                }
 
                 while (running && flag.get()) {
                     if (prefKey == "right_trigger" && !isRightUnlocked()) {
@@ -276,7 +234,6 @@ class TriggerRootService : Service() {
             rightUnlockTapCount = 0
             rightUnlockedUntil = current + RIGHT_UNLOCK_ACTIVE_MS
             android.util.Log.d("TRIGGER", "right trigger UNLOCKED taps=$requiredTaps")
-            hapticUnlock()
             return true
         }
 
@@ -313,7 +270,6 @@ class TriggerRootService : Service() {
             leftUnlockTapCount = 0
             leftUnlockedUntil = current + RIGHT_UNLOCK_ACTIVE_MS
             android.util.Log.d("TRIGGER", "left trigger UNLOCKED taps=$requiredTaps")
-            hapticUnlock()
             return true
         }
 
@@ -337,7 +293,6 @@ class TriggerRootService : Service() {
             return
         }
 
-        hapticTap()
         rightTriggerUnlockedUntil = now() + RIGHT_UNLOCK_ACTIVE_MS
         rightUnlockedUntil = now() + RIGHT_UNLOCK_ACTIVE_MS
         rightUnlockArmedAt = 0L
@@ -357,8 +312,7 @@ class TriggerRootService : Service() {
 
         if (now() <= rightTriggerUnlockedUntil) {
             extendRightUnlock()
-            hapticTap()
-            performAction(getAction("right_trigger"))
+                performAction(getAction("right_trigger"))
             startRepeater("right_trigger")
             return
         }
@@ -368,7 +322,6 @@ class TriggerRootService : Service() {
             return
         }
 
-        hapticTap()
         performAction(getAction("right_trigger"))
         startRepeater("right_trigger")
     }

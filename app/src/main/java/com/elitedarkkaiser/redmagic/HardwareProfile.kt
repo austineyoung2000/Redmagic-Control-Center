@@ -25,7 +25,6 @@ data class HardwareProfile(
     val shoulderLedColor: Int,
 
     val triggerEnabled: Boolean,
-    val hapticsEnabled: Boolean,
     val leftTriggerAction: String = "NONE",
     val rightTriggerAction: String = "NONE",
     val intentUnlockRightTrigger: Boolean = true,

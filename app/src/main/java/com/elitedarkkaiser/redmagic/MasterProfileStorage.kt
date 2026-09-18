@@ -126,7 +126,6 @@ object MasterProfileStorage {
             put("shoulderLedEffect", shoulderLedEffect)
             put("shoulderLedColor", shoulderLedColor)
             put("triggerEnabled", triggerEnabled)
-            put("hapticsEnabled", hapticsEnabled)
             put("leftTriggerAction", leftTriggerAction)
             put("rightTriggerAction", rightTriggerAction)
             put("intentUnlockRightTrigger", intentUnlockRightTrigger)
@@ -154,7 +153,6 @@ object MasterProfileStorage {
             shoulderLedEffect = getString("shoulderLedEffect"),
             shoulderLedColor = getInt("shoulderLedColor"),
             triggerEnabled = optBoolean("triggerEnabled", false),
-            hapticsEnabled = optBoolean("hapticsEnabled", true),
             leftTriggerAction = optString("leftTriggerAction", "NONE"),
             rightTriggerAction = optString("rightTriggerAction", "NONE"),
             intentUnlockRightTrigger = optBoolean("intentUnlockRightTrigger", true),
@@ -235,7 +233,6 @@ object MasterProfileStorage {
     private fun TriggerPrefsSnapshot.toJson(): JSONObject {
         return JSONObject().apply {
             put("triggerEnabled", triggerEnabled)
-            put("hapticsEnabled", hapticsEnabled)
             put("leftTriggerAction", leftTriggerAction)
             put("rightTriggerAction", rightTriggerAction)
             put("intentUnlockRightTrigger", intentUnlockRightTrigger)
@@ -246,7 +243,6 @@ object MasterProfileStorage {
     private fun JSONObject.toTriggerPrefsSnapshot(): TriggerPrefsSnapshot {
         return TriggerPrefsSnapshot(
             triggerEnabled = optBoolean("triggerEnabled", false),
-            hapticsEnabled = optBoolean("hapticsEnabled", true),
             leftTriggerAction = optString("leftTriggerAction", "NONE"),
             rightTriggerAction = optString("rightTriggerAction", "NONE"),
             intentUnlockRightTrigger = optBoolean("intentUnlockRightTrigger", true),

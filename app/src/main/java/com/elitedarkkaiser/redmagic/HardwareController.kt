@@ -70,9 +70,6 @@ object HardwareController {
     private const val SAR0_MODE = "/sys/class/leds/sar0/mode_operation"
     private const val SAR1_MODE = "/sys/class/leds/sar1/mode_operation"
 
-    private const val HAPTIC_DURATION = "/sys/class/leds/zte_vibrator/duration"
-    private const val HAPTIC_GAIN = "/sys/class/leds/zte_vibrator/gain"
-    private const val HAPTIC_ACTIVATE = "/sys/class/leds/zte_vibrator/activate"
 
     fun enableFan(enabled: Boolean): Boolean {
         return execHardwareWrite("fan_control", "echo ${if (enabled) 1 else 0} > $FAN_ENABLE")
@@ -363,21 +360,6 @@ object HardwareController {
 
     fun readSliderState(): String? {
         return RootShell.execForOutput("settings get global zte_keypad_slide_on_or_off")?.trim()
-    }
-
-    fun vibrate(
-        durationMs: Int,
-        gain: Int,
-        rootSession: RootShell.Session? = null
-    ): Boolean {
-        val d = durationMs.coerceIn(1, 5000)
-        val g = gain.coerceIn(0, 255)
-        val cmd =
-            "echo $d > $HAPTIC_DURATION; " +
-                "echo $g > $HAPTIC_GAIN; " +
-                "echo 1 > $HAPTIC_ACTIVATE"
-
-        return rootSession?.exec(cmd) ?: RootShell.exec(cmd)
     }
 
     fun readTemperatureC(): Float? {
