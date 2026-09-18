@@ -53,11 +53,8 @@ class MainActivity : Activity() {
     private lateinit var deviceRomValue: TextView
     private lateinit var deviceCpuValue: TextView
     private lateinit var deviceRamValue: TextView
-    private lateinit var rootChip: TextView
-    private lateinit var fanChip: TextView
-    private lateinit var rpmChip: TextView
+    private lateinit var dashboardText: TextView
     private var lastDisplayedRpm: Int = -1
-    private lateinit var tempChip: TextView
     private var lastDisplayedTempF: Float? = null
 
     private var coolingTabBuilt = false
@@ -696,10 +693,7 @@ class MainActivity : Activity() {
         deviceRomValue = result.refs.deviceRomValue
         deviceCpuValue = result.refs.deviceCpuValue
         deviceRamValue = result.refs.deviceRamValue
-        rootChip = result.refs.rootChip
-        fanChip = result.refs.fanChip
-        rpmChip = result.refs.rpmChip
-        tempChip = result.refs.tempChip
+        dashboardText = result.refs.dashboardText
 
         return result.view
     }
@@ -2067,6 +2061,13 @@ class MainActivity : Activity() {
         val ramText = deviceInfo.ram
         val modelText = Build.MODEL ?: "Unknown"
 
+        val dashboardSummary =
+            DashboardSnapshot.buildSummary(
+                context = this,
+                hardware = telemetry,
+                rooted = rooted
+            )
+
         runOnUiThread {
             if (isFinishing || isDestroyed) {
                 return@runOnUiThread
@@ -2104,20 +2105,8 @@ class MainActivity : Activity() {
             deviceCpuValue.text = cpuText
             deviceRamValue.text = ramText
 
-            rootChip.text =
-                if (rooted) "ROOT ON" else "ROOT OFF"
-            fanChip.text =
-                if (fanEnabled) "FAN ON" else "FAN OFF"
-            rpmChip.text = "RPM ${rpm ?: "--"}"
-            tempChip.text = if (tempF != null) {
-                "TEMP ${
-                    TempFormat.formatDisplayTempFromF(
-                        tempF,
-                        useFahrenheit
-                    )
-                }$tempTrend"
-            } else {
-                "TEMP --"
+            if (::dashboardText.isInitialized) {
+                dashboardText.text = dashboardSummary
             }
 
             if (::tempText.isInitialized) {
@@ -2133,10 +2122,6 @@ class MainActivity : Activity() {
                 }
             }
 
-            setChipState(rootChip, rooted)
-            setChipState(fanChip, fanEnabled)
-            setChipState(rpmChip, (rpm ?: 0) > 0)
-            setChipState(tempChip, tempF != null)
         }
     }
 

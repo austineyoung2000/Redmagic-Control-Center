@@ -81,27 +81,44 @@ object DashboardSnapshot {
         }?.packageName
     }
 
-    fun buildSummary(context: Context): String {
+    fun buildSummary(
+        context: Context
+    ): String {
         val hardware = HardwareTelemetry.read()
+        val rooted =
+            hasCachedRootAccessStorage(context) ||
+                RootShell.hasRoot()
 
+        return buildSummary(
+            context = context,
+            hardware = hardware,
+            rooted = rooted
+        )
+    }
+
+    fun buildSummary(
+        context: Context,
+        hardware: HardwareTelemetrySnapshot,
+        rooted: Boolean
+    ): String {
         val fanEnabled = hardware.fanEnabled?.let {
             if (it) "1" else "0"
         } ?: "?"
 
         val fanLevel =
             hardware.fanLevel?.toString() ?: "?"
+
         val fanRpm =
             hardware.fanRpm?.toString() ?: "?"
+
         val pumpEnabled =
             hardware.pumpEnabled ?: "?"
+
         val pumpFreq =
             hardware.pumpFreq ?: "?"
+
         val pumpSpeed =
             hardware.pumpSpeed ?: "?"
-
-        val rooted =
-            hasCachedRootAccessStorage(context) ||
-                RootShell.hasRoot()
 
         val temperatureF =
             hardware.temperatureF?.let {
@@ -113,9 +130,13 @@ object DashboardSnapshot {
                 ?: "Unavailable"
 
         return buildString {
-            append("Model: ${Build.MODEL ?: "Unknown"}\n")
             append(
-                "Root: ${if (rooted) "Granted" else "Missing"}\n"
+                "Model: ${Build.MODEL ?: "Unknown"}\n"
+            )
+            append(
+                "Root: ${
+                    if (rooted) "Granted" else "Missing"
+                }\n"
             )
             append("CPU Temp: $temperatureF°F\n")
             append(

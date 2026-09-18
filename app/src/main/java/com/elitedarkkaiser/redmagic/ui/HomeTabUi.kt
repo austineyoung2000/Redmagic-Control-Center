@@ -1,9 +1,7 @@
 package com.elitedarkkaiser.redmagic.ui
 
 import android.view.Gravity
-import android.view.ViewGroup
 import android.widget.Button
-import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -16,10 +14,7 @@ object HomeTabUi {
         val deviceRomValue: TextView,
         val deviceCpuValue: TextView,
         val deviceRamValue: TextView,
-        val rootChip: TextView,
-        val fanChip: TextView,
-        val rpmChip: TextView,
-        val tempChip: TextView
+        val dashboardText: TextView
     )
 
     data class Result(
@@ -138,45 +133,6 @@ object HomeTabUi {
             addView(deps.infoRow("RAM", deviceRamValue))
         }
 
-        val rootChip = deps.statusChip("ROOT --")
-        val fanChip = deps.statusChip("FAN --")
-        val rpmChip = deps.statusChip("RPM --")
-        val tempChip = deps.statusChip("TEMP --")
-
-        val statusRow = LinearLayout(container.context).apply {
-            orientation = LinearLayout.HORIZONTAL
-
-            addView(rootChip, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = deps.dp(6) })
-
-            addView(fanChip, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = deps.dp(6) })
-
-            addView(rpmChip, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = deps.dp(6) })
-
-            addView(tempChip, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ))
-        }
-
-        val statusScroller = HorizontalScrollView(container.context).apply {
-            isHorizontalScrollBarEnabled = false
-            addView(statusRow)
-        }
-
-        val statusCard = deps.sectionPanel().apply {
-            addView(deps.sectionHeader("◎", "LIVE STATUS"))
-            addView(statusScroller)
-        }
-
         val diagnosticsCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("⌁", "DIAGNOSTICS"))
             addView(deps.bodyText(deps.deviceScanSummary()))
@@ -184,16 +140,22 @@ object HomeTabUi {
 
         container.addView(welcomeCard)
 
-        val dashboardCard = deps.sectionPanel().apply {
-            addView(deps.sectionHeader("◈", "LIVE DASHBOARD"))
-
-            val dashboardText = TextView(context).apply {
+        val dashboardText =
+            TextView(container.context).apply {
                 text = "Loading dashboard…"
                 textSize = 13f
                 setTextColor(AppTheme.textPrimary)
                 setLineSpacing(0f, 1.15f)
                 setPadding(0, 0, 0, deps.dp(12))
             }
+
+        val dashboardCard = deps.sectionPanel().apply {
+            addView(
+                deps.sectionHeader(
+                    "◈",
+                    "LIVE DASHBOARD"
+                )
+            )
 
             lateinit var refreshBtn: Button
 
@@ -243,7 +205,6 @@ object HomeTabUi {
         container.addView(summaryCard)
         container.addView(dashboardCard)
         container.addView(infoCard)
-        container.addView(statusCard)
         container.addView(diagnosticsCard)
         container.addView(automationCard)
 
@@ -254,10 +215,7 @@ object HomeTabUi {
                 deviceRomValue = deviceRomValue,
                 deviceCpuValue = deviceCpuValue,
                 deviceRamValue = deviceRamValue,
-                rootChip = rootChip,
-                fanChip = fanChip,
-                rpmChip = rpmChip,
-                tempChip = tempChip
+                dashboardText = dashboardText
             )
         )
     }
