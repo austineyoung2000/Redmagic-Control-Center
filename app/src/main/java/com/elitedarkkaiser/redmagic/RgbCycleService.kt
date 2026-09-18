@@ -1,14 +1,10 @@
 package com.elitedarkkaiser.redmagic
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
@@ -16,8 +12,6 @@ import android.os.SystemClock
 
 class RgbCycleService : Service() {
     companion object {
-        private const val CHANNEL_ID = "rgb_cycle_service_channel"
-        private const val NOTIFICATION_ID = 1105
         private const val OWNER_RECHECK_MS = 750L
     }
 
@@ -61,10 +55,9 @@ class RgbCycleService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
         startForeground(
-            NOTIFICATION_ID,
-            buildNotification("RGB Studio starting")
+            CoolingControlNotification.NOTIFICATION_ID,
+            CoolingControlNotification.startRgb(this)
         )
 
         workerThread = HandlerThread(
@@ -114,6 +107,7 @@ class RgbCycleService : Service() {
         if (::workerThread.isInitialized) {
             workerThread.quitSafely()
         }
+        CoolingControlNotification.stopRgb(this)
         super.onDestroy()
     }
 
@@ -268,40 +262,16 @@ class RgbCycleService : Service() {
     }
 
     private fun updateNotification() {
-        val mode = if (state.syncZones) "synchronized" else "per-zone"
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(
-            NOTIFICATION_ID,
-            buildNotification("RGB cycle active • $mode")
+        val mode =
+            if (state.syncZones) {
+                "Synchronized"
+            } else {
+                "Per-zone"
+            }
+
+        CoolingControlNotification.updateRgb(
+            this,
+            mode
         )
-    }
-
-    private fun buildNotification(text: String): Notification {
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            Notification.Builder(this)
-        }
-
-        return builder
-            .setContentTitle("RedMagic RGB Studio")
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_manage)
-            .setOngoing(true)
-            .build()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "RGB Studio",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Runs synchronized and per-zone RGB color cycles"
-        }
-        getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(channel)
     }
 }

@@ -14,8 +14,10 @@ object CoolingControlNotification {
 
     private var fanActive = false
     private var pumpActive = false
+    private var rgbActive = false
     private var fanLevel: Int? = null
     private var pumpProfile: String? = null
+    private var rgbMode: String? = null
     private var temperatureF: Float? = null
     private var lastRenderedText: String? = null
 
@@ -29,6 +31,13 @@ object CoolingControlNotification {
     @Synchronized
     fun startPump(context: Context): Notification {
         pumpActive = true
+        createChannel(context)
+        return buildNotification(context)
+    }
+
+    @Synchronized
+    fun startRgb(context: Context): Notification {
+        rgbActive = true
         createChannel(context)
         return buildNotification(context)
     }
@@ -58,6 +67,16 @@ object CoolingControlNotification {
     }
 
     @Synchronized
+    fun updateRgb(
+        context: Context,
+        mode: String
+    ) {
+        rgbActive = true
+        rgbMode = mode
+        publish(context)
+    }
+
+    @Synchronized
     fun stopFan(service: Service) {
         detach(service)
         fanActive = false
@@ -73,8 +92,16 @@ object CoolingControlNotification {
         finishStop(service)
     }
 
+    @Synchronized
+    fun stopRgb(service: Service) {
+        detach(service)
+        rgbActive = false
+        rgbMode = null
+        finishStop(service)
+    }
+
     private fun finishStop(context: Context) {
-        if (fanActive || pumpActive) {
+        if (fanActive || pumpActive || rgbActive) {
             lastRenderedText = null
             publish(context)
         } else {
@@ -141,6 +168,12 @@ object CoolingControlNotification {
             } ?: "Pump: Starting"
         }
 
+        if (rgbActive) {
+            parts += rgbMode?.let {
+                "RGB: $it"
+            } ?: "RGB: Starting"
+        }
+
         temperatureF?.let {
             parts += "Temp: ${it.toInt()}°F"
         }
@@ -161,7 +194,7 @@ object CoolingControlNotification {
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             description =
-                "Shows automatic fan and pump cooling status"
+                "Shows cooling hardware and RGB Studio status"
         }
 
         manager(context).createNotificationChannel(channel)
