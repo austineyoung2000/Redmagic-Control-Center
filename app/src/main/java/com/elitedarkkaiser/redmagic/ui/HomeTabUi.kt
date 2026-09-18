@@ -241,10 +241,10 @@ object HomeTabUi {
         }
 
         container.addView(summaryCard)
+        container.addView(dashboardCard)
         container.addView(infoCard)
         container.addView(statusCard)
         container.addView(diagnosticsCard)
-        container.addView(dashboardCard)
         container.addView(automationCard)
 
         return Result(
