@@ -49,7 +49,6 @@ class MainActivity : Activity() {
     private lateinit var balancedCurveButton: Button
     private lateinit var turboCurveButton: Button
 
-    private lateinit var deviceModelValue: TextView
     private lateinit var deviceRomValue: TextView
     private lateinit var deviceCpuValue: TextView
     private lateinit var deviceRamValue: TextView
@@ -689,7 +688,6 @@ class MainActivity : Activity() {
             )
         )
 
-        deviceModelValue = result.refs.deviceModelValue
         deviceRomValue = result.refs.deviceRomValue
         deviceCpuValue = result.refs.deviceCpuValue
         deviceRamValue = result.refs.deviceRamValue
@@ -2100,7 +2098,6 @@ class MainActivity : Activity() {
 
             refreshSmartPumpStatusViews()
 
-            deviceModelValue.text = modelText
             deviceRomValue.text = romText
             deviceCpuValue.text = cpuText
             deviceRamValue.text = ramText

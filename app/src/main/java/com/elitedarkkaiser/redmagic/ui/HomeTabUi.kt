@@ -10,7 +10,6 @@ import com.elitedarkkaiser.redmagic.R
 
 object HomeTabUi {
     data class Refs(
-        val deviceModelValue: TextView,
         val deviceRomValue: TextView,
         val deviceCpuValue: TextView,
         val deviceRamValue: TextView,
@@ -120,18 +119,9 @@ object HomeTabUi {
             addView(linksRow)
         }
 
-        val deviceModelValue = deps.infoValue()
         val deviceRomValue = deps.infoValue()
         val deviceCpuValue = deps.infoValue()
         val deviceRamValue = deps.infoValue()
-
-        val infoCard = deps.sectionPanel().apply {
-            addView(deps.sectionHeader("ⓘ", "DEVICE INFO"))
-            addView(deps.infoRow("Model", deviceModelValue))
-            addView(deps.infoRow("ROM", deviceRomValue))
-            addView(deps.infoRow("CPU", deviceCpuValue))
-            addView(deps.infoRow("RAM", deviceRamValue))
-        }
 
         val diagnosticsCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("⌁", "DIAGNOSTICS"))
@@ -190,6 +180,26 @@ object HomeTabUi {
             }
 
             addView(dashboardText)
+            addView(deps.space(deps.dp(12)))
+            addView(
+                deps.infoRow(
+                    "ROM",
+                    deviceRomValue
+                )
+            )
+            addView(
+                deps.infoRow(
+                    "CPU",
+                    deviceCpuValue
+                )
+            )
+            addView(
+                deps.infoRow(
+                    "RAM",
+                    deviceRamValue
+                )
+            )
+            addView(deps.space(deps.dp(8)))
             addView(deps.singleRow(refreshBtn))
 
             dashboardText.post {
@@ -204,14 +214,12 @@ object HomeTabUi {
 
         container.addView(summaryCard)
         container.addView(dashboardCard)
-        container.addView(infoCard)
         container.addView(diagnosticsCard)
         container.addView(automationCard)
 
         return Result(
             view = container,
             refs = Refs(
-                deviceModelValue = deviceModelValue,
                 deviceRomValue = deviceRomValue,
                 deviceCpuValue = deviceCpuValue,
                 deviceRamValue = deviceRamValue,
