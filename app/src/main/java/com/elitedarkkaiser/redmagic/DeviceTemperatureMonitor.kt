@@ -87,6 +87,8 @@ object DeviceTemperatureMonitor {
                 val temperature =
                     readTemperatureC(force = true)
 
+                TemperatureHistory.record(temperature)
+
                 listeners.forEach { registration ->
                     runCatching {
                         registration.listener(

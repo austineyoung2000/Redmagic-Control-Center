@@ -70,6 +70,8 @@ The dashboard displays:
 
 Fan and pump telemetry is collected through a batched root read and cached to reduce shell activity. Dashboard polling pauses when the activity is no longer visible, and a manual refresh remains available.
 
+The Live Dashboard also includes a 30-minute thermal-history graph. It reuses samples already produced by the shared temperature monitor, keeps at most 600 points in memory, and performs no additional sensor reads or storage writes.
+
 ### Diagnostics
 
 The capability scanner reports whether the expected fan, pump, LED, trigger, and slider hardware interfaces are available. Missing interfaces are reported rather than silently treated as working.
@@ -310,6 +312,7 @@ The public repository contains the application source, Gradle configuration, and
 - Thirty-second hardware telemetry cache
 - Dashboard polling paused outside the foreground
 - Adaptive non-root temperature monitoring
+- In-memory thermal history using existing samples
 - Event-driven charging and phone-state handling
 - Event-driven Master Profile automation rules
 - Event-assisted Game Mode activation

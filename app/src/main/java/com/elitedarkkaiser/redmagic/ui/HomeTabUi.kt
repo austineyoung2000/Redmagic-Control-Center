@@ -13,7 +13,8 @@ object HomeTabUi {
         val deviceRomValue: TextView,
         val deviceCpuValue: TextView,
         val deviceRamValue: TextView,
-        val dashboardText: TextView
+        val dashboardText: TextView,
+        val thermalHistoryView: ThermalHistoryView
     )
 
     data class Result(
@@ -139,6 +140,9 @@ object HomeTabUi {
                 setPadding(0, 0, 0, deps.dp(12))
             }
 
+        lateinit var thermalHistoryView:
+            ThermalHistoryView
+
         val dashboardCard = deps.sectionPanel().apply {
             addView(
                 deps.sectionHeader(
@@ -180,6 +184,15 @@ object HomeTabUi {
             }
 
             addView(dashboardText)
+            addView(
+                deps.sectionHeader(
+                    "⌁",
+                    "THERMAL HISTORY"
+                )
+            )
+            thermalHistoryView =
+                ThermalHistoryView(context)
+            addView(thermalHistoryView)
             addView(deps.space(deps.dp(12)))
             addView(
                 deps.infoRow(
@@ -217,7 +230,8 @@ object HomeTabUi {
                 deviceRomValue = deviceRomValue,
                 deviceCpuValue = deviceCpuValue,
                 deviceRamValue = deviceRamValue,
-                dashboardText = dashboardText
+                dashboardText = dashboardText,
+                thermalHistoryView = thermalHistoryView
             )
         )
     }

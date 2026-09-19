@@ -57,6 +57,8 @@ class MainActivity : Activity() {
     private lateinit var deviceCpuValue: TextView
     private lateinit var deviceRamValue: TextView
     private lateinit var dashboardText: TextView
+    private lateinit var thermalHistoryView:
+        com.elitedarkkaiser.redmagic.ui.ThermalHistoryView
     private var lastDisplayedRpm: Int = -1
     private var lastDisplayedTempF: Float? = null
 
@@ -707,6 +709,8 @@ class MainActivity : Activity() {
         deviceCpuValue = result.refs.deviceCpuValue
         deviceRamValue = result.refs.deviceRamValue
         dashboardText = result.refs.dashboardText
+        thermalHistoryView =
+            result.refs.thermalHistoryView
 
         return result.view
     }
@@ -2051,6 +2055,13 @@ class MainActivity : Activity() {
 
             if (::dashboardText.isInitialized) {
                 dashboardText.text = dashboardSummary
+            }
+
+            if (::thermalHistoryView.isInitialized) {
+                thermalHistoryView.setHistory(
+                    TemperatureHistory.snapshot(),
+                    useFahrenheit
+                )
             }
 
             if (::tempText.isInitialized) {
