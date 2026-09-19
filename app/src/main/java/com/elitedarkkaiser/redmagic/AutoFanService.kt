@@ -72,7 +72,10 @@ class AutoFanService : Service() {
         }
 
         temperatureSubscription =
-            DeviceTemperatureMonitor.subscribe(this) {
+            DeviceTemperatureMonitor.subscribe(
+                this,
+                DeviceTemperatureMonitor.SamplingMode.BACKGROUND_CONTROL
+            ) {
                 if (::handler.isInitialized) {
                     handler.removeCallbacks(loop)
                     handler.post(loop)

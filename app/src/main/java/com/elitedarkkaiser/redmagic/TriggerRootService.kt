@@ -23,8 +23,6 @@ class TriggerRootService : Service() {
     private val readerProcesses = ConcurrentHashMap<String, Process>()
 
     private var initializationThread: Thread? = null
-    private var actionRootSession: RootShell.Session? = null
-
     private var rightUnlockArmedAt = 0L
     private var rightUnlockTapCount = 0
     private var rightUnlockedUntil = 0L
@@ -47,8 +45,7 @@ class TriggerRootService : Service() {
         android.util.Log.d("TRIGGER", "TriggerRootService onCreate")
 
         initializationThread = Thread({
-            val session = activeActionRootSession()
-            HardwareController.enableTriggers(session)
+            HardwareController.enableTriggers()
 
             val leftDevice =
                 findTriggerEvent("nubia_tgk_aw_sar0_ch0")
@@ -346,26 +343,7 @@ class TriggerRootService : Service() {
 
 
     @Synchronized
-    private fun activeActionRootSession(): RootShell.Session? {
-        val current = actionRootSession
-
-        if (current?.isAlive == true) {
-            return current
-        }
-
-        current?.close()
-
-        return RootShell.openSession().also {
-            actionRootSession = it
-        }
-    }
-
     @Synchronized
-    private fun closeActionRootSession() {
-        actionRootSession?.close()
-        actionRootSession = null
-    }
-
     private fun startReader(device: String, prefKey: String) {
         val thread = Thread({
             var process: Process? = null
@@ -465,7 +443,6 @@ class TriggerRootService : Service() {
 
         readerProcesses.clear()
         readerThreads.clear()
-        closeActionRootSession()
 
         android.util.Log.d(
             "TRIGGER",

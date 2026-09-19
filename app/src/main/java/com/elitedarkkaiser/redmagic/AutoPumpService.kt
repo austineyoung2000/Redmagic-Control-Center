@@ -41,7 +41,10 @@ class AutoPumpService : Service() {
         handler = Handler(workerThread.looper)
 
         temperatureSubscription =
-            DeviceTemperatureMonitor.subscribe(this) {
+            DeviceTemperatureMonitor.subscribe(
+                this,
+                DeviceTemperatureMonitor.SamplingMode.BACKGROUND_CONTROL
+            ) {
                 if (::handler.isInitialized) {
                     handler.removeCallbacks(pollRunnable)
                     handler.post(pollRunnable)

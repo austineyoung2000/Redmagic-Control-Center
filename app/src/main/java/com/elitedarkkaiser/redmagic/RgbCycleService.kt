@@ -17,8 +17,6 @@ class RgbCycleService : Service() {
 
     private lateinit var workerThread: HandlerThread
     private lateinit var handler: Handler
-    private var rootSession: RootShell.Session? = null
-
     private var state = RgbStudioState()
     private var colorIndexLogo = 0
     private var colorIndexShoulder = 0
@@ -103,7 +101,6 @@ class RgbCycleService : Service() {
         if (::handler.isInitialized) {
             handler.removeCallbacksAndMessages(null)
         }
-        closeRootSession()
         if (::workerThread.isInitialized) {
             workerThread.quitSafely()
         }
@@ -121,7 +118,6 @@ class RgbCycleService : Service() {
         }
 
         if (LedOwnership.current(this) != LedOwner.RGB_CYCLE) {
-            closeRootSession()
             scheduleNext(OWNER_RECHECK_MS)
             return
         }
@@ -129,11 +125,10 @@ class RgbCycleService : Service() {
         if (shouldPauseForScreenTimeout()) {
             if (!ledsOffForTimeout) {
                 HardwareController.turnOffAllLeds(
-                    activeRootSession()
+                    null
                 )
                 ledsOffForTimeout = true
             }
-            closeRootSession()
             scheduleNext(OWNER_RECHECK_MS)
             return
         }
@@ -152,7 +147,6 @@ class RgbCycleService : Service() {
                     logoColor = color,
                     shoulderColor = color,
                     fanColor = color,
-                    rootSession = activeRootSession()
                 )
                 colorIndexLogo = advanceIndex(colorIndexLogo)
                 colorIndexShoulder = colorIndexLogo
@@ -192,7 +186,6 @@ class RgbCycleService : Service() {
                     logoColor = logoColor,
                     shoulderColor = shoulderColor,
                     fanColor = fanColor,
-                    rootSession = activeRootSession()
                 )
             }
         }
@@ -240,25 +233,6 @@ class RgbCycleService : Service() {
         if (!::handler.isInitialized) return
         handler.removeCallbacks(cycleRunnable)
         handler.postDelayed(cycleRunnable, delayMs)
-    }
-
-    private fun activeRootSession(): RootShell.Session? {
-        val current = rootSession
-
-        if (current?.isAlive == true) {
-            return current
-        }
-
-        current?.close()
-
-        return RootShell.openSession().also {
-            rootSession = it
-        }
-    }
-
-    private fun closeRootSession() {
-        rootSession?.close()
-        rootSession = null
     }
 
     private fun updateNotification() {

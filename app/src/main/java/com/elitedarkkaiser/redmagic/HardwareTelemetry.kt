@@ -16,7 +16,7 @@ data class HardwareTelemetrySnapshot(
 }
 
 object HardwareTelemetry {
-    private const val HARDWARE_CACHE_MS = 15_000L
+    private const val HARDWARE_CACHE_MS = 30_000L
 
     private val readLock = Any()
 

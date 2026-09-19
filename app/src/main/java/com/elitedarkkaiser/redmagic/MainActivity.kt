@@ -136,7 +136,7 @@ class MainActivity : Activity() {
     private val statusRefreshRunnable = object : Runnable {
         override fun run() {
             refreshStatus()
-            statusRefreshHandler.postDelayed(this, 15_000L)
+            statusRefreshHandler.postDelayed(this, 30_000L)
         }
     }
 
@@ -212,7 +212,7 @@ class MainActivity : Activity() {
         statusRefreshHandler.removeCallbacks(statusRefreshRunnable)
         statusRefreshHandler.postDelayed(
             statusRefreshRunnable,
-            15_000L
+            30_000L
         )
     }
 
@@ -220,7 +220,10 @@ class MainActivity : Activity() {
         if (temperatureSubscription != null) return
 
         temperatureSubscription =
-            DeviceTemperatureMonitor.subscribe(this) {
+            DeviceTemperatureMonitor.subscribe(
+                this,
+                DeviceTemperatureMonitor.SamplingMode.FOREGROUND
+            ) {
                 refreshStatus()
             }
     }
