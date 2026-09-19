@@ -1071,6 +1071,15 @@ class MainActivity : Activity() {
                         },
                         MASTER_BACKUP_IMPORT_REQUEST
                     )
+                },
+                automationRulesSummary = {
+                    AutomationRulesStorage.summary(this)
+                },
+                showAutomationRulesDialog = { onSaved ->
+                    AutomationRulesDialog.show(
+                        this,
+                        onSaved
+                    )
                 }
             )
         )

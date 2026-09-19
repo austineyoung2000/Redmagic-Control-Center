@@ -26,7 +26,17 @@ class BootReceiver : BroadcastReceiver() {
             HardwareServiceActions.startRgbCycle(context)
         }
 
-        if (readTriggerPrefsSnapshot(context).triggersAutoStart) {
+        val shouldStartTriggers =
+            readTriggerPrefsSnapshot(context)
+                .triggersAutoStart
+        val shouldRunUnlockRule =
+            action == Intent.ACTION_USER_UNLOCKED &&
+                AutomationRulesStorage.profileName(
+                    context,
+                    AutomationRuleEvent.DEVICE_UNLOCKED
+                ) != null
+
+        if (shouldStartTriggers || shouldRunUnlockRule) {
             val pendingResult = goAsync()
 
             Thread({
@@ -35,10 +45,20 @@ class BootReceiver : BroadcastReceiver() {
                 )
 
                 try {
-                    HardwareServiceActions
-                        .startTriggersIfAutoStartEnabled(
-                            context.applicationContext
+                    if (shouldRunUnlockRule) {
+                        AutomationRuleExecutor.applyNow(
+                            context.applicationContext,
+                            AutomationRuleEvent
+                                .DEVICE_UNLOCKED
                         )
+                    }
+
+                    if (shouldStartTriggers) {
+                        HardwareServiceActions
+                            .startTriggersIfAutoStartEnabled(
+                                context.applicationContext
+                            )
+                    }
                 } finally {
                     pendingResult.finish()
                 }

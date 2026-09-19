@@ -27,5 +27,9 @@ data class HardwareTabDeps(
     val applyMasterProfile: (MasterProfile) -> Unit,
     val deleteMasterProfile: (String) -> Unit,
     val exportMasterBackup: () -> Unit,
-    val importMasterBackup: () -> Unit
+    val importMasterBackup: () -> Unit,
+
+    val automationRulesSummary: () -> String,
+    val showAutomationRulesDialog:
+        ((() -> Unit) -> Unit)
 )

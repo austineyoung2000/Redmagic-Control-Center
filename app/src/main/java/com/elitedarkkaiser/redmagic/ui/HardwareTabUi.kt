@@ -219,6 +219,42 @@ object HardwareTabUi {
 
         container.addView(masterProfilesCard)
 
+        val automationSummary = deps.subtleLabel(
+            deps.automationRulesSummary()
+        )
+
+        val automationCard = deps.sectionPanel().apply {
+            addView(
+                deps.sectionHeader(
+                    "⚙",
+                    "AUTOMATION RULES"
+                )
+            )
+            addView(
+                deps.bodyText(
+                    "Apply saved Master Profiles when Android reports power, battery, or restart events. No continuous polling is used."
+                )
+            )
+            addView(deps.space(deps.dp(8)))
+            addView(automationSummary)
+            addView(deps.space(deps.dp(8)))
+            addView(
+                deps.singleRow(
+                    deps.actionButton(
+                        "CONFIGURE AUTOMATION",
+                        false
+                    ) {
+                        deps.showAutomationRulesDialog {
+                            automationSummary.text =
+                                deps.automationRulesSummary()
+                        }
+                    }
+                )
+            )
+        }
+
+        container.addView(automationCard)
+
         return container
     }
 

@@ -147,22 +147,27 @@ Intent Unlock provides configurable tap counts before trigger actions become act
 
 Manual **Disable Triggers** stops the service and hardware without erasing the Auto-start preference. Automatic startup remains paused until the user presses **Enable Triggers** or restarts the phone.
 
-### Hardware profiles
-
-Hardware profiles store fan, pump, LED, automatic-control, curve, trigger, and trigger-mapping state. Profiles can be named, applied, and deleted.
-
 ### Master profiles
 
 Master profiles capture the wider application state, including:
 
-- Complete hardware profile
+- Fan, pump, lighting, and automatic-control state
 - Game Mode profile and selected games
+- Per-game profile assignments
 - Charging Mode profiles
 - Incoming and connected-call profiles
 - Call fan-pause preference
-- Pump and fan-curve state
+- RGB Studio configuration
+- Temperature-unit preference
+- Magic Key mode and selected application
 - Real-time preview preference
 - Trigger preferences
+
+Profiles can be named, applied, deleted, exported as a portable JSON backup, and imported on another installation.
+
+### Automation rules
+
+Saved Master Profiles can be assigned to power connected, power disconnected, battery low, battery recovered, and first-unlock-after-restart events. Android broadcasts trigger the rules only when those events occur; the automation engine performs no continuous polling. Rules are included in portable JSON backups and are cleared automatically if their assigned profile is deleted.
 
 ## Lighting
 
@@ -306,6 +311,7 @@ The public repository contains the application source, Gradle configuration, and
 - Dashboard polling paused outside the foreground
 - Adaptive non-root temperature monitoring
 - Event-driven charging and phone-state handling
+- Event-driven Master Profile automation rules
 - Event-assisted Game Mode activation
 - Two-minute Game Mode checks only while a selected game is active
 - Fan, pump, and general write deduplication

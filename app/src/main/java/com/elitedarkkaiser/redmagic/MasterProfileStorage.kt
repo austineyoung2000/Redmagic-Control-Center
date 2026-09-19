@@ -48,6 +48,10 @@ object MasterProfileStorage {
 
     fun deleteProfile(context: Context, name: String) {
         saveProfiles(context, loadProfiles(context).filterNot { it.name == name })
+        AutomationRulesStorage.clearProfileReferences(
+            context,
+            name
+        )
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getString(LAST_APPLIED_KEY, null) == name) {
             prefs.edit().remove(LAST_APPLIED_KEY).apply()
@@ -81,6 +85,10 @@ object MasterProfileStorage {
                 "Current device settings"
             ).toJson())
             put("savedProfiles", saved)
+            put(
+                "automationRules",
+                AutomationRulesStorage.toJson(context)
+            )
         }.toString(2)
     }
 
@@ -103,6 +111,13 @@ object MasterProfileStorage {
         val merged = loadProfiles(context).associateBy { it.name }.toMutableMap()
         imported.forEach { merged[it.name] = it }
         saveProfiles(context, merged.values.sortedBy { it.name.lowercase() })
+
+        root.optJSONObject("automationRules")?.let {
+            AutomationRulesStorage.restoreFromJson(
+                context,
+                it
+            )
+        }
 
         val current = root.optJSONObject("currentSettings")?.toMasterProfile()
         current?.let { MasterProfileActions.applyProfile(context, it) }
