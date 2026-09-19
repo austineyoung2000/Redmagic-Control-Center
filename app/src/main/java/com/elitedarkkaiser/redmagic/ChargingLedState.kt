@@ -102,41 +102,114 @@ internal object ChargingLedState {
             status == BatteryManager.BATTERY_STATUS_FULL
     }
 
-    fun applyChargingProfile(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun applyChargingProfile(
+        context: Context,
+        force: Boolean = false
+    ) {
+        val prefs = context.getSharedPreferences(
+            PREFS,
+            Context.MODE_PRIVATE
+        )
 
-        val fanEnabled = prefs.getBoolean(FAN_ENABLED_KEY, true)
-        val fanEffect = prefs.getString(FAN_EFFECT_KEY, "steady") ?: "steady"
-        val fanColor = prefs.getInt(FAN_COLOR_KEY, 5)
+        val fanEnabled =
+            prefs.getBoolean(FAN_ENABLED_KEY, true)
+        val fanEffect =
+            prefs.getString(
+                FAN_EFFECT_KEY,
+                "steady"
+            ) ?: "steady"
+        val fanColor =
+            prefs.getInt(FAN_COLOR_KEY, 5)
 
-        val logoEnabled = prefs.getBoolean(LOGO_ENABLED_KEY, true)
-        val logoEffect = prefs.getString(LOGO_EFFECT_KEY, "steady") ?: "steady"
-        val logoColor = prefs.getInt(LOGO_COLOR_KEY, 1)
+        val logoEnabled =
+            prefs.getBoolean(LOGO_ENABLED_KEY, true)
+        val logoEffect =
+            prefs.getString(
+                LOGO_EFFECT_KEY,
+                "steady"
+            ) ?: "steady"
+        val logoColor =
+            prefs.getInt(LOGO_COLOR_KEY, 1)
 
-        val shoulderEnabled = prefs.getBoolean(SHOULDER_ENABLED_KEY, true)
-        val shoulderEffect = prefs.getString(SHOULDER_EFFECT_KEY, "breathe") ?: "breathe"
-        val shoulderColor = prefs.getInt(SHOULDER_COLOR_KEY, 8)
+        val shoulderEnabled =
+            prefs.getBoolean(
+                SHOULDER_ENABLED_KEY,
+                true
+            )
+        val shoulderEffect =
+            prefs.getString(
+                SHOULDER_EFFECT_KEY,
+                "breathe"
+            ) ?: "breathe"
+        val shoulderColor =
+            prefs.getInt(
+                SHOULDER_COLOR_KEY,
+                8
+            )
 
-        if (fanEnabled) {
-            if (fanEffect.startsWith("preset:")) {
-                HardwareController.setFanLedStockPreset(fanEffect.removePrefix("preset:"))
+        val signature = listOf(
+            fanEnabled,
+            fanEffect,
+            fanColor,
+            logoEnabled,
+            logoEffect,
+            logoColor,
+            shoulderEnabled,
+            shoulderEffect,
+            shoulderColor
+        ).joinToString("|")
+
+        ModeTransitionCoordinator.applyLedProfile(
+            context = context,
+            owner = LedOwner.CHARGING,
+            signature = signature,
+            force = force
+        ) {
+            if (fanEnabled) {
+                if (
+                    fanEffect.startsWith(
+                        "preset:"
+                    )
+                ) {
+                    HardwareController
+                        .setFanLedStockPreset(
+                            fanEffect.removePrefix(
+                                "preset:"
+                            )
+                        )
+                } else {
+                    HardwareController
+                        .setFanLedEffect(
+                            fanEffect,
+                            fanColor
+                        )
+                }
             } else {
-                HardwareController.setFanLedEffect(fanEffect, fanColor)
+                HardwareController
+                    .setFanLedEnabled(false)
             }
-        } else {
-            HardwareController.setFanLedEnabled(false)
-        }
 
-        if (logoEnabled) {
-            HardwareController.setLogoLedEffect(logoEffect, logoColor)
-        } else {
-            HardwareController.setLogoLedEnabled(false)
-        }
+            if (logoEnabled) {
+                HardwareController
+                    .setLogoLedEffect(
+                        logoEffect,
+                        logoColor
+                    )
+            } else {
+                HardwareController
+                    .setLogoLedEnabled(false)
+            }
 
-        if (shoulderEnabled) {
-            HardwareController.setShoulderLedEffect(shoulderEffect, shoulderColor)
-        } else {
-            HardwareController.setShoulderLedEnabled(false)
+            if (shoulderEnabled) {
+                HardwareController
+                    .setShoulderLedEffect(
+                        shoulderEffect,
+                        shoulderColor
+                    )
+            } else {
+                HardwareController
+                    .setShoulderLedEnabled(false)
+            }
         }
     }
 }

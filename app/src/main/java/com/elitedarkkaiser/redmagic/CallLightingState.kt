@@ -11,6 +11,8 @@ internal object CallLightingState {
     const val PAUSE_FAN_DURING_CALLS_KEY = "call_lighting_pause_fan_during_calls"
     const val PRE_CALL_FAN_ENABLED_KEY = "call_lighting_pre_call_fan_enabled"
     const val PRE_CALL_FAN_LEVEL_KEY = "call_lighting_pre_call_fan_level"
+    const val FAN_PAUSED_ACTIVE_KEY =
+        "call_lighting_fan_pause_active"
 
     const val INCOMING_FAN_ENABLED_KEY = "call_incoming_fan_led_enabled"
     const val INCOMING_FAN_EFFECT_KEY = "call_incoming_fan_led_effect"
@@ -79,6 +81,33 @@ internal object CallLightingState {
             .putBoolean(PRE_CALL_FAN_ENABLED_KEY, enabled)
             .putInt(PRE_CALL_FAN_LEVEL_KEY, level)
             .apply()
+    }
+
+    fun setFanPausedForCall(
+        context: Context,
+        active: Boolean
+    ) {
+        context.getSharedPreferences(
+            PREFS,
+            Context.MODE_PRIVATE
+        ).edit()
+            .putBoolean(
+                FAN_PAUSED_ACTIVE_KEY,
+                active
+            )
+            .apply()
+    }
+
+    fun wasFanPausedForCall(
+        context: Context
+    ): Boolean {
+        return context.getSharedPreferences(
+            PREFS,
+            Context.MODE_PRIVATE
+        ).getBoolean(
+            FAN_PAUSED_ACTIVE_KEY,
+            false
+        )
     }
 
     fun restorePreCallFanState(context: Context) {

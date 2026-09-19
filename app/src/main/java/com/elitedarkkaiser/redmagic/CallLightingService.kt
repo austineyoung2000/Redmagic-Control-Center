@@ -3,17 +3,22 @@ package com.elitedarkkaiser.redmagic
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.telephony.PhoneStateListener
+import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
+import java.util.concurrent.Executor
 import com.elitedarkkaiser.redmagic.state.LedState
 
 @Suppress("DEPRECATION")
 class CallLightingService : Service() {
 
     private var telephonyManager: TelephonyManager? = null
+    private var modernPhoneCallback:
+        TelephonyCallback? = null
 
     @Volatile
     private var lastState: Int = TelephonyManager.CALL_STATE_IDLE
@@ -22,13 +27,23 @@ class CallLightingService : Service() {
     private lateinit var handler: Handler
 
     private val callStateLock = Any()
-    private var pendingCallState = TelephonyManager.CALL_STATE_IDLE
+    private var pendingCallState =
+        TelephonyManager.CALL_STATE_IDLE
+    private var forcePendingCallState = false
 
     private val callStateRunnable = Runnable {
-        val state = synchronized(callStateLock) {
-            pendingCallState
+        val pending = synchronized(callStateLock) {
+            val result =
+                pendingCallState to
+                    forcePendingCallState
+            forcePendingCallState = false
+            result
         }
-        handleCallState(state)
+
+        handleCallState(
+            pending.first,
+            pending.second
+        )
     }
 
     private val fanPauseRunnable = Runnable {
@@ -62,10 +77,7 @@ class CallLightingService : Service() {
         telephonyManager =
             getSystemService(Context.TELEPHONY_SERVICE)
                 as? TelephonyManager
-        telephonyManager?.listen(
-            phoneListener,
-            PhoneStateListener.LISTEN_CALL_STATE
-        )
+        registerCallStateListener()
     }
 
     override fun onStartCommand(
@@ -73,15 +85,15 @@ class CallLightingService : Service() {
         flags: Int,
         startId: Int
     ): Int {
-        scheduleCallState(lastState)
+        scheduleCallState(
+            currentCallState(),
+            force = true
+        )
         return START_STICKY
     }
 
     override fun onDestroy() {
-        telephonyManager?.listen(
-            phoneListener,
-            PhoneStateListener.LISTEN_NONE
-        )
+        unregisterCallStateListener()
 
         if (::handler.isInitialized) {
             handler.removeCallbacksAndMessages(null)
@@ -93,48 +105,152 @@ class CallLightingService : Service() {
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(
+        intent: Intent?
+    ): IBinder? = null
 
-    private fun scheduleCallState(state: Int) {
+    private fun registerCallStateListener() {
+        val manager =
+            telephonyManager ?: return
+
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.S
+        ) {
+            val callback =
+                object :
+                    TelephonyCallback(),
+                    TelephonyCallback.CallStateListener {
+                    override fun onCallStateChanged(
+                        state: Int
+                    ) {
+                        scheduleCallState(state)
+                    }
+                }
+
+            modernPhoneCallback = callback
+
+            manager.registerTelephonyCallback(
+                Executor { command ->
+                    if (::handler.isInitialized) {
+                        handler.post(command)
+                    }
+                },
+                callback
+            )
+        } else {
+            manager.listen(
+                phoneListener,
+                PhoneStateListener.LISTEN_CALL_STATE
+            )
+        }
+    }
+
+    private fun unregisterCallStateListener() {
+        val manager =
+            telephonyManager ?: return
+
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.S
+        ) {
+            modernPhoneCallback?.let {
+                callback ->
+                runCatching {
+                    manager
+                        .unregisterTelephonyCallback(
+                            callback
+                        )
+                }
+            }
+            modernPhoneCallback = null
+        } else {
+            manager.listen(
+                phoneListener,
+                PhoneStateListener.LISTEN_NONE
+            )
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun currentCallState(): Int {
+        return runCatching {
+            telephonyManager?.callState
+        }.getOrNull()
+            ?: lastState
+    }
+
+    private fun scheduleCallState(
+        state: Int,
+        force: Boolean = false
+    ) {
         if (!::handler.isInitialized) return
 
         synchronized(callStateLock) {
             pendingCallState = state
+            forcePendingCallState =
+                forcePendingCallState || force
         }
 
-        handler.removeCallbacks(callStateRunnable)
+        handler.removeCallbacks(
+            callStateRunnable
+        )
         handler.post(callStateRunnable)
     }
 
-    private fun handleCallState(state: Int) {
-        lastState = state
-
-        if (!CallLightingState.isEnabled(this)) {
-            CallLightingState.setActive(this, false)
+    private fun handleCallState(
+        state: Int,
+        force: Boolean
+    ) {
+        if (!force && state == lastState) {
             return
         }
 
-        if (!LedOwnership.canCallApply(this)) {
-            CallLightingState.setActive(this, false)
+        lastState = state
+
+        if (!CallLightingState.isEnabled(this)) {
+            if (CallLightingState.isActive(this)) {
+                CallLightingState.setActive(
+                    this,
+                    false
+                )
+                restorePausedFanIfNeeded()
+                restorePreviousLedOwner()
+            }
             return
         }
 
         when (state) {
             TelephonyManager.CALL_STATE_RINGING -> {
                 beginCallOwnership()
-                applyIncomingProfile()
+
+                if (LedOwnership.canCallApply(this)) {
+                    applyIncomingProfile()
+                }
+
                 enforceFanPauseIfNeeded()
             }
+
             TelephonyManager.CALL_STATE_OFFHOOK -> {
                 beginCallOwnership()
-                applyConnectedProfile()
+
+                if (LedOwnership.canCallApply(this)) {
+                    applyConnectedProfile()
+                }
+
                 enforceFanPauseIfNeeded()
             }
+
             TelephonyManager.CALL_STATE_IDLE -> {
-                handler.removeCallbacks(fanPauseRunnable)
+                handler.removeCallbacks(
+                    fanPauseRunnable
+                )
 
                 if (CallLightingState.isActive(this)) {
-                    CallLightingState.setActive(this, false)
+                    CallLightingState.setActive(
+                        this,
+                        false
+                    )
                     restorePausedFanIfNeeded()
                     restorePreviousLedOwner()
                 }
@@ -144,28 +260,59 @@ class CallLightingService : Service() {
 
 
     private fun beginCallOwnership() {
-        val wasAlreadyActive = CallLightingState.isActive(this)
+        val wasAlreadyActive =
+            CallLightingState.isActive(this)
 
-        if (!wasAlreadyActive && CallLightingState.shouldPauseFanDuringCalls(this)) {
+        if (
+            !wasAlreadyActive &&
+            CallLightingState
+                .shouldPauseFanDuringCalls(this)
+        ) {
             CallLightingState.savePreCallFanState(
                 context = this,
-                enabled = HardwareController.isFanEnabled(),
-                level = HardwareController.readFanLevel() ?: 0
+                enabled =
+                    HardwareController
+                        .isFanEnabled(),
+                level =
+                    HardwareController
+                        .readFanLevel() ?: 0
             )
-            HardwareServiceActions.stopAutoFan(this)
+
+            CallLightingState.setFanPausedForCall(
+                this,
+                true
+            )
+
+            HardwareServiceActions
+                .stopAutoFan(this)
             HardwareController.setFanLevel(0)
             HardwareController.enableFan(false)
         }
 
-        CallLightingState.setActive(this, true)
+        CallLightingState.setActive(
+            this,
+            true
+        )
     }
 
     private fun restorePausedFanIfNeeded() {
-        if (CallLightingState.shouldPauseFanDuringCalls(this)) {
-            CallLightingState.restorePreCallFanState(this)
-            if (isAutoFanEnabledStorage(this)) {
-                HardwareServiceActions.startAutoFan(this)
-            }
+        if (
+            !CallLightingState
+                .wasFanPausedForCall(this)
+        ) {
+            return
+        }
+
+        CallLightingState
+            .restorePreCallFanState(this)
+        CallLightingState.setFanPausedForCall(
+            this,
+            false
+        )
+
+        if (isAutoFanEnabledStorage(this)) {
+            HardwareServiceActions
+                .startAutoFan(this)
         }
     }
 
@@ -245,38 +392,82 @@ class CallLightingService : Service() {
         )
     }
 
-    private fun applyProfile(fan: LedState, logo: LedState, shoulder: LedState) {
-        if (fan.enabled) {
-            if (fan.effect.startsWith("preset:")) {
-                HardwareController.setFanLedStockPreset(fan.effect.removePrefix("preset:"))
+    private fun applyProfile(
+        fan: LedState,
+        logo: LedState,
+        shoulder: LedState
+    ) {
+        val signature = listOf(
+            lastState,
+            fan.enabled,
+            fan.effect,
+            fan.color,
+            logo.enabled,
+            logo.effect,
+            logo.color,
+            shoulder.enabled,
+            shoulder.effect,
+            shoulder.color
+        ).joinToString("|")
+
+        ModeTransitionCoordinator.applyLedProfile(
+            context = this,
+            owner = LedOwner.CALL,
+            signature = signature
+        ) {
+            if (fan.enabled) {
+                if (
+                    fan.effect.startsWith(
+                        "preset:"
+                    )
+                ) {
+                    HardwareController
+                        .setFanLedStockPreset(
+                            fan.effect.removePrefix(
+                                "preset:"
+                            )
+                        )
+                } else {
+                    HardwareController
+                        .setFanLedEffect(
+                            fan.effect,
+                            fan.color
+                        )
+                }
             } else {
-                HardwareController.setFanLedEffect(fan.effect, fan.color)
+                HardwareController
+                    .setFanLedEnabled(false)
             }
-        } else {
-            HardwareController.setFanLedEnabled(false)
-        }
 
-        if (logo.enabled) {
-            HardwareController.setLogoLedEffect(logo.effect, logo.color)
-        } else {
-            HardwareController.setLogoLedEnabled(false)
-        }
+            if (logo.enabled) {
+                HardwareController
+                    .setLogoLedEffect(
+                        logo.effect,
+                        logo.color
+                    )
+            } else {
+                HardwareController
+                    .setLogoLedEnabled(false)
+            }
 
-        if (shoulder.enabled) {
-            HardwareController.setShoulderLedEffect(shoulder.effect, shoulder.color)
-        } else {
-            HardwareController.setShoulderLedEnabled(false)
+            if (shoulder.enabled) {
+                HardwareController
+                    .setShoulderLedEffect(
+                        shoulder.effect,
+                        shoulder.color
+                    )
+            } else {
+                HardwareController
+                    .setShoulderLedEnabled(false)
+            }
         }
     }
 
     private fun restorePreviousLedOwner() {
-        if (ChargingLedState.isEnabled(this) && ChargingLedState.isChargingNow(this)) {
-            ChargingLedState.setActive(this, true)
-            ChargingLedState.applyChargingProfile(this)
-            return
-        }
-
-        GameModeActions.startServiceSilentlyIfPermitted(this)
-        HardwareServiceActions.startFanLed(this)
+        ModeTransitionCoordinator
+            .restoreEffectiveOwner(
+                this,
+                "call-ended"
+            )
     }
 }

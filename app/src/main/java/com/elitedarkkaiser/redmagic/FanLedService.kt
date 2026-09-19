@@ -45,7 +45,11 @@ class FanLedService : Service() {
                                 this@FanLedService
                             )
                         } else {
-                            turnOffAllManagedLeds()
+                            ModeTransitionCoordinator
+                                .restoreEffectiveOwner(
+                                    this@FanLedService,
+                                    "screen-off"
+                                )
                         }
                     }
                 }
@@ -129,59 +133,157 @@ class FanLedService : Service() {
     }
 
     private fun reapplySavedLedState() {
-        val prefs = getSharedPreferences("redmagic_hw_controls_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences(
+            "redmagic_hw_controls_prefs",
+            Context.MODE_PRIVATE
+        )
 
         if (!LedOwnership.canNormalApply(this)) {
             android.util.Log.i(
                 "RedmagicLedOwnership",
-                "FanLedService skipped normal LED apply because owner=${LedOwnership.current(this)}"
+                "FanLedService skipped normal LED " +
+                    "apply because owner=" +
+                    LedOwnership.current(this)
             )
             return
         }
 
-        
-        val fanEnabled = prefs.getBoolean("fan_led_enabled", false)
-        val fanEffect = prefs.getString("fan_led_effect", "steady") ?: "steady"
-        val fanColor = prefs.getInt("fan_led_color", 5)
+        val fanEnabled =
+            prefs.getBoolean(
+                "fan_led_enabled",
+                false
+            )
+        val fanEffect =
+            prefs.getString(
+                "fan_led_effect",
+                "steady"
+            ) ?: "steady"
+        val fanColor =
+            prefs.getInt("fan_led_color", 5)
 
-        val logoEnabled = prefs.getBoolean("logo_led_enabled", true)
-        val logoEffect = prefs.getString("logo_led_effect", "steady") ?: "steady"
-        val logoColor = prefs.getInt("logo_led_color", 1)
+        val logoEnabled =
+            prefs.getBoolean(
+                "logo_led_enabled",
+                true
+            )
+        val logoEffect =
+            prefs.getString(
+                "logo_led_effect",
+                "steady"
+            ) ?: "steady"
+        val logoColor =
+            prefs.getInt("logo_led_color", 1)
 
-        val shoulderEnabled = prefs.getBoolean("shoulder_led_enabled", true)
-        val shoulderEffect = prefs.getString("shoulder_led_effect", "breathe") ?: "breathe"
-        val shoulderColor = prefs.getInt("shoulder_led_color", 8)
+        val shoulderEnabled =
+            prefs.getBoolean(
+                "shoulder_led_enabled",
+                true
+            )
+        val shoulderEffect =
+            prefs.getString(
+                "shoulder_led_effect",
+                "breathe"
+            ) ?: "breathe"
+        val shoulderColor =
+            prefs.getInt(
+                "shoulder_led_color",
+                8
+            )
 
-        if (fanEnabled) {
-            if (fanEffect.startsWith("preset:")) {
-                HardwareController.setFanLedStockPreset(fanEffect.removePrefix("preset:"))
+        val signature = listOf(
+            fanEnabled,
+            fanEffect,
+            fanColor,
+            logoEnabled,
+            logoEffect,
+            logoColor,
+            shoulderEnabled,
+            shoulderEffect,
+            shoulderColor
+        ).joinToString("|")
+
+        ModeTransitionCoordinator.applyLedProfile(
+            context = this,
+            owner = LedOwner.NORMAL,
+            signature = signature
+        ) {
+            if (fanEnabled) {
+                if (
+                    fanEffect.startsWith(
+                        "preset:"
+                    )
+                ) {
+                    HardwareController
+                        .setFanLedStockPreset(
+                            fanEffect.removePrefix(
+                                "preset:"
+                            )
+                        )
+                } else {
+                    HardwareController
+                        .setFanLedEffect(
+                            fanEffect,
+                            fanColor
+                        )
+                }
             } else {
-                HardwareController.setFanLedEffect(fanEffect, fanColor)
+                HardwareController
+                    .setFanLedEnabled(false)
             }
-        } else {
-            HardwareController.setFanLedEnabled(false)
+
+            if (logoEnabled) {
+                HardwareController
+                    .setLogoLedEffect(
+                        logoEffect,
+                        logoColor
+                    )
+            } else {
+                HardwareController
+                    .setLogoLedEnabled(false)
+            }
+
+            if (shoulderEnabled) {
+                HardwareController
+                    .setShoulderLedEffect(
+                        shoulderEffect,
+                        shoulderColor
+                    )
+            } else {
+                HardwareController
+                    .setShoulderLedEnabled(false)
+            }
         }
 
-        if (logoEnabled) {
-            HardwareController.setLogoLedEffect(logoEffect, logoColor)
-        } else {
-            HardwareController.setLogoLedEnabled(false)
-        }
-
-        if (shoulderEnabled) {
-            HardwareController.setShoulderLedEffect(shoulderEffect, shoulderColor)
-        } else {
-            HardwareController.setShoulderLedEnabled(false)
-        }
-
-        if (fanEnabled || logoEnabled || shoulderEnabled) {
+        if (
+            fanEnabled ||
+            logoEnabled ||
+            shoulderEnabled
+        ) {
             updateNotification(
                 "LED persistence active • Fan: " +
-                    (if (fanEnabled) "on" else "off") +
+                    (
+                        if (fanEnabled) {
+                            "on"
+                        } else {
+                            "off"
+                        }
+                    ) +
                     " • Logo: " +
-                    (if (logoEnabled) "on" else "off") +
+                    (
+                        if (logoEnabled) {
+                            "on"
+                        } else {
+                            "off"
+                        }
+                    ) +
                     " • Shoulder: " +
-                    (if (shoulderEnabled) "on" else "off")
+                    (
+                        if (shoulderEnabled) {
+                            "on"
+                        } else {
+                            "off"
+                        }
+                    )
             )
         } else {
             stopSelf()

@@ -28,6 +28,18 @@ class GameModeService : Service() {
     private var pollingPausedForScreenOff = false
 
     private val activeGamePollMs = 120_000L
+    private val foregroundDebounceMs = 1_500L
+
+    private var pendingForegroundPackage: String? = null
+
+    private val foregroundPackageRunnable = Runnable {
+        val pkg = pendingForegroundPackage
+        pendingForegroundPackage = null
+
+        if (!pkg.isNullOrBlank()) {
+            handleForegroundPackageNow(pkg)
+        }
+    }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -38,6 +50,10 @@ class GameModeService : Service() {
                     Intent.ACTION_SCREEN_OFF -> {
                         pollingPausedForScreenOff = true
                         handler.removeCallbacks(pollRunnable)
+                        handler.removeCallbacks(
+                            foregroundPackageRunnable
+                        )
+                        pendingForegroundPackage = null
 
                         if (gameModeActiveFor != null) {
                             restoreNormalProfile()
@@ -88,10 +104,11 @@ class GameModeService : Service() {
                 } else if (!currentPkg.isNullOrBlank()) {
                     if (gameModeActiveFor != null) {
                         restoreNormalProfile()
-                        setGameModeLedOverrideActiveStorage(this@GameModeService, false)
                         gameModeActiveFor = null
-                        stopSelf()
                     }
+                    stopSelf()
+                } else if (gameModeActiveFor == null) {
+                    stopSelf()
                 }
             } catch (_: Throwable) {
             } finally {
@@ -162,10 +179,15 @@ class GameModeService : Service() {
                 }
 
                 !pkg.isNullOrBlank() -> {
-                    handleForegroundPackage(pkg)
+                    scheduleForegroundPackage(pkg)
                 }
 
-                gameModeActiveFor != null -> {
+                else -> {
+                    /*
+                     * Service restoration requests may not carry
+                     * a package. Probe UsageStats immediately so
+                     * process recreation restores the right mode.
+                     */
                     handler.removeCallbacks(pollRunnable)
                     handler.post(pollRunnable)
                 }
@@ -196,7 +218,23 @@ class GameModeService : Service() {
         )
     }
 
-    private fun handleForegroundPackage(currentPkg: String) {
+    private fun scheduleForegroundPackage(
+        currentPkg: String
+    ) {
+        pendingForegroundPackage = currentPkg
+
+        handler.removeCallbacks(
+            foregroundPackageRunnable
+        )
+        handler.postDelayed(
+            foregroundPackageRunnable,
+            foregroundDebounceMs
+        )
+    }
+
+    private fun handleForegroundPackageNow(
+        currentPkg: String
+    ) {
         if (pollingPausedForScreenOff) return
 
         val tracked = getSavedGamePackagesStorage(this)
@@ -237,6 +275,11 @@ class GameModeService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(pollRunnable)
+        handler.removeCallbacks(
+            foregroundPackageRunnable
+        )
+        pendingForegroundPackage = null
+
         runCatching {
             unregisterReceiver(screenReceiver)
         }
@@ -327,15 +370,17 @@ class GameModeService : Service() {
         if (HardwareScreenPolicy.blockNormalLedsWhileScreenOff(this, "game-mode-apply-screen-off")) return
         val prefs = getSharedPreferences("redmagic_hw_controls_prefs", Context.MODE_PRIVATE)
 
+        val pkg = gameModeActiveFor ?: return
+
         if (!LedOwnership.canGameModeApply(this)) {
+            gameModeApplyPendingFor = pkg
+
             android.util.Log.i(
                 "RedmagicLedOwnership",
-                "GameModeService skipped game LED apply because owner=${LedOwnership.current(this)}"
+                "GameModeService deferred game LED apply because owner=${LedOwnership.current(this)}"
             )
             return
         }
-
-        val pkg = gameModeActiveFor ?: return
         val profile = getProfileForPackage(pkg)
 
         val fanEnabled = profile["fanEnabled"] as? Boolean ?: prefs.getBoolean("game_mode_fan_enabled", true)
@@ -361,113 +406,180 @@ class GameModeService : Service() {
             if (gameModeActiveFor != pkg) return
 
             if (fanEnabled) {
-                HardwareController.setFanLevel(fanLevel)
+                HardwareController.setFanLevel(
+                    fanLevel
+                )
             } else {
                 HardwareController.enableFan(false)
             }
 
             if (pumpEnabled) {
-                HardwareController.setPumpProfile(pumpProfile)
+                HardwareController.setPumpProfile(
+                    pumpProfile
+                )
             } else {
                 HardwareController.enablePump(false)
             }
 
-            if (fanLedEnabled) {
-                if (fanLedModeType == "preset" && fanLedPresetValue.isNotBlank()) {
-                    HardwareController.setFanLedStockPreset(fanLedPresetValue)
-                } else if (fanLedEffect.startsWith("preset:")) {
-                    HardwareController.setFanLedStockPreset(fanLedEffect.removePrefix("preset:"))
+            val ledSignature = listOf(
+                pkg,
+                fanLedEnabled,
+                fanLedEffect,
+                fanLedColor,
+                fanLedModeType,
+                fanLedPresetValue,
+                logoLedEnabled,
+                logoLedEffect,
+                logoLedColor,
+                shoulderLedEnabled,
+                shoulderLedEffect,
+                shoulderLedColor
+            ).joinToString("|")
+
+            ModeTransitionCoordinator.applyLedProfile(
+                context = this@GameModeService,
+                owner = LedOwner.GAME_MODE,
+                signature = ledSignature
+            ) {
+                if (fanLedEnabled) {
+                    if (
+                        fanLedModeType == "preset" &&
+                        fanLedPresetValue.isNotBlank()
+                    ) {
+                        HardwareController
+                            .setFanLedStockPreset(
+                                fanLedPresetValue
+                            )
+                    } else if (
+                        fanLedEffect.startsWith(
+                            "preset:"
+                        )
+                    ) {
+                        HardwareController
+                            .setFanLedStockPreset(
+                                fanLedEffect.removePrefix(
+                                    "preset:"
+                                )
+                            )
+                    } else {
+                        HardwareController
+                            .setFanLedEffect(
+                                fanLedEffect,
+                                fanLedColor
+                            )
+                    }
                 } else {
-                    HardwareController.setFanLedEffect(fanLedEffect, fanLedColor)
+                    HardwareController
+                        .setFanLedEnabled(false)
                 }
-            } else {
-                HardwareController.setFanLedEnabled(false)
+
+                if (logoLedEnabled) {
+                    HardwareController
+                        .setLogoLedEffect(
+                            logoLedEffect,
+                            logoLedColor
+                        )
+                } else {
+                    HardwareController
+                        .setLogoLedEnabled(false)
+                }
+
+                if (shoulderLedEnabled) {
+                    HardwareController
+                        .setShoulderLedEffect(
+                            shoulderLedEffect,
+                            shoulderLedColor
+                        )
+                } else {
+                    HardwareController
+                        .setShoulderLedEnabled(false)
+                }
+
+                android.util.Log.i(
+                    "RedmagicGameMode",
+                    "apply[$reason] pkg=$pkg " +
+                        "fan=$fanLedEnabled/" +
+                        "$fanLedEffect/$fanLedColor " +
+                        "logo=$logoLedEnabled/" +
+                        "$logoLedEffect/$logoLedColor " +
+                        "shoulder=$shoulderLedEnabled/" +
+                        "$shoulderLedEffect/" +
+                        "$shoulderLedColor"
+                )
             }
 
-            if (logoLedEnabled) {
-                HardwareController.setLogoLedEffect(logoLedEffect, logoLedColor)
-            } else {
-                HardwareController.setLogoLedEnabled(false)
-            }
-
-            if (shoulderLedEnabled) {
-                HardwareController.setShoulderLedEffect(shoulderLedEffect, shoulderLedColor)
-            } else {
-                HardwareController.setShoulderLedEnabled(false)
-            }
-
-            android.util.Log.i(
-                "RedmagicGameMode",
-                "apply[$reason] pkg=$pkg fan=$fanLedEnabled/$fanLedEffect/$fanLedColor logo=$logoLedEnabled/$logoLedEffect/$logoLedColor shoulder=$shoulderLedEnabled/$shoulderLedEffect/$shoulderLedColor"
-            )
+            gameModeApplyPendingFor = null
         }
 
         applyOnce("now")
     }
     private fun restoreNormalProfile() {
-        if (HardwareScreenPolicy.blockNormalLedsWhileScreenOff(this, "game-mode-restore-screen-off")) return
-        if (LedScreenPolicy.blockNonChargingLedWriteIfScreenOff(this, "game-mode-restore-normal")) return
+        val prefs = getSharedPreferences(
+            "redmagic_hw_controls_prefs",
+            Context.MODE_PRIVATE
+        )
 
-        val prefs = getSharedPreferences("redmagic_hw_controls_prefs", Context.MODE_PRIVATE)
+        val fanEnabled =
+            prefs.getBoolean("fan_enabled", false)
+        val fanLevel =
+            prefs.getInt("fan_level", 0)
+        val pumpEnabled =
+            prefs.getBoolean("pump_enabled", false)
+        val pumpProfile =
+            prefs.getString(
+                "pump_profile",
+                "quick"
+            ) ?: "quick"
 
-        val fanEnabled = prefs.getBoolean("fan_enabled", false)
-        val fanLevel = prefs.getInt("fan_level", 0)
-        val pumpEnabled = prefs.getBoolean("pump_enabled", false)
-        val pumpProfile = prefs.getString("pump_profile", "quick") ?: "quick"
-
-        val fanLedEnabled = prefs.getBoolean("fan_led_enabled", false)
-        val fanLedEffect = prefs.getString("fan_led_effect", "steady") ?: "steady"
-        val fanLedColor = prefs.getInt("fan_led_color", 5)
-
-        val logoLedEnabled = prefs.getBoolean("logo_led_enabled", true)
-        val logoLedEffect = prefs.getString("logo_led_effect", "steady") ?: "steady"
-        val logoLedColor = prefs.getInt("logo_led_color", 1)
-
-        val shoulderLedEnabled = prefs.getBoolean("shoulder_led_enabled", true)
-        val shoulderLedEffect = prefs.getString("shoulder_led_effect", "breathe") ?: "breathe"
-        val shoulderLedColor = prefs.getInt("shoulder_led_color", 8)
-
-        fun restoreOnce(reason: String) {
-            if (fanEnabled) {
-                HardwareController.setFanLevel(fanLevel)
-            } else {
-                HardwareController.enableFan(false)
-            }
-
-            if (pumpEnabled) {
-                HardwareController.setPumpProfile(pumpProfile)
-            } else {
-                HardwareController.enablePump(false)
-            }
-
-            if (fanLedEnabled) {
-                if (fanLedEffect.startsWith("preset:")) {
-                    HardwareController.setFanLedStockPreset(fanLedEffect.removePrefix("preset:"))
-                } else {
-                    HardwareController.setFanLedEffect(fanLedEffect, fanLedColor)
-                }
-            } else {
-                HardwareController.setFanLedEnabled(false)
-            }
-
-            if (logoLedEnabled) {
-                HardwareController.setLogoLedEffect(logoLedEffect, logoLedColor)
-            } else {
-                HardwareController.setLogoLedEnabled(false)
-            }
-
-            if (shoulderLedEnabled) {
-                HardwareController.setShoulderLedEffect(shoulderLedEffect, shoulderLedColor)
-            } else {
-                HardwareController.setShoulderLedEnabled(false)
-            }
-
-            android.util.Log.i(
-                "RedmagicGameMode",
-                "restore[$reason] fan=$fanLedEnabled/$fanLedEffect/$fanLedColor logo=$logoLedEnabled/$logoLedEffect/$logoLedColor shoulder=$shoulderLedEnabled/$shoulderLedEffect/$shoulderLedColor"
+        /*
+         * If a call currently owns the fan pause, update the
+         * state that Call Lighting will restore. Do not briefly
+         * restart the fan underneath the active call.
+         */
+        if (
+            CallLightingState.isActive(this) &&
+            CallLightingState
+                .wasFanPausedForCall(this)
+        ) {
+            CallLightingState.savePreCallFanState(
+                context = this,
+                enabled = fanEnabled,
+                level = fanLevel
             )
+        } else if (fanEnabled) {
+            HardwareController.setFanLevel(fanLevel)
+        } else {
+            HardwareController.enableFan(false)
         }
 
-        restoreOnce("now")
+        if (pumpEnabled) {
+            HardwareController.setPumpProfile(
+                pumpProfile
+            )
+        } else {
+            HardwareController.enablePump(false)
+        }
+
+        /*
+         * Release Game Mode before selecting the next owner.
+         * This prevents its own saved flag from winning the
+         * restoration decision.
+         */
+        setGameModeLedOverrideActiveStorage(
+            this,
+            false
+        )
+        gameModeApplyPendingFor = null
+
+        ModeTransitionCoordinator
+            .restoreEffectiveOwner(
+                this,
+                "game-mode-ended"
+            )
+
+        android.util.Log.i(
+            "RedmagicGameMode",
+            "restored normal cooling and reconciled LEDs"
+        )
     }
 }

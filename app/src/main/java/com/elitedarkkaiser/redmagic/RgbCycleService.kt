@@ -124,9 +124,17 @@ class RgbCycleService : Service() {
 
         if (shouldPauseForScreenTimeout()) {
             if (!ledsOffForTimeout) {
-                HardwareController.turnOffAllLeds(
-                    null
-                )
+                ModeTransitionCoordinator
+                    .applyLedProfile(
+                        context = this,
+                        owner = LedOwner.NONE,
+                        signature =
+                            "rgb-screen-timeout",
+                        force = true
+                    ) {
+                        HardwareController
+                            .turnOffAllLeds()
+                    }
                 ledsOffForTimeout = true
             }
             scheduleNext(OWNER_RECHECK_MS)
@@ -142,7 +150,7 @@ class RgbCycleService : Service() {
         if (state.syncZones) {
             if (now >= nextLogoAt) {
                 val color = nextColor(colorIndexLogo)
-                HardwareController.setRgbCycleFrame(
+                applyFrame(
                     effectName = state.effect,
                     logoColor = color,
                     shoulderColor = color,
@@ -181,7 +189,7 @@ class RgbCycleService : Service() {
                 shoulderColor != null ||
                 fanColor != null
             ) {
-                HardwareController.setRgbCycleFrame(
+                applyFrame(
                     effectName = state.effect,
                     logoColor = logoColor,
                     shoulderColor = shoulderColor,
@@ -192,6 +200,33 @@ class RgbCycleService : Service() {
 
         val nextAt = minOf(nextLogoAt, nextShoulderAt, nextFanAt)
         scheduleNext((nextAt - SystemClock.elapsedRealtime()).coerceAtLeast(100L))
+    }
+
+    private fun applyFrame(
+        effectName: String,
+        logoColor: Int?,
+        shoulderColor: Int?,
+        fanColor: Int?
+    ) {
+        val signature = listOf(
+            effectName,
+            logoColor,
+            shoulderColor,
+            fanColor
+        ).joinToString("|")
+
+        ModeTransitionCoordinator.applyLedProfile(
+            context = this,
+            owner = LedOwner.RGB_CYCLE,
+            signature = signature
+        ) {
+            HardwareController.setRgbCycleFrame(
+                effectName = effectName,
+                logoColor = logoColor,
+                shoulderColor = shoulderColor,
+                fanColor = fanColor
+            )
+        }
     }
 
     private fun shouldPauseForScreenTimeout(): Boolean {

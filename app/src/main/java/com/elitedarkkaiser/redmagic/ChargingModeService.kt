@@ -99,11 +99,19 @@ class ChargingModeService : Service() {
         handler.post(evaluationRunnable)
     }
 
-    private fun evaluateChargingState(force: Boolean) {
-        val enabled = ChargingLedState.isEnabled(this)
-        val charging = ChargingLedState.isChargingNow(this)
+    private fun evaluateChargingState(
+        force: Boolean
+    ) {
+        val enabled =
+            ChargingLedState.isEnabled(this)
+        val charging =
+            ChargingLedState.isChargingNow(this)
 
-        if (!force && lastEnabled == enabled && lastCharging == charging) {
+        if (
+            !force &&
+            lastEnabled == enabled &&
+            lastCharging == charging
+        ) {
             return
         }
 
@@ -111,20 +119,38 @@ class ChargingModeService : Service() {
         lastCharging = charging
 
         if (enabled && charging) {
-            if (!ChargingLedState.isActive(this) || force) {
-                ChargingLedState.setActive(this, true)
-                ChargingLedState.applyChargingProfile(this)
-            }
-        } else {
-            val wasActive = ChargingLedState.isActive(this)
-            ChargingLedState.setActive(this, false)
+            val wasActive =
+                ChargingLedState.isActive(this)
 
-            if (wasActive) {
-                HardwareController.turnOffAllLeds()
-                GameModeActions.startServiceSilentlyIfPermitted(this)
-                HardwareServiceActions.startFanLed(this)
-                HardwareServiceActions.enqueueFanLedRestore(this, delaySeconds = 1)
+            ChargingLedState.setActive(
+                this,
+                true
+            )
+
+            if (!wasActive || force) {
+                ChargingLedState
+                    .applyChargingProfile(
+                        this,
+                        force = force
+                    )
             }
+            return
+        }
+
+        val wasActive =
+            ChargingLedState.isActive(this)
+
+        ChargingLedState.setActive(
+            this,
+            false
+        )
+
+        if (wasActive || force) {
+            ModeTransitionCoordinator
+                .restoreEffectiveOwner(
+                    this,
+                    "charging-ended"
+                )
         }
     }
 }
