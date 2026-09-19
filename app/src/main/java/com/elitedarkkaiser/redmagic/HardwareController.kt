@@ -334,11 +334,23 @@ object HardwareController {
                 "cat $SAR1_MODE 2>/dev/null"
         ) ?: return false
 
-        val states = output.lineSequence()
-            .mapNotNull { it.trim().toIntOrNull() }
+        /*
+         * NX809J reports each state as:
+         * mode : 1, REG_WST(0x1a14) :0x1000000
+         *
+         * Parse the mode field instead of treating the complete
+         * diagnostic line as an integer.
+         */
+        val states = Regex(
+            """mode\s*:\s*(\d+)"""
+        ).findAll(output)
+            .mapNotNull {
+                it.groupValues[1].toIntOrNull()
+            }
             .toList()
 
-        return states.size >= 2 && states.all { it != 0 }
+        return states.size >= 2 &&
+            states.take(2).all { it != 0 }
     }
 
     fun injectTap(x: Int, y: Int): Boolean {
