@@ -11,40 +11,36 @@ object LightingTabUi {
     fun create(activity: Activity, deps: LightingTabDeps): LinearLayout {
         val container = deps.scrollTabContainer()
 
-        val previewCard = deps.sectionPanel().apply {
-            addView(deps.sectionHeader("⚡", "PREVIEW"))
+        val previewSwitch = MaterialSwitch(activity).apply {
+            isChecked = deps.getRealTimePreviewEnabled()
+            setOnCheckedChangeListener { _, checked ->
+                deps.setRealTimePreviewEnabled(checked)
+                deps.saveRealTimePreviewEnabled(checked)
+            }
+        }
+
+        val previewRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, deps.dp(8), 0, deps.dp(8))
+
             addView(TextView(activity).apply {
-                text = "Apply LED color/effect changes instantly while selecting"
-                textSize = 13f
-                setTextColor(AppTheme.textSecondary)
-                setPadding(0, 0, 0, deps.dp(10))
-            })
+                text = "Real-time preview"
+                textSize = 14f
+                setTextColor(AppTheme.textPrimary)
+            }, LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            ))
 
-            val previewSwitch = MaterialSwitch(activity).apply {
-                isChecked = deps.getRealTimePreviewEnabled()
-                setOnCheckedChangeListener { _, checked ->
-                    deps.setRealTimePreviewEnabled(checked)
-                    deps.saveRealTimePreviewEnabled(checked)
-                }
-            }
-
-            val previewRow = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                addView(TextView(activity).apply {
-                    text = "Real-time preview"
-                    textSize = 14f
-                    setTextColor(AppTheme.textPrimary)
-                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(previewSwitch)
-            }
-
-            addView(previewRow)
+            addView(previewSwitch)
         }
 
         val zonesCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("✦", "LED ZONES"))
             addView(deps.bodyText("Configure fan LEDs, logo lighting, and shoulder strip effects separately."))
+            addView(previewRow)
             addView(deps.singleRow(deps.actionButton("FAN LED", false) {
                 deps.showFanLedDialog()
             }))
@@ -109,7 +105,6 @@ object LightingTabUi {
             ))
         }
 
-        container.addView(previewCard)
         container.addView(zonesCard)
         container.addView(rgbStudioCard)
         val callLightingCard = deps.sectionPanel().apply {

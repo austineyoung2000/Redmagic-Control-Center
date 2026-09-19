@@ -207,15 +207,9 @@ object HomeTabUi {
             }
         }
 
-        val automationCard = deps.sectionPanel().apply {
-            addView(deps.sectionHeader("⚙", "AUTOMATION"))
-            addView(deps.bodyText("Auto Pump uses safe temperature rules and automatically shifts between Slow, Medium, and Quick."))
-        }
-
         container.addView(summaryCard)
         container.addView(dashboardCard)
         container.addView(diagnosticsCard)
-        container.addView(automationCard)
 
         return Result(
             view = container,
