@@ -1,330 +1,196 @@
 package com.elitedarkkaiser.redmagic
 
 import android.content.Context
+import com.elitedarkkaiser.redmagic.state.LedState
 
 object MasterProfileActions {
-
     fun captureAndSave(context: Context, name: String): MasterProfile {
-        val profile = captureCurrent(context, name)
-        MasterProfileStorage.upsertProfile(context, profile)
-        return profile
+        return captureCurrent(context, name).also {
+            MasterProfileStorage.upsertProfile(context, it)
+        }
     }
 
     fun captureCurrent(context: Context, name: String): MasterProfile {
-        val fanState = savedFanLedStateStorage(context)
-        val logoState = savedLogoLedStateStorage(context)
-        val shoulderState = savedShoulderLedStateStorage(context)
-        val pumpState = savedPumpStateStorage(context)
-        val triggerState = readTriggerPrefsSnapshot(context)
-
-        val hardware = HardwareProfile(
-            name = name,
+        val fan = savedFanLedStateStorage(context)
+        val logo = savedLogoLedStateStorage(context)
+        val shoulder = savedShoulderLedStateStorage(context)
+        val pump = savedPumpStateStorage(context)
+        val triggers = readTriggerPrefsSnapshot(context)
+        val hardware = HardwareSettingsSnapshot(
             fanEnabled = HardwareController.isFanEnabled(),
             fanLevel = HardwareController.readFanLevel() ?: 0,
             autoFanEnabled = isAutoFanEnabledStorage(context),
             fanCurveMode = selectedCurveStorage(context),
-            pumpEnabled = pumpState.enabled,
-            pumpProfile = pumpState.profile,
-            autoPumpEnabled = pumpState.autoEnabled,
-            fanLedEnabled = fanState.enabled,
-            fanLedEffect = fanState.effect,
-            fanLedColor = fanState.color,
-            logoLedEnabled = logoState.enabled,
-            logoLedEffect = logoState.effect,
-            logoLedColor = logoState.color,
-            shoulderLedEnabled = shoulderState.enabled,
-            shoulderLedEffect = shoulderState.effect,
-            shoulderLedColor = shoulderState.color,
-            triggerEnabled = triggerState.triggerEnabled,
-            leftTriggerAction = triggerState.leftTriggerAction,
-            rightTriggerAction = triggerState.rightTriggerAction,
-            intentUnlockRightTrigger = triggerState.intentUnlockRightTrigger,
-            triggersAutoStart = triggerState.triggersAutoStart
+            pumpEnabled = pump.enabled,
+            pumpProfile = pump.profile,
+            autoPumpEnabled = pump.autoEnabled,
+            fanLedEnabled = fan.enabled,
+            fanLedEffect = fan.effect,
+            fanLedColor = fan.color,
+            logoLedEnabled = logo.enabled,
+            logoLedEffect = logo.effect,
+            logoLedColor = logo.color,
+            shoulderLedEnabled = shoulder.enabled,
+            shoulderLedEffect = shoulder.effect,
+            shoulderLedColor = shoulder.color
         )
 
         return MasterProfile(
             name = name,
             hardware = hardware,
+            triggers = triggers,
+            pumpExperimentalAccepted = pump.experimentalAccepted,
             gameMode = getSavedGameModeProfileStorage(context),
             gamePackages = getSavedGamePackagesStorage(context),
+            perGameProfiles = getSavedPerGameProfilesStorage(context),
             chargingEnabled = ChargingLedState.isEnabled(context),
-            chargingFanLed = ChargingLedState.readProfile(
-                context,
-                ChargingLedState.FAN_ENABLED_KEY,
-                ChargingLedState.FAN_EFFECT_KEY,
-                ChargingLedState.FAN_COLOR_KEY,
-                true,
-                "steady",
-                5
-            ).toLedState(),
-            chargingLogoLed = ChargingLedState.readProfile(
-                context,
-                ChargingLedState.LOGO_ENABLED_KEY,
-                ChargingLedState.LOGO_EFFECT_KEY,
-                ChargingLedState.LOGO_COLOR_KEY,
-                true,
-                "steady",
-                1
-            ).toLedState(),
-            chargingShoulderLed = ChargingLedState.readProfile(
-                context,
-                ChargingLedState.SHOULDER_ENABLED_KEY,
-                ChargingLedState.SHOULDER_EFFECT_KEY,
-                ChargingLedState.SHOULDER_COLOR_KEY,
-                true,
-                "breathe",
-                8
-            ).toLedState(),
-
+            chargingFanLed = chargingLed(context,
+                ChargingLedState.FAN_ENABLED_KEY, ChargingLedState.FAN_EFFECT_KEY,
+                ChargingLedState.FAN_COLOR_KEY, true, "steady", 5),
+            chargingLogoLed = chargingLed(context,
+                ChargingLedState.LOGO_ENABLED_KEY, ChargingLedState.LOGO_EFFECT_KEY,
+                ChargingLedState.LOGO_COLOR_KEY, true, "steady", 1),
+            chargingShoulderLed = chargingLed(context,
+                ChargingLedState.SHOULDER_ENABLED_KEY, ChargingLedState.SHOULDER_EFFECT_KEY,
+                ChargingLedState.SHOULDER_COLOR_KEY, true, "breathe", 8),
             callLightingEnabled = CallLightingState.isEnabled(context),
             pauseFanDuringCalls = CallLightingState.shouldPauseFanDuringCalls(context),
-            incomingCallFanLed = CallLightingState.readLed(
-                context,
-                CallLightingState.INCOMING_FAN_ENABLED_KEY,
-                CallLightingState.INCOMING_FAN_EFFECT_KEY,
-                CallLightingState.INCOMING_FAN_COLOR_KEY,
-                true,
-                "flashing",
-                5
-            ),
-            incomingCallLogoLed = CallLightingState.readLed(
-                context,
-                CallLightingState.INCOMING_LOGO_ENABLED_KEY,
-                CallLightingState.INCOMING_LOGO_EFFECT_KEY,
-                CallLightingState.INCOMING_LOGO_COLOR_KEY,
-                true,
-                "flashing",
-                1
-            ),
-            incomingCallShoulderLed = CallLightingState.readLed(
-                context,
-                CallLightingState.INCOMING_SHOULDER_ENABLED_KEY,
-                CallLightingState.INCOMING_SHOULDER_EFFECT_KEY,
-                CallLightingState.INCOMING_SHOULDER_COLOR_KEY,
-                true,
-                "flashing",
-                8
-            ),
-            connectedCallFanLed = CallLightingState.readLed(
-                context,
-                CallLightingState.CONNECTED_FAN_ENABLED_KEY,
-                CallLightingState.CONNECTED_FAN_EFFECT_KEY,
-                CallLightingState.CONNECTED_FAN_COLOR_KEY,
-                true,
-                "steady",
-                5
-            ),
-            connectedCallLogoLed = CallLightingState.readLed(
-                context,
-                CallLightingState.CONNECTED_LOGO_ENABLED_KEY,
-                CallLightingState.CONNECTED_LOGO_EFFECT_KEY,
-                CallLightingState.CONNECTED_LOGO_COLOR_KEY,
-                true,
-                "steady",
-                1
-            ),
-            connectedCallShoulderLed = CallLightingState.readLed(
-                context,
-                CallLightingState.CONNECTED_SHOULDER_ENABLED_KEY,
-                CallLightingState.CONNECTED_SHOULDER_EFFECT_KEY,
-                CallLightingState.CONNECTED_SHOULDER_COLOR_KEY,
-                true,
-                "steady",
-                8
-            ),
-
-            pump = pumpState,
-            selectedFanCurve = selectedCurveStorage(context),
-            autoFanEnabled = isAutoFanEnabledStorage(context),
+            incomingCallFanLed = callLed(context,
+                CallLightingState.INCOMING_FAN_ENABLED_KEY, CallLightingState.INCOMING_FAN_EFFECT_KEY,
+                CallLightingState.INCOMING_FAN_COLOR_KEY, true, "flashing", 5),
+            incomingCallLogoLed = callLed(context,
+                CallLightingState.INCOMING_LOGO_ENABLED_KEY, CallLightingState.INCOMING_LOGO_EFFECT_KEY,
+                CallLightingState.INCOMING_LOGO_COLOR_KEY, true, "flashing", 1),
+            incomingCallShoulderLed = callLed(context,
+                CallLightingState.INCOMING_SHOULDER_ENABLED_KEY, CallLightingState.INCOMING_SHOULDER_EFFECT_KEY,
+                CallLightingState.INCOMING_SHOULDER_COLOR_KEY, true, "flashing", 8),
+            connectedCallFanLed = callLed(context,
+                CallLightingState.CONNECTED_FAN_ENABLED_KEY, CallLightingState.CONNECTED_FAN_EFFECT_KEY,
+                CallLightingState.CONNECTED_FAN_COLOR_KEY, true, "steady", 5),
+            connectedCallLogoLed = callLed(context,
+                CallLightingState.CONNECTED_LOGO_ENABLED_KEY, CallLightingState.CONNECTED_LOGO_EFFECT_KEY,
+                CallLightingState.CONNECTED_LOGO_COLOR_KEY, true, "steady", 1),
+            connectedCallShoulderLed = callLed(context,
+                CallLightingState.CONNECTED_SHOULDER_ENABLED_KEY, CallLightingState.CONNECTED_SHOULDER_EFFECT_KEY,
+                CallLightingState.CONNECTED_SHOULDER_COLOR_KEY, true, "steady", 8),
             realtimePreviewEnabled = isRealTimePreviewEnabledStorage(context),
-            triggers = triggerState
+            rgbStudio = RgbStudioStorage.read(context),
+            useFahrenheit = isUseFahrenheitStorage(context),
+            magicKeyMode = MagicKeyActions.readModeValue(),
+            magicKeyAppPackage = savedMagicKeyAppPackageStorage(context)
         )
     }
 
-
     fun applyProfile(context: Context, profile: MasterProfile) {
-        saveFanLedStateStorage(context, profile.hardware.let {
-            com.elitedarkkaiser.redmagic.state.LedState(
-                enabled = it.fanLedEnabled,
-                effect = it.fanLedEffect,
-                color = it.fanLedColor
-            )
-        })
-        saveLogoLedStateStorage(context, profile.hardware.let {
-            com.elitedarkkaiser.redmagic.state.LedState(
-                enabled = it.logoLedEnabled,
-                effect = it.logoLedEffect,
-                color = it.logoLedColor
-            )
-        })
-        saveShoulderLedStateStorage(context, profile.hardware.let {
-            com.elitedarkkaiser.redmagic.state.LedState(
-                enabled = it.shoulderLedEnabled,
-                effect = it.shoulderLedEffect,
-                color = it.shoulderLedColor
-            )
-        })
-
-        savePumpStateStorage(context, profile.pump.enabled, profile.pump.profile)
-        saveAutoPumpStateStorage(context, profile.pump.autoEnabled)
-
-        saveSelectedCurveStorage(context, profile.selectedFanCurve)
-        saveAutoFanEnabledStorage(context, profile.autoFanEnabled)
+        val hardware = profile.hardware
+        saveFanLedStateStorage(context, LedState(hardware.fanLedEnabled, hardware.fanLedEffect, hardware.fanLedColor))
+        saveLogoLedStateStorage(context, LedState(hardware.logoLedEnabled, hardware.logoLedEffect, hardware.logoLedColor))
+        saveShoulderLedStateStorage(context, LedState(hardware.shoulderLedEnabled, hardware.shoulderLedEffect, hardware.shoulderLedColor))
+        savePumpStateStorage(context, hardware.pumpEnabled, hardware.pumpProfile)
+        saveAutoPumpStateStorage(context, hardware.autoPumpEnabled)
+        setPumpExperimentalAcceptedStorage(context, profile.pumpExperimentalAccepted)
+        saveSelectedCurveStorage(context, hardware.fanCurveMode)
+        saveAutoFanEnabledStorage(context, hardware.autoFanEnabled)
         saveRealTimePreviewEnabledStorage(context, profile.realtimePreviewEnabled)
-
+        saveTriggerPrefsStorage(context, profile.triggers)
         saveGameModeProfileStorage(context, profile.gameMode)
         setSavedGamePackagesStorage(context, profile.gamePackages)
 
+        if (profile.schemaVersion >= 2) {
+            setSavedPerGameProfilesStorage(context, profile.perGameProfiles)
+            RgbStudioStorage.save(context, profile.rgbStudio)
+            saveUseFahrenheitStorage(context, profile.useFahrenheit)
+            applyMagicKey(context, profile.magicKeyMode, profile.magicKeyAppPackage)
+        }
+
         ChargingLedState.setEnabled(context, profile.chargingEnabled)
-        ChargingLedState.saveProfile(
-            context,
-            ChargingLedState.FAN_ENABLED_KEY,
-            ChargingLedState.FAN_EFFECT_KEY,
-            ChargingLedState.FAN_COLOR_KEY,
-            profile.chargingFanLed.enabled,
-            profile.chargingFanLed.effect,
-            profile.chargingFanLed.color
-        )
-        ChargingLedState.saveProfile(
-            context,
-            ChargingLedState.LOGO_ENABLED_KEY,
-            ChargingLedState.LOGO_EFFECT_KEY,
-            ChargingLedState.LOGO_COLOR_KEY,
-            profile.chargingLogoLed.enabled,
-            profile.chargingLogoLed.effect,
-            profile.chargingLogoLed.color
-        )
-        ChargingLedState.saveProfile(
-            context,
-            ChargingLedState.SHOULDER_ENABLED_KEY,
-            ChargingLedState.SHOULDER_EFFECT_KEY,
-            ChargingLedState.SHOULDER_COLOR_KEY,
-            profile.chargingShoulderLed.enabled,
-            profile.chargingShoulderLed.effect,
-            profile.chargingShoulderLed.color
-        )
+        saveChargingLed(context, ChargingLedState.FAN_ENABLED_KEY,
+            ChargingLedState.FAN_EFFECT_KEY, ChargingLedState.FAN_COLOR_KEY, profile.chargingFanLed)
+        saveChargingLed(context, ChargingLedState.LOGO_ENABLED_KEY,
+            ChargingLedState.LOGO_EFFECT_KEY, ChargingLedState.LOGO_COLOR_KEY, profile.chargingLogoLed)
+        saveChargingLed(context, ChargingLedState.SHOULDER_ENABLED_KEY,
+            ChargingLedState.SHOULDER_EFFECT_KEY, ChargingLedState.SHOULDER_COLOR_KEY, profile.chargingShoulderLed)
 
         CallLightingState.setEnabled(context, profile.callLightingEnabled)
         CallLightingState.setPauseFanDuringCalls(context, profile.pauseFanDuringCalls)
-        saveCallLightingLed(
-            context,
-            CallLightingState.INCOMING_FAN_ENABLED_KEY,
-            CallLightingState.INCOMING_FAN_EFFECT_KEY,
-            CallLightingState.INCOMING_FAN_COLOR_KEY,
-            profile.incomingCallFanLed
-        )
-        saveCallLightingLed(
-            context,
-            CallLightingState.INCOMING_LOGO_ENABLED_KEY,
-            CallLightingState.INCOMING_LOGO_EFFECT_KEY,
-            CallLightingState.INCOMING_LOGO_COLOR_KEY,
-            profile.incomingCallLogoLed
-        )
-        saveCallLightingLed(
-            context,
-            CallLightingState.INCOMING_SHOULDER_ENABLED_KEY,
-            CallLightingState.INCOMING_SHOULDER_EFFECT_KEY,
-            CallLightingState.INCOMING_SHOULDER_COLOR_KEY,
-            profile.incomingCallShoulderLed
-        )
-        saveCallLightingLed(
-            context,
-            CallLightingState.CONNECTED_FAN_ENABLED_KEY,
-            CallLightingState.CONNECTED_FAN_EFFECT_KEY,
-            CallLightingState.CONNECTED_FAN_COLOR_KEY,
-            profile.connectedCallFanLed
-        )
-        saveCallLightingLed(
-            context,
-            CallLightingState.CONNECTED_LOGO_ENABLED_KEY,
-            CallLightingState.CONNECTED_LOGO_EFFECT_KEY,
-            CallLightingState.CONNECTED_LOGO_COLOR_KEY,
-            profile.connectedCallLogoLed
-        )
-        saveCallLightingLed(
-            context,
-            CallLightingState.CONNECTED_SHOULDER_ENABLED_KEY,
-            CallLightingState.CONNECTED_SHOULDER_EFFECT_KEY,
-            CallLightingState.CONNECTED_SHOULDER_COLOR_KEY,
-            profile.connectedCallShoulderLed
-        )
+        saveCallLed(context, CallLightingState.INCOMING_FAN_ENABLED_KEY,
+            CallLightingState.INCOMING_FAN_EFFECT_KEY, CallLightingState.INCOMING_FAN_COLOR_KEY, profile.incomingCallFanLed)
+        saveCallLed(context, CallLightingState.INCOMING_LOGO_ENABLED_KEY,
+            CallLightingState.INCOMING_LOGO_EFFECT_KEY, CallLightingState.INCOMING_LOGO_COLOR_KEY, profile.incomingCallLogoLed)
+        saveCallLed(context, CallLightingState.INCOMING_SHOULDER_ENABLED_KEY,
+            CallLightingState.INCOMING_SHOULDER_EFFECT_KEY, CallLightingState.INCOMING_SHOULDER_COLOR_KEY, profile.incomingCallShoulderLed)
+        saveCallLed(context, CallLightingState.CONNECTED_FAN_ENABLED_KEY,
+            CallLightingState.CONNECTED_FAN_EFFECT_KEY, CallLightingState.CONNECTED_FAN_COLOR_KEY, profile.connectedCallFanLed)
+        saveCallLed(context, CallLightingState.CONNECTED_LOGO_ENABLED_KEY,
+            CallLightingState.CONNECTED_LOGO_EFFECT_KEY, CallLightingState.CONNECTED_LOGO_COLOR_KEY, profile.connectedCallLogoLed)
+        saveCallLed(context, CallLightingState.CONNECTED_SHOULDER_ENABLED_KEY,
+            CallLightingState.CONNECTED_SHOULDER_EFFECT_KEY, CallLightingState.CONNECTED_SHOULDER_COLOR_KEY, profile.connectedCallShoulderLed)
 
-        saveTriggerPrefsStorage(context, profile.hardware)
-
-        applyHardware(context, profile)
+        applyHardwareAndServices(context, profile)
     }
 
-    private fun applyHardware(context: Context, profile: MasterProfile) {
+    private fun applyHardwareAndServices(context: Context, profile: MasterProfile) {
         val hardware = profile.hardware
+        if (hardware.fanEnabled) HardwareController.setFanLevel(hardware.fanLevel)
+        else HardwareController.enableFan(false)
+        if (hardware.autoFanEnabled) HardwareServiceActions.startAutoFan(context)
+        else HardwareServiceActions.stopAutoFan(context)
 
-        if (hardware.fanEnabled) {
-            HardwareController.setFanLevel(hardware.fanLevel)
-        } else {
-            HardwareController.enableFan(false)
-        }
+        if (hardware.pumpEnabled || hardware.autoPumpEnabled) {
+            HardwareController.setPumpProfile(hardware.pumpProfile)
+        } else HardwareController.enablePump(false)
+        if (hardware.autoPumpEnabled) HardwareServiceActions.startAutoPump(context)
+        else HardwareServiceActions.stopAutoPump(context)
 
-        if (profile.autoFanEnabled) {
-            HardwareServiceActions.startAutoFan(context)
-        } else {
-            HardwareServiceActions.stopAutoFan(context)
-        }
-
-        if (profile.pump.enabled || profile.pump.autoEnabled) {
-            HardwareController.setPumpProfile(profile.pump.profile)
-        } else {
-            HardwareController.enablePump(false)
-        }
-
-        if (profile.pump.autoEnabled) {
-            HardwareServiceActions.startAutoPump(context)
-        } else {
-            HardwareServiceActions.stopAutoPump(context)
-        }
-
-        if (ChargingLedState.isEnabled(context) && ChargingLedState.isChargingNow(context)) {
-            ChargingLedState.setActive(context, true)
-            ChargingLedState.applyChargingProfile(context)
-        } else {
-            ChargingLedState.setActive(context, false)
-            HardwareServiceActions.startFanLed(context)
-        }
-
-        if (
-            hardware.triggersAutoStart &&
-            !triggersDisabledUntilRestartStorage(context)
-        ) {
+        if (profile.triggers.triggersAutoStart && !triggersDisabledUntilRestartStorage(context)) {
             HardwareController.enableTriggers()
             HardwareServiceActions.startTriggers(context)
-        } else {
-            HardwareServiceActions.stopTriggers(context)
-        }
+        } else HardwareServiceActions.stopTriggers(context)
 
+        if (profile.rgbStudio.enabled) HardwareServiceActions.startRgbCycle(context)
+        else HardwareServiceActions.stopRgbCycle(context)
         GameModeActions.startServiceSilentlyIfPermitted(context)
         HardwareServiceActions.startChargingMode(context)
-
-        if (profile.callLightingEnabled) {
-            HardwareServiceActions.startCallLighting(context)
-        } else {
+        if (profile.callLightingEnabled) HardwareServiceActions.startCallLighting(context)
+        else {
             CallLightingState.setActive(context, false)
             HardwareServiceActions.stopCallLighting(context)
         }
+        ModeTransitionCoordinator.invalidate()
+        ModeTransitionCoordinator.restoreEffectiveOwner(context, "master-profile-applied")
     }
 
-    private fun saveCallLightingLed(
-        context: Context,
-        enabledKey: String,
-        effectKey: String,
-        colorKey: String,
-        state: com.elitedarkkaiser.redmagic.state.LedState
-    ) {
-        CallLightingState.saveLed(context, enabledKey, effectKey, colorKey, state)
+    private fun applyMagicKey(context: Context, mode: Int, pkg: String?) {
+        if (mode < 0) return
+        val applied = when (mode) {
+            1 -> HardwareController.setSliderOpenCamera()
+            2 -> HardwareController.setSliderOpenGameSpace()
+            3 -> HardwareController.setSliderSoundMode()
+            4 -> HardwareController.setSliderFlashlight()
+            5 -> HardwareController.setSliderVoiceRecorder()
+            16 -> !pkg.isNullOrBlank() && HardwareController.setSliderLaunchApp(pkg)
+            0 -> HardwareController.disableSliderSystemHandling()
+            else -> false
+        }
+        if (applied) saveMagicKeyAppPackageStorage(context, pkg.takeIf { mode == 16 })
     }
 
-    private fun ChargingLedState.Profile.toLedState(): com.elitedarkkaiser.redmagic.state.LedState {
-        return com.elitedarkkaiser.redmagic.state.LedState(
-            enabled = enabled,
-            effect = effect,
-            color = color
-        )
+    private fun chargingLed(context: Context, enabledKey: String, effectKey: String,
+        colorKey: String, enabled: Boolean, effect: String, color: Int): LedState {
+        val p = ChargingLedState.readProfile(context, enabledKey, effectKey, colorKey,
+            enabled, effect, color)
+        return LedState(p.enabled, p.effect, p.color)
     }
+
+    private fun callLed(context: Context, enabledKey: String, effectKey: String,
+        colorKey: String, enabled: Boolean, effect: String, color: Int) =
+        CallLightingState.readLed(context, enabledKey, effectKey, colorKey, enabled, effect, color)
+
+    private fun saveChargingLed(context: Context, enabledKey: String, effectKey: String,
+        colorKey: String, state: LedState) = ChargingLedState.saveProfile(
+        context, enabledKey, effectKey, colorKey, state.enabled, state.effect, state.color)
+
+    private fun saveCallLed(context: Context, enabledKey: String, effectKey: String,
+        colorKey: String, state: LedState) = CallLightingState.saveLed(
+        context, enabledKey, effectKey, colorKey, state)
 }

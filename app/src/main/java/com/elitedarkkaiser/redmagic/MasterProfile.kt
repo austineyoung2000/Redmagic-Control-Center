@@ -1,13 +1,15 @@
 package com.elitedarkkaiser.redmagic
 
 import com.elitedarkkaiser.redmagic.state.LedState
-import com.elitedarkkaiser.redmagic.state.PumpState
-
 data class MasterProfile(
     val name: String,
-    val hardware: HardwareProfile,
+    val schemaVersion: Int = MasterProfileStorage.CURRENT_SCHEMA_VERSION,
+    val hardware: HardwareSettingsSnapshot,
+    val triggers: TriggerPrefsSnapshot,
+    val pumpExperimentalAccepted: Boolean,
     val gameMode: GameModeProfile,
     val gamePackages: Set<String>,
+    val perGameProfiles: Map<String, String>,
     val chargingEnabled: Boolean,
     val chargingFanLed: LedState,
     val chargingLogoLed: LedState,
@@ -22,9 +24,9 @@ data class MasterProfile(
     val connectedCallLogoLed: LedState,
     val connectedCallShoulderLed: LedState,
 
-    val pump: PumpState,
-    val selectedFanCurve: String,
-    val autoFanEnabled: Boolean,
     val realtimePreviewEnabled: Boolean,
-    val triggers: TriggerPrefsSnapshot
+    val rgbStudio: RgbStudioState,
+    val useFahrenheit: Boolean,
+    val magicKeyMode: Int,
+    val magicKeyAppPackage: String?
 )

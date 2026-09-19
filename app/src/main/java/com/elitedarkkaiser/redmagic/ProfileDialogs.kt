@@ -1,7 +1,5 @@
 package com.elitedarkkaiser.redmagic
 
-import androidx.appcompat.app.AlertDialog
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Typeface
@@ -10,16 +8,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
 internal object ProfileDialogs {
-
-    private data class NameInput(
-        val layout: TextInputLayout,
-        val editText: TextInputEditText
-    )
-
     private fun createNameInput(
         context: Context,
         hint: String,
@@ -27,52 +20,40 @@ internal object ProfileDialogs {
         textSecondary: Int,
         borderColor: Int,
         dp: (Int) -> Int
-    ): NameInput {
+    ): Pair<TextInputLayout, TextInputEditText> {
         val layout = TextInputLayout(
             context,
             null,
             com.google.android.material.R.attr.textInputOutlinedStyle
         ).apply {
             this.hint = hint
-            boxBackgroundMode =
-                TextInputLayout.BOX_BACKGROUND_OUTLINE
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
             boxBackgroundColor = 0xFF121A27.toInt()
             boxStrokeColor = borderColor
             boxStrokeWidth = dp(1)
             boxStrokeWidthFocused = dp(2)
-            defaultHintTextColor =
-                ColorStateList.valueOf(textSecondary)
+            defaultHintTextColor = ColorStateList.valueOf(textSecondary)
             setBoxCornerRadii(
-                dp(18).toFloat(),
-                dp(18).toFloat(),
-                dp(18).toFloat(),
-                dp(18).toFloat()
+                dp(18).toFloat(), dp(18).toFloat(),
+                dp(18).toFloat(), dp(18).toFloat()
             )
         }
-
-        val editText = TextInputEditText(layout.context).apply {
+        val input = TextInputEditText(layout.context).apply {
             setTextColor(textPrimary)
             setHintTextColor(textSecondary)
             textSize = 15f
             isSingleLine = true
             background = null
-            setPadding(
-                dp(16),
-                dp(14),
-                dp(16),
-                dp(14)
-            )
+            setPadding(dp(16), dp(14), dp(16), dp(14))
         }
-
         layout.addView(
-            editText,
+            input,
             ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
-
-        return NameInput(layout, editText)
+        return layout to input
     }
 
     fun showDeleteProfileDialog(
@@ -83,61 +64,10 @@ internal object ProfileDialogs {
         MaterialAlertDialogBuilder(context)
             .setTitle("Delete Profile")
             .setMessage("Delete $profileName?")
-            .setPositiveButton("Delete") { _, _ ->
-                onConfirmDelete()
-            }
+            .setPositiveButton("Delete") { _, _ -> onConfirmDelete() }
             .setNegativeButton("Cancel", null)
             .show()
     }
-
-    fun renderProfiles(
-        context: Context,
-        profileList: LinearLayout,
-        profiles: List<HardwareProfile>,
-        subtleLabel: (String) -> View,
-        actionButton: (String, Boolean, () -> Unit) -> View,
-        space: (Int) -> View,
-        dp: (Int) -> Int,
-        onApplyProfile: (HardwareProfile) -> Unit,
-        onDeleteProfile: (HardwareProfile) -> Unit
-    ) {
-        profileList.removeAllViews()
-
-        if (profiles.isEmpty()) {
-            profileList.addView(subtleLabel("No saved profiles yet"))
-            return
-        }
-
-        profiles.forEach { profile ->
-            val row = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-
-            val applyBtn = actionButton(profile.name, false) {
-                onApplyProfile(profile)
-            }.apply {
-                setPadding(dp(16), dp(10), dp(16), dp(10))
-            }
-
-            val deleteBtn = actionButton("DEL", true) {
-                onDeleteProfile(profile)
-            }.apply {
-                setPadding(dp(14), dp(10), dp(14), dp(10))
-            }
-
-            row.addView(
-                applyBtn,
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            )
-            row.addView(space(dp(8)))
-            row.addView(deleteBtn)
-
-            profileList.addView(row)
-            profileList.addView(space(dp(10)))
-        }
-    }
-
 
     fun showStyledNameOnlyDialog(
         context: Context,
@@ -160,181 +90,45 @@ internal object ProfileDialogs {
             setTypeface(typeface, Typeface.BOLD)
             setPadding(0, 0, 0, dp(14))
         }
-
-        val nameInput = createNameInput(
-            context = context,
-            hint = hint,
-            textPrimary = textPrimary,
-            textSecondary = textSecondary,
-            borderColor = borderColor,
-            dp = dp
+        val (inputLayout, input) = createNameInput(
+            context, hint, textPrimary, textSecondary, borderColor, dp
         )
-        val input = nameInput.editText
-
         val buttonRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
             setPadding(0, dp(18), 0, 0)
         }
-
-        val cancelBtn = actionButton("CANCEL", false) {}
-        val saveBtn = actionButton("SAVE", false) {}
-
-        buttonRow.addView(cancelBtn)
+        val cancel = actionButton("CANCEL", false) {}
+        val save = actionButton("SAVE", false) {}
+        buttonRow.addView(cancel)
         buttonRow.addView(space(dp(10)))
-        buttonRow.addView(saveBtn)
-
+        buttonRow.addView(save)
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(22), dp(20), dp(22), dp(16))
             background = roundedBg(panelColor, borderColor, 24)
             addView(titleView)
-            addView(nameInput.layout)
+            addView(inputLayout)
             addView(buttonRow)
         }
-
         val dialog = MaterialAlertDialogBuilder(context)
             .setView(container)
             .setCancelable(true)
             .create()
-
-        cancelBtn.setOnClickListener { dialog.dismiss() }
-
-        saveBtn.setOnClickListener {
+        cancel.setOnClickListener { dialog.dismiss() }
+        save.setOnClickListener {
             val name = input.text?.toString()?.trim().orEmpty()
-            if (name.isBlank()) return@setOnClickListener
-            onSave(name)
-            dialog.dismiss()
+            if (name.isNotBlank()) {
+                onSave(name)
+                dialog.dismiss()
+            }
         }
-
         dialog.show()
-        dialog.window?.apply {
-            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-            setDimAmount(0.65f)
-        }
-    }
-
-    fun showStyledSaveProfileDialog(
-        context: Context,
-        textPrimary: Int,
-        textSecondary: Int,
-        panelColor: Int,
-        borderColor: Int,
-        typeface: Typeface?,
-        dp: (Int) -> Int,
-        roundedBg: (Int, Int, Int) -> android.graphics.drawable.Drawable,
-        actionButton: (String, Boolean, () -> Unit) -> View,
-        space: (Int) -> View,
-        buildProfile:
-            (String, (HardwareProfile?) -> Unit) -> Boolean,
-        onSaved: () -> Unit
-    ) {
-        val titleView = TextView(context).apply {
-            text = "Save Profile"
-            textSize = 19f
-            setTextColor(textPrimary)
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(0, 0, 0, dp(14))
-        }
-
-        val nameInput = createNameInput(
-            context = context,
-            hint = "Profile name",
-            textPrimary = textPrimary,
-            textSecondary = textSecondary,
-            borderColor = borderColor,
-            dp = dp
-        )
-        val input = nameInput.editText
-
-        val buttonRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            setPadding(0, dp(18), 0, 0)
-        }
-
-        val cancelBtn = actionButton("CANCEL", false) {}.apply {
-            alpha = 0.88f
-        }
-
-        val saveBtn = actionButton("SAVE", false) {}.apply {
-            setPadding(dp(18), dp(10), dp(18), dp(10))
-        }
-
-        buttonRow.addView(cancelBtn)
-        buttonRow.addView(space(dp(10)))
-        buttonRow.addView(saveBtn)
-
-        val container = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(20), dp(22), dp(16))
-            background = roundedBg(panelColor, borderColor, 24)
-            addView(titleView)
-            addView(nameInput.layout)
-            addView(buttonRow)
-        }
-
-        val dialog = MaterialAlertDialogBuilder(context)
-            .setView(container)
-            .setCancelable(true)
-            .create()
-
-        dialog.window?.setBackgroundDrawable(
-            android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
-        )
-
-        cancelBtn.setOnClickListener {
-            dialog.dismiss()
-        }
-
-        saveBtn.setOnClickListener {
-            val name =
-                input.text?.toString()?.trim().orEmpty()
-            if (name.isBlank()) {
-                return@setOnClickListener
-            }
-
-            saveBtn.isEnabled = false
-
-            val submitted = buildProfile(name) { profile ->
-                if (dialog.isShowing) {
-                    if (profile != null) {
-                        ProfileActions.saveProfile(
-                            context,
-                            name,
-                            profile
-                        ) {
-                            dialog.dismiss()
-                            onSaved()
-                        }
-                    } else {
-                        saveBtn.isEnabled = true
-
-                        android.widget.Toast.makeText(
-                            context,
-                            "Unable to capture the hardware profile",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-            }
-
-            if (!submitted) {
-                saveBtn.isEnabled = true
-
-                android.widget.Toast.makeText(
-                    context,
-                    "Unable to start profile capture",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-        dialog.show()
-
         dialog.window?.apply {
             setBackgroundDrawable(
-                android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+                android.graphics.drawable.ColorDrawable(
+                    android.graphics.Color.TRANSPARENT
+                )
             )
             setDimAmount(0.65f)
         }

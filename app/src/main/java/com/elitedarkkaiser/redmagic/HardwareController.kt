@@ -444,38 +444,4 @@ object HardwareController {
     }
 
 
-    fun applyHardwareProfile(profile: HardwareProfile): Boolean {
-        if (profile.fanEnabled) {
-            setFanLevel(profile.fanLevel)
-        } else {
-            enableFan(false)
-        }
-
-        if (profile.pumpEnabled) {
-            setPumpProfile(profile.pumpProfile)
-        } else {
-            enablePump(false)
-        }
-
-        if (profile.fanLedEnabled) {
-            setFanLedEffect(profile.fanLedEffect, profile.fanLedColor)
-        } else {
-            setFanLedEnabled(false)
-        }
-
-        if (profile.logoLedEnabled) {
-            setLogoLedEffect(profile.logoLedEffect, profile.logoLedColor)
-        } else {
-            setLogoLedEnabled(false)
-        }
-
-        if (profile.shoulderLedEnabled) {
-            setShoulderLedEffect(profile.shoulderLedEffect, profile.shoulderLedColor)
-        } else {
-            setShoulderLedEnabled(false)
-        }
-
-        return true
-    }
-
 }

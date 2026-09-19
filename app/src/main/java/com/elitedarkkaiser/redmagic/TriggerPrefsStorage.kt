@@ -30,7 +30,10 @@ fun readTriggerPrefsSnapshot(context: Context): TriggerPrefsSnapshot {
     )
 }
 
-fun saveTriggerPrefsStorage(context: Context, profile: HardwareProfile) {
+fun saveTriggerPrefsStorage(
+    context: Context,
+    profile: TriggerPrefsSnapshot
+) {
     context.getSharedPreferences(TRIGGER_PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putString(LEFT_TRIGGER_KEY, profile.leftTriggerAction)

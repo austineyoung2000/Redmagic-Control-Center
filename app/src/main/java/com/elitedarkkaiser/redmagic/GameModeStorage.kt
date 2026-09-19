@@ -113,6 +113,50 @@ fun setSavedGamePackagesStorage(context: Context, packages: Set<String>) {
     prefs.edit().putStringSet(GAME_MODE_PACKAGES_KEY, packages).apply()
 }
 
+fun getSavedPerGameProfilesStorage(
+    context: Context
+): Map<String, String> {
+    val prefs = context.getSharedPreferences(
+        GAME_PREFS_NAME,
+        Context.MODE_PRIVATE
+    )
+    return prefs.all.mapNotNull { (key, value) ->
+        if (
+            key.startsWith("game_profile_") &&
+            value is String &&
+            runCatching { JSONObject(value) }.isSuccess
+        ) {
+            key.removePrefix("game_profile_") to value
+        } else {
+            null
+        }
+    }.toMap()
+}
+
+fun setSavedPerGameProfilesStorage(
+    context: Context,
+    profiles: Map<String, String>
+) {
+    val prefs = context.getSharedPreferences(
+        GAME_PREFS_NAME,
+        Context.MODE_PRIVATE
+    )
+    val editor = prefs.edit()
+    prefs.all.keys
+        .filter { it.startsWith("game_profile_") }
+        .forEach(editor::remove)
+
+    profiles.forEach { (pkg, raw) ->
+        if (
+            pkg.isNotBlank() &&
+            runCatching { JSONObject(raw) }.isSuccess
+        ) {
+            editor.putString("game_profile_$pkg", raw)
+        }
+    }
+    editor.commit()
+}
+
 fun getGameModeStatusTextStorage(context: Context): String {
     val prefs = context.getSharedPreferences(GAME_PREFS_NAME, Context.MODE_PRIVATE)
     val tracked = prefs.getStringSet(GAME_MODE_PACKAGES_KEY, emptySet()) ?: emptySet()

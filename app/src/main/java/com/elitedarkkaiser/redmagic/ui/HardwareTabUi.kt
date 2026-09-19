@@ -131,66 +131,9 @@ object HardwareTabUi {
 
         container.addView(triggerCard)
 
-        val profilesCard = deps.sectionPanel().apply {
-            addView(deps.sectionHeader("★", "HARDWARE PROFILES"))
-            addView(deps.bodyText("Save and apply full hardware presets for fan, pump, LEDs, and triggers."))
-
-            val profileList = LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, deps.dp(10), 0, 0)
-            }
-
-            fun renderProfiles() {
-                val profiles = deps.loadProfiles()
-                ProfileDialogs.renderProfiles(
-                    context = activity,
-                    profileList = profileList,
-                    profiles = profiles,
-                    subtleLabel = { text -> deps.subtleLabel(text) },
-                    actionButton = { text, isDanger, onClick -> deps.actionButton(text, isDanger, onClick) },
-                    space = { value -> deps.space(value) },
-                    dp = { value -> deps.dp(value) },
-                    onApplyProfile = { profile ->
-                        deps.applyHardwareProfile(profile) { applied ->
-                            if (applied) {
-                                deps.applyProfileToUiState(profile)
-                            }
-
-                            Toast.makeText(
-                                activity,
-                                if (applied) {
-                                    "Applied ${profile.name}"
-                                } else {
-                                    "Failed to apply ${profile.name}"
-                                },
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    },
-                    onDeleteProfile = { profile ->
-                        deps.showDeleteProfileDialog(profile.name) {
-                            renderProfiles()
-                        }
-                    }
-                )
-            }
-
-            val saveBtn = deps.actionButton("SAVE CURRENT PROFILE", false) {
-                deps.showSaveProfileDialog {
-                    renderProfiles()
-                }
-            }
-
-            addView(deps.singleRow(saveBtn))
-            renderProfiles()
-            addView(profileList)
-        }
-
-        container.addView(profilesCard)
-
         val masterProfilesCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("◆", "MASTER PROFILES"))
-            addView(deps.bodyText("Save and restore a full app snapshot including hardware, Game Mode, charging LEDs, fan curves, pump, and triggers."))
+            addView(deps.bodyText("Save complete app settings or export a portable JSON backup for another installation."))
 
             val masterProfileList = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -261,6 +204,15 @@ object HardwareTabUi {
             }
 
             addView(deps.singleRow(saveMasterBtn))
+            addView(deps.space(deps.dp(8)))
+            addView(deps.row(
+                deps.actionButton("EXPORT BACKUP", false) {
+                    deps.exportMasterBackup()
+                },
+                deps.actionButton("IMPORT BACKUP", false) {
+                    deps.importMasterBackup()
+                }
+            ))
             renderMasterProfiles()
             addView(masterProfileList)
         }

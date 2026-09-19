@@ -2,47 +2,46 @@ package com.elitedarkkaiser.redmagic
 
 import android.content.Context
 import com.elitedarkkaiser.redmagic.state.LedState
-import com.elitedarkkaiser.redmagic.state.PumpState
 import org.json.JSONArray
 import org.json.JSONObject
 
 object MasterProfileStorage {
+    const val CURRENT_SCHEMA_VERSION = 2
     private const val PREFS = "master_profiles"
     private const val KEY = "profiles"
+    private const val BACKUP_FORMAT = "redmagic-control-center-backup"
+
+    data class ImportResult(
+        val savedProfileCount: Int,
+        val appliedCurrentSettings: Boolean
+    )
 
     fun loadProfiles(context: Context): MutableList<MasterProfile> {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY, "[]") ?: "[]"
-        val arr = JSONArray(raw)
-        val out = mutableListOf<MasterProfile>()
-
-        for (i in 0 until arr.length()) {
-            out.add(arr.getJSONObject(i).toMasterProfile())
-        }
-
-        return out
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY, "[]") ?: "[]"
+        val array = runCatching { JSONArray(raw) }.getOrElse { JSONArray() }
+        return buildList {
+            for (index in 0 until array.length()) {
+                runCatching {
+                    array.getJSONObject(index).toMasterProfile()
+                }.getOrNull()?.let(::add)
+            }
+        }.toMutableList()
     }
 
     fun saveProfiles(context: Context, profiles: List<MasterProfile>) {
-        val arr = JSONArray()
-        profiles.forEach { arr.put(it.toJson()) }
-
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY, arr.toString())
-            .commit()
+        val array = JSONArray()
+        profiles.forEach { array.put(it.toJson()) }
+        check(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString(KEY, array.toString()).commit()
+        ) { "Unable to save master profiles" }
     }
 
     fun upsertProfile(context: Context, profile: MasterProfile) {
         val profiles = loadProfiles(context)
         val index = profiles.indexOfFirst { it.name == profile.name }
-
-        if (index >= 0) {
-            profiles[index] = profile
-        } else {
-            profiles.add(profile)
-        }
-
+        if (index >= 0) profiles[index] = profile else profiles.add(profile)
         saveProfiles(context, profiles)
     }
 
@@ -50,211 +49,236 @@ object MasterProfileStorage {
         saveProfiles(context, loadProfiles(context).filterNot { it.name == name })
     }
 
-    private fun MasterProfile.toJson(): JSONObject {
+    fun createBackupJson(context: Context): String {
+        val saved = JSONArray()
+        loadProfiles(context).forEach { saved.put(it.toJson()) }
         return JSONObject().apply {
-            put("name", name)
-            put("hardware", hardware.toJson())
-            put("gameMode", gameMode.toJson())
-            put("gamePackages", JSONArray(gamePackages.toList()))
-            put("chargingEnabled", chargingEnabled)
-            put("chargingFanLed", chargingFanLed.toJson())
-            put("chargingLogoLed", chargingLogoLed.toJson())
-            put("chargingShoulderLed", chargingShoulderLed.toJson())
+            put("format", BACKUP_FORMAT)
+            put("schemaVersion", CURRENT_SCHEMA_VERSION)
+            put("exportedAtEpochMs", System.currentTimeMillis())
+            put("currentSettings", MasterProfileActions.captureCurrent(
+                context,
+                "Current device settings"
+            ).toJson())
+            put("savedProfiles", saved)
+        }.toString(2)
+    }
 
-            put("callLightingEnabled", callLightingEnabled)
-            put("pauseFanDuringCalls", pauseFanDuringCalls)
-            put("incomingCallFanLed", incomingCallFanLed.toJson())
-            put("incomingCallLogoLed", incomingCallLogoLed.toJson())
-            put("incomingCallShoulderLed", incomingCallShoulderLed.toJson())
-            put("connectedCallFanLed", connectedCallFanLed.toJson())
-            put("connectedCallLogoLed", connectedCallLogoLed.toJson())
-            put("connectedCallShoulderLed", connectedCallShoulderLed.toJson())
-
-            put("pump", pump.toJson())
-            put("selectedFanCurve", selectedFanCurve)
-            put("autoFanEnabled", autoFanEnabled)
-            put("realtimePreviewEnabled", realtimePreviewEnabled)
-            put("triggers", triggers.toJson())
+    fun importBackup(context: Context, raw: String): ImportResult {
+        require(raw.length <= 5_000_000) { "Backup is larger than 5 MB" }
+        val root = JSONObject(raw)
+        require(root.optString("format") == BACKUP_FORMAT) {
+            "This is not a RedMagic Control Center backup"
         }
+        require(root.optInt("schemaVersion", 0) in 1..CURRENT_SCHEMA_VERSION) {
+            "Unsupported backup version"
+        }
+
+        val imported = mutableListOf<MasterProfile>()
+        val array = root.optJSONArray("savedProfiles") ?: JSONArray()
+        for (index in 0 until array.length()) {
+            imported += array.getJSONObject(index).toMasterProfile()
+        }
+
+        val merged = loadProfiles(context).associateBy { it.name }.toMutableMap()
+        imported.forEach { merged[it.name] = it }
+        saveProfiles(context, merged.values.sortedBy { it.name.lowercase() })
+
+        val current = root.optJSONObject("currentSettings")?.toMasterProfile()
+        current?.let { MasterProfileActions.applyProfile(context, it) }
+        return ImportResult(imported.size, current != null)
+    }
+
+    private fun MasterProfile.toJson() = JSONObject().apply {
+        put("schemaVersion", schemaVersion)
+        put("name", name)
+        put("hardware", hardware.toJson())
+        put("triggers", triggers.toJson())
+        put("pumpExperimentalAccepted", pumpExperimentalAccepted)
+        put("gameMode", gameMode.toJson())
+        put("gamePackages", JSONArray(gamePackages.toList()))
+        put("perGameProfiles", JSONObject(perGameProfiles))
+        put("chargingEnabled", chargingEnabled)
+        put("chargingFanLed", chargingFanLed.toJson())
+        put("chargingLogoLed", chargingLogoLed.toJson())
+        put("chargingShoulderLed", chargingShoulderLed.toJson())
+        put("callLightingEnabled", callLightingEnabled)
+        put("pauseFanDuringCalls", pauseFanDuringCalls)
+        put("incomingCallFanLed", incomingCallFanLed.toJson())
+        put("incomingCallLogoLed", incomingCallLogoLed.toJson())
+        put("incomingCallShoulderLed", incomingCallShoulderLed.toJson())
+        put("connectedCallFanLed", connectedCallFanLed.toJson())
+        put("connectedCallLogoLed", connectedCallLogoLed.toJson())
+        put("connectedCallShoulderLed", connectedCallShoulderLed.toJson())
+        put("realtimePreviewEnabled", realtimePreviewEnabled)
+        put("rgbStudio", rgbStudio.toJson())
+        put("useFahrenheit", useFahrenheit)
+        put("magicKeyMode", magicKeyMode)
+        put("magicKeyAppPackage", magicKeyAppPackage ?: JSONObject.NULL)
     }
 
     private fun JSONObject.toMasterProfile(): MasterProfile {
-        return MasterProfile(
-            name = getString("name"),
-            hardware = getJSONObject("hardware").toHardwareProfile(),
-            gameMode = getJSONObject("gameMode").toGameModeProfile(),
-            gamePackages = getJSONArray("gamePackages").toStringSet(),
-            chargingEnabled = optBoolean("chargingEnabled", false),
-            chargingFanLed = getJSONObject("chargingFanLed").toLedState(),
-            chargingLogoLed = getJSONObject("chargingLogoLed").toLedState(),
-            chargingShoulderLed = getJSONObject("chargingShoulderLed").toLedState(),
+        val version = optInt("schemaVersion", 1)
+        val hardwareObject = getJSONObject("hardware")
+        var hardware = hardwareObject.toHardwareProfile()
 
+        // Version 1 stored canonical fan and pump values twice. Preserve the
+        // values that its apply path actually used.
+        if (version == 1) {
+            optJSONObject("pump")?.let { pump ->
+                hardware = hardware.copy(
+                    pumpEnabled = pump.optBoolean("enabled", hardware.pumpEnabled),
+                    pumpProfile = pump.optString("profile", hardware.pumpProfile),
+                    autoPumpEnabled = pump.optBoolean("autoEnabled", hardware.autoPumpEnabled)
+                )
+            }
+            hardware = hardware.copy(
+                autoFanEnabled = optBoolean("autoFanEnabled", hardware.autoFanEnabled),
+                fanCurveMode = optString("selectedFanCurve", hardware.fanCurveMode)
+            )
+        }
+
+        val triggerObject = optJSONObject("triggers") ?: hardwareObject
+        return MasterProfile(
+            name = optString("name", "Imported profile").ifBlank { "Imported profile" },
+            schemaVersion = version,
+            hardware = hardware,
+            triggers = triggerObject.toTriggerPrefsSnapshot(),
+            pumpExperimentalAccepted = optBoolean(
+                "pumpExperimentalAccepted",
+                optJSONObject("pump")?.optBoolean("experimentalAccepted", false) ?: false
+            ),
+            gameMode = optJSONObject("gameMode")?.toGameModeProfile()
+                ?: defaultGameModeProfile(),
+            gamePackages = (optJSONArray("gamePackages") ?: JSONArray()).toStringSet(),
+            perGameProfiles = optJSONObject("perGameProfiles").toStringMap(),
+            chargingEnabled = optBoolean("chargingEnabled", false),
+            chargingFanLed = optJSONObject("chargingFanLed").toLedState(true, "steady", 5),
+            chargingLogoLed = optJSONObject("chargingLogoLed").toLedState(true, "steady", 1),
+            chargingShoulderLed = optJSONObject("chargingShoulderLed").toLedState(true, "breathe", 8),
             callLightingEnabled = optBoolean("callLightingEnabled", false),
             pauseFanDuringCalls = optBoolean("pauseFanDuringCalls", false),
-            incomingCallFanLed = optJSONObject("incomingCallFanLed")?.toLedState() ?: LedState(true, "flashing", 5),
-            incomingCallLogoLed = optJSONObject("incomingCallLogoLed")?.toLedState() ?: LedState(true, "flashing", 1),
-            incomingCallShoulderLed = optJSONObject("incomingCallShoulderLed")?.toLedState() ?: LedState(true, "flashing", 8),
-            connectedCallFanLed = optJSONObject("connectedCallFanLed")?.toLedState() ?: LedState(true, "steady", 5),
-            connectedCallLogoLed = optJSONObject("connectedCallLogoLed")?.toLedState() ?: LedState(true, "steady", 1),
-            connectedCallShoulderLed = optJSONObject("connectedCallShoulderLed")?.toLedState() ?: LedState(true, "steady", 8),
-
-            pump = getJSONObject("pump").toPumpState(),
-            selectedFanCurve = optString("selectedFanCurve", "balanced"),
-            autoFanEnabled = optBoolean("autoFanEnabled", false),
+            incomingCallFanLed = optJSONObject("incomingCallFanLed").toLedState(true, "flashing", 5),
+            incomingCallLogoLed = optJSONObject("incomingCallLogoLed").toLedState(true, "flashing", 1),
+            incomingCallShoulderLed = optJSONObject("incomingCallShoulderLed").toLedState(true, "flashing", 8),
+            connectedCallFanLed = optJSONObject("connectedCallFanLed").toLedState(true, "steady", 5),
+            connectedCallLogoLed = optJSONObject("connectedCallLogoLed").toLedState(true, "steady", 1),
+            connectedCallShoulderLed = optJSONObject("connectedCallShoulderLed").toLedState(true, "steady", 8),
             realtimePreviewEnabled = optBoolean("realtimePreviewEnabled", true),
-            triggers = getJSONObject("triggers").toTriggerPrefsSnapshot()
+            rgbStudio = optJSONObject("rgbStudio")?.toRgbStudioState() ?: RgbStudioState(),
+            useFahrenheit = optBoolean("useFahrenheit", true),
+            magicKeyMode = optInt("magicKeyMode", -1),
+            magicKeyAppPackage = optString("magicKeyAppPackage")
+                .takeIf { it.isNotBlank() && it != "null" }
         )
     }
 
-    private fun HardwareProfile.toJson(): JSONObject {
-        return JSONObject().apply {
-            put("name", name)
-            put("fanEnabled", fanEnabled)
-            put("fanLevel", fanLevel)
-            put("autoFanEnabled", autoFanEnabled)
-            put("fanCurveMode", fanCurveMode)
-            put("pumpEnabled", pumpEnabled)
-            put("pumpProfile", pumpProfile)
-            put("autoPumpEnabled", autoPumpEnabled)
-            put("fanLedEnabled", fanLedEnabled)
-            put("fanLedEffect", fanLedEffect)
-            put("fanLedColor", fanLedColor)
-            put("logoLedEnabled", logoLedEnabled)
-            put("logoLedEffect", logoLedEffect)
-            put("logoLedColor", logoLedColor)
-            put("shoulderLedEnabled", shoulderLedEnabled)
-            put("shoulderLedEffect", shoulderLedEffect)
-            put("shoulderLedColor", shoulderLedColor)
-            put("triggerEnabled", triggerEnabled)
-            put("leftTriggerAction", leftTriggerAction)
-            put("rightTriggerAction", rightTriggerAction)
-            put("intentUnlockRightTrigger", intentUnlockRightTrigger)
-            put("triggersAutoStart", triggersAutoStart)
-        }
+    private fun HardwareSettingsSnapshot.toJson() = JSONObject().apply {
+        put("fanEnabled", fanEnabled); put("fanLevel", fanLevel)
+        put("autoFanEnabled", autoFanEnabled); put("fanCurveMode", fanCurveMode)
+        put("pumpEnabled", pumpEnabled); put("pumpProfile", pumpProfile)
+        put("autoPumpEnabled", autoPumpEnabled); put("fanLedEnabled", fanLedEnabled)
+        put("fanLedEffect", fanLedEffect); put("fanLedColor", fanLedColor)
+        put("logoLedEnabled", logoLedEnabled); put("logoLedEffect", logoLedEffect)
+        put("logoLedColor", logoLedColor); put("shoulderLedEnabled", shoulderLedEnabled)
+        put("shoulderLedEffect", shoulderLedEffect); put("shoulderLedColor", shoulderLedColor)
     }
 
-    private fun JSONObject.toHardwareProfile(): HardwareProfile {
-        return HardwareProfile(
-            name = getString("name"),
-            fanEnabled = getBoolean("fanEnabled"),
-            fanLevel = getInt("fanLevel"),
-            autoFanEnabled = getBoolean("autoFanEnabled"),
-            fanCurveMode = getString("fanCurveMode"),
-            pumpEnabled = getBoolean("pumpEnabled"),
-            pumpProfile = getString("pumpProfile"),
-            autoPumpEnabled = getBoolean("autoPumpEnabled"),
-            fanLedEnabled = getBoolean("fanLedEnabled"),
-            fanLedEffect = getString("fanLedEffect"),
-            fanLedColor = getInt("fanLedColor"),
-            logoLedEnabled = getBoolean("logoLedEnabled"),
-            logoLedEffect = getString("logoLedEffect"),
-            logoLedColor = getInt("logoLedColor"),
-            shoulderLedEnabled = getBoolean("shoulderLedEnabled"),
-            shoulderLedEffect = getString("shoulderLedEffect"),
-            shoulderLedColor = getInt("shoulderLedColor"),
-            triggerEnabled = optBoolean("triggerEnabled", false),
-            leftTriggerAction = optString("leftTriggerAction", "NONE"),
-            rightTriggerAction = optString("rightTriggerAction", "NONE"),
-            intentUnlockRightTrigger = optBoolean("intentUnlockRightTrigger", true),
-            triggersAutoStart = optBoolean("triggersAutoStart", false)
-        )
+    private fun JSONObject.toHardwareProfile() = HardwareSettingsSnapshot(
+        fanEnabled = optBoolean("fanEnabled", false),
+        fanLevel = optInt("fanLevel", 0).coerceIn(0, 5),
+        autoFanEnabled = optBoolean("autoFanEnabled", false),
+        fanCurveMode = optString("fanCurveMode", "balanced"),
+        pumpEnabled = optBoolean("pumpEnabled", false),
+        pumpProfile = optString("pumpProfile", "quick"),
+        autoPumpEnabled = optBoolean("autoPumpEnabled", false),
+        fanLedEnabled = optBoolean("fanLedEnabled", false),
+        fanLedEffect = optString("fanLedEffect", "steady"),
+        fanLedColor = optInt("fanLedColor", 5),
+        logoLedEnabled = optBoolean("logoLedEnabled", true),
+        logoLedEffect = optString("logoLedEffect", "steady"),
+        logoLedColor = optInt("logoLedColor", 1),
+        shoulderLedEnabled = optBoolean("shoulderLedEnabled", true),
+        shoulderLedEffect = optString("shoulderLedEffect", "breathe"),
+        shoulderLedColor = optInt("shoulderLedColor", 8)
+    )
+
+    private fun TriggerPrefsSnapshot.toJson() = JSONObject().apply {
+        put("triggerEnabled", triggerEnabled); put("leftTriggerAction", leftTriggerAction)
+        put("rightTriggerAction", rightTriggerAction)
+        put("intentUnlockRightTrigger", intentUnlockRightTrigger)
+        put("triggersAutoStart", triggersAutoStart)
     }
 
-    private fun GameModeProfile.toJson(): JSONObject {
-        return JSONObject().apply {
-            put("fanEnabled", fanEnabled)
-            put("fanLevel", fanLevel)
-            put("pumpEnabled", pumpEnabled)
-            put("pumpProfile", pumpProfile)
-            put("fanLedEnabled", fanLedEnabled)
-            put("fanLedEffect", fanLedEffect)
-            put("fanLedColor", fanLedColor)
-            put("logoLedEnabled", logoLedEnabled)
-            put("logoLedEffect", logoLedEffect)
-            put("logoLedColor", logoLedColor)
-            put("shoulderLedEnabled", shoulderLedEnabled)
-            put("shoulderLedEffect", shoulderLedEffect)
-            put("shoulderLedColor", shoulderLedColor)
-        }
+    private fun JSONObject.toTriggerPrefsSnapshot() = TriggerPrefsSnapshot(
+        triggerEnabled = optBoolean("triggerEnabled", optBoolean("triggersAutoStart", false)),
+        leftTriggerAction = optString("leftTriggerAction", "NONE"),
+        rightTriggerAction = optString("rightTriggerAction", "NONE"),
+        intentUnlockRightTrigger = optBoolean("intentUnlockRightTrigger", true),
+        triggersAutoStart = optBoolean("triggersAutoStart", false)
+    )
+
+    private fun GameModeProfile.toJson() = JSONObject().apply {
+        put("fanEnabled", fanEnabled); put("fanLevel", fanLevel)
+        put("pumpEnabled", pumpEnabled); put("pumpProfile", pumpProfile)
+        put("fanLedEnabled", fanLedEnabled); put("fanLedEffect", fanLedEffect)
+        put("fanLedColor", fanLedColor); put("logoLedEnabled", logoLedEnabled)
+        put("logoLedEffect", logoLedEffect); put("logoLedColor", logoLedColor)
+        put("shoulderLedEnabled", shoulderLedEnabled)
+        put("shoulderLedEffect", shoulderLedEffect); put("shoulderLedColor", shoulderLedColor)
     }
 
-    private fun JSONObject.toGameModeProfile(): GameModeProfile {
-        return GameModeProfile(
-            fanEnabled = getBoolean("fanEnabled"),
-            fanLevel = getInt("fanLevel"),
-            pumpEnabled = getBoolean("pumpEnabled"),
-            pumpProfile = getString("pumpProfile"),
-            fanLedEnabled = getBoolean("fanLedEnabled"),
-            fanLedEffect = getString("fanLedEffect"),
-            fanLedColor = getInt("fanLedColor"),
-            logoLedEnabled = getBoolean("logoLedEnabled"),
-            logoLedEffect = getString("logoLedEffect"),
-            logoLedColor = getInt("logoLedColor"),
-            shoulderLedEnabled = getBoolean("shoulderLedEnabled"),
-            shoulderLedEffect = getString("shoulderLedEffect"),
-            shoulderLedColor = getInt("shoulderLedColor")
-        )
+    private fun JSONObject.toGameModeProfile() = GameModeProfile(
+        fanEnabled = optBoolean("fanEnabled", true), fanLevel = optInt("fanLevel", 3),
+        pumpEnabled = optBoolean("pumpEnabled", false), pumpProfile = optString("pumpProfile", "quick"),
+        fanLedEnabled = optBoolean("fanLedEnabled", true), fanLedEffect = optString("fanLedEffect", "steady"),
+        fanLedColor = optInt("fanLedColor", 5), logoLedEnabled = optBoolean("logoLedEnabled", true),
+        logoLedEffect = optString("logoLedEffect", "steady"), logoLedColor = optInt("logoLedColor", 1),
+        shoulderLedEnabled = optBoolean("shoulderLedEnabled", true),
+        shoulderLedEffect = optString("shoulderLedEffect", "breathe"), shoulderLedColor = optInt("shoulderLedColor", 8)
+    )
+
+    private fun defaultGameModeProfile() = JSONObject().toGameModeProfile()
+
+    private fun LedState.toJson() = JSONObject().apply {
+        put("enabled", enabled); put("effect", effect); put("color", color)
     }
 
-    private fun LedState.toJson(): JSONObject {
-        return JSONObject().apply {
-            put("enabled", enabled)
-            put("effect", effect)
-            put("color", color)
-        }
+    private fun JSONObject?.toLedState(enabled: Boolean, effect: String, color: Int) = LedState(
+        this?.optBoolean("enabled", enabled) ?: enabled,
+        this?.optString("effect", effect) ?: effect,
+        this?.optInt("color", color) ?: color
+    )
+
+    private fun RgbStudioState.toJson() = JSONObject().apply {
+        put("enabled", enabled); put("syncZones", syncZones); put("effect", effect)
+        put("colors", JSONArray(colors)); put("logoSpeedMs", logoSpeedMs)
+        put("shoulderSpeedMs", shoulderSpeedMs); put("fanSpeedMs", fanSpeedMs)
+        put("screenOffTimeoutMinutes", screenOffTimeoutMinutes)
     }
 
-    private fun JSONObject.toLedState(): LedState {
-        return LedState(
-            enabled = optBoolean("enabled", false),
-            effect = optString("effect", "steady"),
-            color = optInt("color", 1)
-        )
+    private fun JSONObject.toRgbStudioState() = RgbStudioState(
+        enabled = optBoolean("enabled", false), syncZones = optBoolean("syncZones", true),
+        effect = optString("effect", "steady"),
+        colors = (optJSONArray("colors") ?: JSONArray()).toIntList().ifEmpty { RgbStudioState.DEFAULT_COLORS },
+        logoSpeedMs = optLong("logoSpeedMs", RgbStudioState.DEFAULT_SPEED_MS),
+        shoulderSpeedMs = optLong("shoulderSpeedMs", RgbStudioState.DEFAULT_SPEED_MS),
+        fanSpeedMs = optLong("fanSpeedMs", RgbStudioState.DEFAULT_SPEED_MS),
+        screenOffTimeoutMinutes = optInt("screenOffTimeoutMinutes", 0)
+    )
+
+    private fun JSONArray.toStringSet() = buildSet {
+        for (index in 0 until length()) optString(index).takeIf(String::isNotBlank)?.let(::add)
     }
 
-    private fun PumpState.toJson(): JSONObject {
-        return JSONObject().apply {
-            put("enabled", enabled)
-            put("profile", profile)
-            put("autoEnabled", autoEnabled)
-            put("experimentalAccepted", experimentalAccepted)
-        }
+    private fun JSONArray.toIntList() = buildList {
+        for (index in 0 until length()) add(optInt(index))
     }
 
-    private fun JSONObject.toPumpState(): PumpState {
-        return PumpState(
-            enabled = optBoolean("enabled", false),
-            profile = optString("profile", "quick"),
-            autoEnabled = optBoolean("autoEnabled", false),
-            experimentalAccepted = optBoolean("experimentalAccepted", false)
-        )
-    }
-
-    private fun TriggerPrefsSnapshot.toJson(): JSONObject {
-        return JSONObject().apply {
-            put("triggerEnabled", triggerEnabled)
-            put("leftTriggerAction", leftTriggerAction)
-            put("rightTriggerAction", rightTriggerAction)
-            put("intentUnlockRightTrigger", intentUnlockRightTrigger)
-            put("triggersAutoStart", triggersAutoStart)
-        }
-    }
-
-    private fun JSONObject.toTriggerPrefsSnapshot(): TriggerPrefsSnapshot {
-        return TriggerPrefsSnapshot(
-            triggerEnabled = optBoolean("triggerEnabled", false),
-            leftTriggerAction = optString("leftTriggerAction", "NONE"),
-            rightTriggerAction = optString("rightTriggerAction", "NONE"),
-            intentUnlockRightTrigger = optBoolean("intentUnlockRightTrigger", true),
-            triggersAutoStart = optBoolean("triggersAutoStart", false)
-        )
-    }
-
-    private fun JSONArray.toStringSet(): Set<String> {
-        val out = mutableSetOf<String>()
-        for (i in 0 until length()) {
-            out.add(getString(i))
-        }
-        return out
+    private fun JSONObject?.toStringMap(): Map<String, String> {
+        if (this == null) return emptyMap()
+        return keys().asSequence().mapNotNull { key ->
+            optString(key).takeIf { value -> value.isNotBlank() }?.let { key to it }
+        }.toMap()
     }
 }

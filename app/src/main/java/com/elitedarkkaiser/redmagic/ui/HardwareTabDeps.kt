@@ -3,7 +3,6 @@ package com.elitedarkkaiser.redmagic.ui
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.elitedarkkaiser.redmagic.HardwareProfile
 import com.elitedarkkaiser.redmagic.MasterProfile
 
 data class HardwareTabDeps(
@@ -22,16 +21,11 @@ data class HardwareTabDeps(
     val enableTriggersAndService: ((Boolean) -> Unit) -> Unit,
     val disableTriggersAndService: ((Boolean) -> Unit) -> Unit,
 
-    val loadProfiles: () -> List<HardwareProfile>,
-    val applyHardwareProfile:
-        (HardwareProfile, (Boolean) -> Unit) -> Unit,
-    val applyProfileToUiState: (HardwareProfile) -> Unit,
-    val showSaveProfileDialog: (() -> Unit) -> Unit,
-    val showDeleteProfileDialog: (String, () -> Unit) -> Unit,
-
     val loadMasterProfiles: () -> List<MasterProfile>,
     val saveMasterProfile:
         (String, (Boolean) -> Unit) -> Unit,
     val applyMasterProfile: (MasterProfile) -> Unit,
-    val deleteMasterProfile: (String) -> Unit
+    val deleteMasterProfile: (String) -> Unit,
+    val exportMasterBackup: () -> Unit,
+    val importMasterBackup: () -> Unit
 )

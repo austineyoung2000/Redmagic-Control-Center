@@ -36,6 +36,10 @@ import com.google.android.material.shape.MaterialShapeDrawable
 import com.google.android.material.shape.ShapeAppearanceModel
 
 class MainActivity : Activity() {
+    companion object {
+        private const val MASTER_BACKUP_EXPORT_REQUEST = 8201
+        private const val MASTER_BACKUP_IMPORT_REQUEST = 8202
+    }
 
     private var useFahrenheit = true
 
@@ -176,6 +180,78 @@ class MainActivity : Activity() {
         }
 
         verifyRootAndLaunch()
+    }
+
+    @Deprecated("Legacy result API retained for Android 9 compatibility")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+
+        when (requestCode) {
+            MASTER_BACKUP_EXPORT_REQUEST -> {
+                submitBackgroundTask {
+                    val error = runCatching {
+                        val json = MasterProfileStorage
+                            .createBackupJson(this)
+                        contentResolver.openOutputStream(
+                            uri,
+                            "wt"
+                        )?.bufferedWriter()?.use {
+                            it.write(json)
+                        } ?: error("Unable to open backup destination")
+                    }.exceptionOrNull()
+
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            error?.message
+                                ?: "Master backup exported",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+
+            MASTER_BACKUP_IMPORT_REQUEST -> {
+                submitBackgroundTask {
+                    val result = runCatching {
+                        val raw = contentResolver
+                            .openInputStream(uri)
+                            ?.bufferedReader()
+                            ?.use { it.readText() }
+                            ?: error("Unable to read backup")
+                        MasterProfileStorage.importBackup(
+                            this,
+                            raw
+                        )
+                    }
+
+                    runOnUiThread {
+                        result.onSuccess { imported ->
+                            Toast.makeText(
+                                this,
+                                "Imported ${imported.savedProfileCount} " +
+                                    "saved profiles and restored settings",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            recreate()
+                        }.onFailure { error ->
+                            Toast.makeText(
+                                this,
+                                error.message
+                                    ?: "Backup import failed",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun verifyRootAndLaunch() {
@@ -350,94 +426,30 @@ class MainActivity : Activity() {
     }
 
 
-    private fun buildCurrentHardwareProfile(
-        name: String,
-        fanLevel: Int
-    ): HardwareProfile {
-        val triggerPrefs = readTriggerPrefsSnapshot(this)
-
-        return ProfileStateHelpers.buildCurrentHardwareProfile(
-            name = name,
-            input = ProfileStateHelpers.ProfileInputs(
-                fanEnabled = HardwareController.isFanEnabled(),
-                fanLevel = fanLevel,
-                autoFanEnabled = autoFanCurveEnabled,
-                fanCurveMode = selectedCurve,
-
-                pumpEnabled = pumpEnabled,
-                pumpProfile = pumpProfile,
-                autoPumpEnabled = autoPumpEnabled,
-
-                fanLedEnabled = fanLedEnabled,
-                fanLedEffect = fanLedEffect,
-                fanLedColor = fanLedColor,
-
-                logoLedEnabled = logoLedEnabled,
-                logoLedEffect = logoLedEffect,
-                logoLedColor = logoLedColor,
-
-                shoulderLedEnabled = shoulderLedEnabled,
-                shoulderLedEffect = shoulderLedEffect,
-                shoulderLedColor = shoulderLedColor,
-
-                triggerEnabled = triggerPrefs.triggerEnabled,
-                leftTriggerAction = triggerPrefs.leftTriggerAction,
-                rightTriggerAction = triggerPrefs.rightTriggerAction,
-                intentUnlockRightTrigger = triggerPrefs.intentUnlockRightTrigger,
-                triggersAutoStart = triggerPrefs.triggersAutoStart
-            )
-        )
-    }
-
-    private fun applyProfileToUiState(profile: HardwareProfile) {
-        ProfileStateHelpers.applyProfileToUiState(
-            profile = profile,
-
-            setAutoFanEnabled = { value -> autoFanCurveEnabled = value },
-            setFanCurveMode = { value -> selectedCurve = value },
-
-            setPumpEnabled = { value -> pumpEnabled = value },
-            setPumpProfile = { value -> pumpProfile = value },
-            setAutoPumpEnabled = { value -> autoPumpEnabled = value },
-
-            setFanLedEnabled = { value -> fanLedEnabled = value },
-            setFanLedEffect = { value -> fanLedEffect = value },
-            setFanLedColor = { value -> fanLedColor = value },
-
-            setLogoLedEnabled = { value -> logoLedEnabled = value },
-            setLogoLedEffect = { value -> logoLedEffect = value },
-            setLogoLedColor = { value -> logoLedColor = value },
-
-            setShoulderLedEnabled = { value -> shoulderLedEnabled = value },
-            setShoulderLedEffect = { value -> shoulderLedEffect = value },
-            setShoulderLedColor = { value -> shoulderLedColor = value },
-
-            setFanLevel = { value -> fanSeek.value = value.toFloat() },
-            saveTriggerPrefs = { applied -> saveTriggerPrefsStorage(this, applied) },
-            enableTriggersIfNeeded = { _ ->
-                /*
-                 * Trigger hardware and service startup are performed by the
-                 * background profile application before UI state is updated.
-                 */
-            },
-            afterProfileApplied = { applied ->
-                ProfileActions.afterProfileApplied(
-                    profile = applied,
-                    setAutoFanEnabledSaved = { enabled -> saveAutoFanEnabledStorage(this, enabled) },
-                    savePumpState = { savePumpStateStorage(this, pumpEnabled, pumpProfile) },
-                    saveAutoPumpState = { saveAutoPumpStateStorage(this, autoPumpEnabled) },
-                    saveFanLedState = { saveFanLedStateStorage(this, LedState(fanLedEnabled, fanLedEffect, fanLedColor)) },
-                    saveLogoLedState = { saveLogoLedStateStorage(this, LedState(logoLedEnabled, logoLedEffect, logoLedColor)) },
-                    saveShoulderLedState = { saveShoulderLedStateStorage(this, LedState(shoulderLedEnabled, shoulderLedEffect, shoulderLedColor)) },
-                    startAutoFanService = { HardwareServiceActions.startAutoFan(this) },
-                    stopAutoFanService = { HardwareServiceActions.stopAutoFan(this) },
-                    startAutoPumpService = { HardwareServiceActions.startAutoPump(this) },
-                    stopAutoPumpService = { HardwareServiceActions.stopAutoPump(this) },
-                    refreshStatus = { refreshStatus() },
-                    refreshSmartPumpStatusViews = { refreshSmartPumpStatusViews() }
-                )
-            }
-        )
+    private fun applyMasterProfileToUiState(
+        profile: MasterProfile
+    ) {
+        val hardware = profile.hardware
+        autoFanCurveEnabled = hardware.autoFanEnabled
+        selectedCurve = hardware.fanCurveMode
+        pumpEnabled = hardware.pumpEnabled
+        pumpProfile = hardware.pumpProfile
+        autoPumpEnabled = hardware.autoPumpEnabled
+        fanLedEnabled = hardware.fanLedEnabled
+        fanLedEffect = hardware.fanLedEffect
+        fanLedColor = hardware.fanLedColor
+        logoLedEnabled = hardware.logoLedEnabled
+        logoLedEffect = hardware.logoLedEffect
+        logoLedColor = hardware.logoLedColor
+        shoulderLedEnabled = hardware.shoulderLedEnabled
+        shoulderLedEffect = hardware.shoulderLedEffect
+        shoulderLedColor = hardware.shoulderLedColor
+        realTimePreviewEnabled = profile.realtimePreviewEnabled
+        useFahrenheit = profile.useFahrenheit
+        fanSeek.value = hardware.fanLevel.toFloat()
+        restoreFanCurveUiState()
+        refreshSmartPumpStatusViews()
+        refreshStatus()
     }
 
     private fun refreshSmartPumpStatusViews() {
@@ -952,94 +964,6 @@ class MainActivity : Activity() {
                     }
                 },
 
-                loadProfiles = { ProfileManager.loadProfiles(this) },
-                applyHardwareProfile = { profile, onComplete ->
-                    val submitted = submitBackgroundTask {
-                        val applied = runCatching {
-                            val hardwareApplied =
-                                HardwareController.applyHardwareProfile(
-                                    profile
-                                )
-
-                            if (
-                                profile.triggersAutoStart &&
-                                !triggersDisabledUntilRestartStorage(this)
-                            ) {
-                                val triggersEnabled =
-                                    HardwareController.enableTriggers()
-
-                                if (triggersEnabled) {
-                                    HardwareServiceActions.startTriggers(
-                                        this
-                                    )
-                                }
-
-                                hardwareApplied && triggersEnabled
-                            } else {
-                                hardwareApplied
-                            }
-                        }.getOrDefault(false)
-
-                        runOnUiThread {
-                            if (isFinishing || isDestroyed) {
-                                return@runOnUiThread
-                            }
-                            onComplete(applied)
-                        }
-                    }
-
-                    if (!submitted) {
-                        onComplete(false)
-                    }
-                },
-                applyProfileToUiState = { profile -> applyProfileToUiState(profile) },
-                showSaveProfileDialog = { onSaved ->
-                    ProfileDialogs.showStyledSaveProfileDialog(
-                        context = this,
-                        textPrimary = textPrimary,
-                        textSecondary = textSecondary,
-                        panelColor = panelColor,
-                        borderColor = borderColor,
-                        typeface = typeface,
-                        dp = { value -> dp(value) },
-                        roundedBg = { fill, stroke, radius -> roundedBg(fill, stroke, radius) },
-                        actionButton = { text, isDanger, onClick ->
-                            actionButton(text, isDanger = isDanger, onClick = onClick)
-                        },
-                        space = { value -> space(value) },
-                        buildProfile = { name, onBuilt ->
-                            val fanLevel =
-                                fanSeek.value.toInt()
-
-                            submitBackgroundTask {
-                                val profile = runCatching {
-                                    buildCurrentHardwareProfile(
-                                        name,
-                                        fanLevel
-                                    )
-                                }.getOrNull()
-
-                                runOnUiThread {
-                                    if (
-                                        isFinishing ||
-                                        isDestroyed
-                                    ) {
-                                        return@runOnUiThread
-                                    }
-                                    onBuilt(profile)
-                                }
-                            }
-                        },
-                        onSaved = onSaved
-                    )
-                },
-                showDeleteProfileDialog = { profileName, onDeleted ->
-                    ProfileDialogs.showDeleteProfileDialog(this, profileName) {
-                        ProfileManager.deleteProfile(this, profileName)
-                        Toast.makeText(this, "Deleted $profileName", Toast.LENGTH_SHORT).show()
-                        onDeleted()
-                    }
-                },
                 loadMasterProfiles = { MasterProfileStorage.loadProfiles(this) },
                 saveMasterProfile = { name, onComplete ->
                     val submitted = submitBackgroundTask {
@@ -1095,22 +1019,7 @@ class MainActivity : Activity() {
                             }
 
                             if (applied) {
-                                applyProfileToUiState(
-                                    profile.hardware
-                                )
-                                selectedCurve =
-                                    profile.selectedFanCurve
-                                autoFanCurveEnabled =
-                                    profile.autoFanEnabled
-                                pumpEnabled =
-                                    profile.pump.enabled
-                                pumpProfile =
-                                    profile.pump.profile
-                                autoPumpEnabled =
-                                    profile.pump.autoEnabled
-                                restoreFanCurveUiState()
-                                refreshSmartPumpStatusViews()
-                                refreshStatus()
+                                applyMasterProfileToUiState(profile)
                             }
 
                             Toast.makeText(
@@ -1136,6 +1045,28 @@ class MainActivity : Activity() {
                 deleteMasterProfile = { name ->
                     MasterProfileStorage.deleteProfile(this, name)
                     Toast.makeText(this, "Deleted $name", Toast.LENGTH_SHORT).show()
+                },
+                exportMasterBackup = {
+                    startActivityForResult(
+                        Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/json"
+                            putExtra(
+                                Intent.EXTRA_TITLE,
+                                "redmagic-control-center-backup.json"
+                            )
+                        },
+                        MASTER_BACKUP_EXPORT_REQUEST
+                    )
+                },
+                importMasterBackup = {
+                    startActivityForResult(
+                        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/json"
+                        },
+                        MASTER_BACKUP_IMPORT_REQUEST
+                    )
                 }
             )
         )
