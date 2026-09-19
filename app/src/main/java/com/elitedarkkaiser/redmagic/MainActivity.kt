@@ -1010,6 +1010,10 @@ class MainActivity : Activity() {
                                 this,
                                 profile
                             )
+                            MasterProfileStorage.markProfileApplied(
+                                this,
+                                profile.name
+                            )
                             true
                         }.getOrDefault(false)
 

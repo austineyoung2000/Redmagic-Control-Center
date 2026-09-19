@@ -9,6 +9,7 @@ object MasterProfileStorage {
     const val CURRENT_SCHEMA_VERSION = 2
     private const val PREFS = "master_profiles"
     private const val KEY = "profiles"
+    private const val LAST_APPLIED_KEY = "last_applied_profile"
     private const val BACKUP_FORMAT = "redmagic-control-center-backup"
 
     data class ImportResult(
@@ -47,6 +48,25 @@ object MasterProfileStorage {
 
     fun deleteProfile(context: Context, name: String) {
         saveProfiles(context, loadProfiles(context).filterNot { it.name == name })
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getString(LAST_APPLIED_KEY, null) == name) {
+            prefs.edit().remove(LAST_APPLIED_KEY).apply()
+        }
+    }
+
+    fun markProfileApplied(context: Context, name: String) {
+        if (loadProfiles(context).none { it.name == name }) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(LAST_APPLIED_KEY, name)
+            .apply()
+    }
+
+    fun lastAppliedProfile(context: Context): MasterProfile? {
+        val name = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(LAST_APPLIED_KEY, null)
+            ?: return null
+        return loadProfiles(context).firstOrNull { it.name == name }
     }
 
     fun createBackupJson(context: Context): String {

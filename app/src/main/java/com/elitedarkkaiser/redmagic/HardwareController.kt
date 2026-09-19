@@ -328,6 +328,19 @@ object HardwareController {
         return execHardwareWrite("trigger_control", "echo 0 > $SAR0_MODE; echo 0 > $SAR1_MODE")
     }
 
+    fun areTriggersEnabled(): Boolean {
+        val output = RootShell.execForOutput(
+            "cat $SAR0_MODE 2>/dev/null; " +
+                "cat $SAR1_MODE 2>/dev/null"
+        ) ?: return false
+
+        val states = output.lineSequence()
+            .mapNotNull { it.trim().toIntOrNull() }
+            .toList()
+
+        return states.size >= 2 && states.all { it != 0 }
+    }
+
     fun injectTap(x: Int, y: Int): Boolean {
         return RootShell.exec("input tap $x $y")
     }
