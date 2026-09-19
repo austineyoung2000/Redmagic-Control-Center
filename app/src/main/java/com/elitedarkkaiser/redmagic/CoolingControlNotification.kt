@@ -114,7 +114,7 @@ object CoolingControlNotification {
     private fun publish(context: Context) {
         createChannel(context)
 
-        val text = buildStatusText()
+        val text = buildStatusText(context)
         if (text == lastRenderedText) return
 
         lastRenderedText = text
@@ -126,7 +126,7 @@ object CoolingControlNotification {
 
     private fun buildNotification(
         context: Context,
-        text: String = buildStatusText()
+        text: String = buildStatusText(context)
     ): Notification {
         val builder =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -145,7 +145,9 @@ object CoolingControlNotification {
             .build()
     }
 
-    private fun buildStatusText(): String {
+    private fun buildStatusText(
+        context: Context
+    ): String {
         val parts = mutableListOf<String>()
 
         if (fanActive) {
@@ -175,7 +177,11 @@ object CoolingControlNotification {
         }
 
         temperatureF?.let {
-            parts += "Temp: ${it.toInt()}°F"
+            parts += "Temp: " +
+                TempFormat.formatDisplayTempFromF(
+                    it,
+                    isUseFahrenheitStorage(context)
+                )
         }
 
         return parts.joinToString(" • ").ifEmpty {
