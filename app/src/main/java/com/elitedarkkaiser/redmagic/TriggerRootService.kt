@@ -109,7 +109,7 @@ class TriggerRootService : Service() {
     private fun runRoot(command: String) {
         android.util.Log.d("TRIGGER", "runRoot=$command")
 
-        val session = activeActionRootSession()
+        val session: RootShell.Session? = null
         val succeeded =
             session?.exec(command) ?: RootShell.exec(command)
 
@@ -342,7 +342,6 @@ class TriggerRootService : Service() {
     }
 
 
-    @Synchronized
     @Synchronized
     private fun startReader(device: String, prefKey: String) {
         val thread = Thread({
