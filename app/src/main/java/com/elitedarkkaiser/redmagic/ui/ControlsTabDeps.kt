@@ -28,5 +28,7 @@ data class ControlsTabDeps(
     val disableMagicKeyMode: (TextView, Button?) -> Unit,
     val resolveMagicKeyAppLabel: (String?) -> String,
     val savedMagicKeyAppPackage: () -> String?,
-    val showMagicKeyAppPicker: (Button) -> Unit
+    val showMagicKeyAppPicker: (Button) -> Unit,
+    val sliderDualAppSummary: () -> String,
+    val showSliderDualAppDialog: (Button) -> Unit
 )

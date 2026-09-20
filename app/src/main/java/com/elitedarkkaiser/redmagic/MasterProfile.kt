@@ -28,5 +28,7 @@ data class MasterProfile(
     val rgbStudio: RgbStudioState,
     val useFahrenheit: Boolean,
     val magicKeyMode: Int,
-    val magicKeyAppPackage: String?
+    val magicKeyAppPackage: String?,
+    val sliderDualApp: SliderDualAppConfig =
+        SliderDualAppConfig()
 )

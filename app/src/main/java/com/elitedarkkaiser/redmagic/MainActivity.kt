@@ -377,17 +377,42 @@ class MainActivity : Activity() {
                         refreshStatus = { refreshStatus() }
                 )
             },
-            deps = MagicKeyAppPickerDialog.Deps(
-                textPrimary = textPrimary,
-                textSecondary = textSecondary,
-                panelColor = panelColor,
-                borderColor = borderColor,
-                typeface = typeface,
-                dp = { value -> dp(value) },
-                roundedBg = { fill, stroke, radius -> roundedBg(fill, stroke, radius) },
-                roundedFill = { color, radius -> roundedFill(color, radius) },
-                space = { value -> space(value) }
-            )
+            deps = magicKeyPickerDeps()
+        )
+    }
+
+    private fun magicKeyPickerDeps() =
+        MagicKeyAppPickerDialog.Deps(
+            textPrimary = textPrimary,
+            textSecondary = textSecondary,
+            panelColor = panelColor,
+            borderColor = borderColor,
+            typeface = typeface,
+            dp = { value -> dp(value) },
+            roundedBg = { fill, stroke, radius ->
+                roundedBg(fill, stroke, radius)
+            },
+            roundedFill = { color, radius ->
+                roundedFill(color, radius)
+            },
+            space = { value -> space(value) }
+        )
+
+    private fun showSliderDualAppDialog(targetButton: Button) {
+        val status = magicKeyStatusLabelRef ?: return
+
+        SliderDualAppDialog.show(
+            activity = this,
+            statusLabel = status,
+            pickerDeps = magicKeyPickerDeps(),
+            runBackground = { task ->
+                submitBackgroundTask(task)
+            },
+            onSaved = {
+                targetButton.text =
+                    SliderDualAppStorage.summary(this)
+                refreshStatus()
+            }
         )
     }
 
@@ -932,7 +957,13 @@ class MainActivity : Activity() {
                 capabilities = deviceCapabilities,
 
                 refreshStatus = { refreshStatus() },
-                readMagicKeyModeLabel = { MagicKeyActions.readModeLabel() },
+                readMagicKeyModeLabel = {
+                    if (SliderDualAppStorage.read(this).enabled) {
+                        "Dual App Slider"
+                    } else {
+                        MagicKeyActions.readModeLabel()
+                    }
+                },
                 applyStockMagicKeyMode = { label, action, statusLabel, sliderButton ->
                     MagicKeyActions.applyStockMode(
                         activity = this,
@@ -959,7 +990,13 @@ class MainActivity : Activity() {
                 },
                 resolveMagicKeyAppLabel = { pkg -> MagicKeyActions.resolveAppLabel(this, pkg) },
                 savedMagicKeyAppPackage = { savedMagicKeyAppPackageStorage(this) },
-                showMagicKeyAppPicker = { button -> showMagicKeyAppPicker(button) }
+                showMagicKeyAppPicker = { button -> showMagicKeyAppPicker(button) },
+                sliderDualAppSummary = {
+                    SliderDualAppStorage.summary(this)
+                },
+                showSliderDualAppDialog = { button ->
+                    showSliderDualAppDialog(button)
+                }
             )
         )
 

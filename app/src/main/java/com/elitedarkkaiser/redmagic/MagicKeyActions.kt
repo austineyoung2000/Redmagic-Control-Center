@@ -41,6 +41,7 @@ object MagicKeyActions {
         statusLabel.text = "Current: Applying $label…"
 
         val submitted = runBackground {
+            SliderDualAppStorage.disable(activity)
             val ok = applyMode()
 
             statusLabel.post {
@@ -97,6 +98,7 @@ object MagicKeyActions {
         sliderButton.isEnabled = false
 
         val submitted = runBackground {
+            SliderDualAppStorage.disable(activity)
             val ok = HardwareController.setSliderLaunchApp(pkg)
 
             statusLabel.post {
@@ -152,6 +154,7 @@ object MagicKeyActions {
         statusLabel.text = "Current: Disabling…"
 
         val submitted = runBackground {
+            SliderDualAppStorage.disable(activity)
             val ok =
                 HardwareController.disableSliderSystemHandling()
 

@@ -142,6 +142,20 @@ object HardwareServiceActions {
         context.stopService(Intent(context, CallLightingService::class.java))
     }
 
+    fun startSliderDualApp(context: Context) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
+        startForegroundCapableService(
+            context,
+            Intent(context, SliderDualAppService::class.java)
+        )
+    }
+
+    fun stopSliderDualApp(context: Context) {
+        context.stopService(
+            Intent(context, SliderDualAppService::class.java)
+        )
+    }
+
     fun enqueueFanLedRestore(context: Context, delaySeconds: Long = 2) {
         if (!DeviceCompatibility.isSupportedDevice()) return
         val request = OneTimeWorkRequestBuilder<FanLedRestoreWorker>()

@@ -170,6 +170,14 @@ object ControlsTabUi {
             deps.disableMagicKeyMode(magicKeyStatusLabel, sliderAppBtn)
         }
 
+        val dualAppButton = deps.actionButton(
+            deps.sliderDualAppSummary(),
+            false
+        ) {}
+        dualAppButton.setOnClickListener {
+            deps.showSliderDualAppDialog(dualAppButton)
+        }
+
         val sliderCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("↕", "SLIDER APP LAUNCH"))
             addView(deps.bodyText("Choose one app for Magic Key launch mode. Selecting an app disables stock Magic Key functions."))
@@ -177,6 +185,13 @@ object ControlsTabUi {
             addView(deps.singleRow(sliderAppBtn))
             addView(deps.space(deps.dp(12)))
             addView(deps.singleRow(clearSliderAppBtn))
+            addView(deps.space(deps.dp(12)))
+            addView(deps.bodyText(
+                "Optional: assign separate Up and Down apps, with " +
+                    "a second pair active only during a scheduled time window."
+            ))
+            addView(deps.space(deps.dp(10)))
+            addView(deps.singleRow(dualAppButton))
             addView(deps.space(deps.dp(4)))
             setPadding(deps.dp(18), deps.dp(18), deps.dp(18), deps.dp(26))
         }

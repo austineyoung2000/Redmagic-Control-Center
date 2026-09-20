@@ -29,6 +29,9 @@ class BootReceiver : BroadcastReceiver() {
         if (RgbStudioStorage.isEnabled(context)) {
             HardwareServiceActions.startRgbCycle(context)
         }
+        if (SliderDualAppStorage.read(context).enabled) {
+            HardwareServiceActions.startSliderDualApp(context)
+        }
 
         val shouldStartTriggers =
             readTriggerPrefsSnapshot(context)

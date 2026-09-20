@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object MasterProfileStorage {
-    const val CURRENT_SCHEMA_VERSION = 2
+    const val CURRENT_SCHEMA_VERSION = 3
     private const val PREFS = "master_profiles"
     private const val KEY = "profiles"
     private const val LAST_APPLIED_KEY = "last_applied_profile"
@@ -150,6 +150,7 @@ object MasterProfileStorage {
         put("useFahrenheit", useFahrenheit)
         put("magicKeyMode", magicKeyMode)
         put("magicKeyAppPackage", magicKeyAppPackage ?: JSONObject.NULL)
+        put("sliderDualApp", sliderDualApp.toJson())
     }
 
     private fun JSONObject.toMasterProfile(): MasterProfile {
@@ -204,7 +205,74 @@ object MasterProfileStorage {
             useFahrenheit = optBoolean("useFahrenheit", true),
             magicKeyMode = optInt("magicKeyMode", -1),
             magicKeyAppPackage = optString("magicKeyAppPackage")
+                .takeIf { it.isNotBlank() && it != "null" },
+            sliderDualApp = if (version >= 3) {
+                optJSONObject("sliderDualApp")
+                    .toSliderDualAppConfig()
+            } else {
+                SliderDualAppConfig()
+            }
+        )
+    }
+
+    private fun SliderDualAppConfig.toJson() =
+        JSONObject().apply {
+            put("enabled", enabled)
+            put("defaultUpPackage", defaultUpPackage ?: JSONObject.NULL)
+            put(
+                "defaultDownPackage",
+                defaultDownPackage ?: JSONObject.NULL
+            )
+            put("scheduleEnabled", scheduleEnabled)
+            put("scheduleStartMinutes", scheduleStartMinutes)
+            put("scheduleEndMinutes", scheduleEndMinutes)
+            put(
+                "scheduledUpPackage",
+                scheduledUpPackage ?: JSONObject.NULL
+            )
+            put(
+                "scheduledDownPackage",
+                scheduledDownPackage ?: JSONObject.NULL
+            )
+        }
+
+    private fun JSONObject?.toSliderDualAppConfig():
+        SliderDualAppConfig {
+        if (this == null) return SliderDualAppConfig()
+
+        fun optionalPackage(key: String): String? {
+            return optString(key)
                 .takeIf { it.isNotBlank() && it != "null" }
+        }
+
+        val config = SliderDualAppConfig(
+            enabled = optBoolean("enabled", false),
+            defaultUpPackage = optionalPackage("defaultUpPackage"),
+            defaultDownPackage = optionalPackage(
+                "defaultDownPackage"
+            ),
+            scheduleEnabled = optBoolean(
+                "scheduleEnabled",
+                false
+            ),
+            scheduleStartMinutes = optInt(
+                "scheduleStartMinutes",
+                22 * 60
+            ).coerceIn(0, 1439),
+            scheduleEndMinutes = optInt(
+                "scheduleEndMinutes",
+                7 * 60
+            ).coerceIn(0, 1439),
+            scheduledUpPackage = optionalPackage(
+                "scheduledUpPackage"
+            ),
+            scheduledDownPackage = optionalPackage(
+                "scheduledDownPackage"
+            )
+        )
+
+        return config.copy(
+            enabled = config.enabled && config.isComplete()
         )
     }
 

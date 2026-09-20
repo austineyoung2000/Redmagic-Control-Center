@@ -114,6 +114,15 @@
         <service android:name=".CallLightingService" android:exported="false" />
 
         <service
+            android:name=".SliderDualAppService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-enabled event-driven monitoring of the built-in Magic Key slider to launch configured applications" />
+        </service>
+
+        <service
             android:name=".FanTileService"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"

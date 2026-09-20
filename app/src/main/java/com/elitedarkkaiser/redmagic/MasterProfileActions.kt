@@ -77,7 +77,8 @@ object MasterProfileActions {
             rgbStudio = RgbStudioStorage.read(context),
             useFahrenheit = isUseFahrenheitStorage(context),
             magicKeyMode = MagicKeyActions.readModeValue(),
-            magicKeyAppPackage = savedMagicKeyAppPackageStorage(context)
+            magicKeyAppPackage = savedMagicKeyAppPackageStorage(context),
+            sliderDualApp = SliderDualAppStorage.read(context)
         )
     }
 
@@ -100,7 +101,24 @@ object MasterProfileActions {
             setSavedPerGameProfilesStorage(context, profile.perGameProfiles)
             RgbStudioStorage.save(context, profile.rgbStudio)
             saveUseFahrenheitStorage(context, profile.useFahrenheit)
-            applyMagicKey(context, profile.magicKeyMode, profile.magicKeyAppPackage)
+            if (
+                profile.schemaVersion >= 3 &&
+                profile.sliderDualApp.enabled
+            ) {
+                SliderDualAppStorage.save(
+                    context,
+                    profile.sliderDualApp
+                )
+                HardwareController
+                    .disableSliderSystemHandling()
+            } else {
+                SliderDualAppStorage.disable(context)
+                applyMagicKey(
+                    context,
+                    profile.magicKeyMode,
+                    profile.magicKeyAppPackage
+                )
+            }
         }
 
         ChargingLedState.setEnabled(context, profile.chargingEnabled)
@@ -155,6 +173,11 @@ object MasterProfileActions {
         else {
             CallLightingState.setActive(context, false)
             HardwareServiceActions.stopCallLighting(context)
+        }
+        if (profile.sliderDualApp.enabled) {
+            HardwareServiceActions.startSliderDualApp(context)
+        } else {
+            HardwareServiceActions.stopSliderDualApp(context)
         }
         ModeTransitionCoordinator.invalidate()
         ModeTransitionCoordinator.restoreEffectiveOwner(context, "master-profile-applied")

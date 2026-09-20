@@ -92,11 +92,22 @@ internal object MagicKeyAppPickerDialog {
 
                     showSelectionDialog(
                         activity = activity,
-                        targetButton = targetButton,
-                        statusLabel = status,
                         apps = apps,
-                        applyLaunchAppMagicKeyMode =
-                            applyLaunchAppMagicKeyMode,
+                        selectedPackage =
+                            savedMagicKeyAppPackageStorage(
+                                activity
+                            ),
+                        titleText = "Choose Magic Key App",
+                        subtitleText =
+                            "Pick one launchable app for the Magic Key",
+                        onSelected = { selected ->
+                            applyLaunchAppMagicKeyMode(
+                                selected.pkg,
+                                selected.label,
+                                status,
+                                targetButton
+                            )
+                        },
                         deps = deps
                     )
                 }.onFailure { error ->
@@ -114,6 +125,64 @@ internal object MagicKeyAppPickerDialog {
                 }
             }
         }, "RedMagicMagicKeyApps").apply {
+            priority = Thread.NORM_PRIORITY - 1
+            start()
+        }
+    }
+
+    fun chooseApp(
+        activity: MainActivity,
+        title: String,
+        subtitle: String,
+        selectedPackage: String?,
+        deps: Deps,
+        onSelected: (MagicKeyAppItem) -> Unit
+    ) {
+        Thread({
+            val result = runCatching {
+                loadLaunchableApps(activity)
+            }
+
+            activity.runOnUiThread {
+                if (
+                    activity.isFinishing ||
+                    activity.isDestroyed
+                ) {
+                    return@runOnUiThread
+                }
+
+                result.onSuccess { apps ->
+                    if (apps.isEmpty()) {
+                        Toast.makeText(
+                            activity,
+                            "No launchable apps found",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        showSelectionDialog(
+                            activity = activity,
+                            apps = apps,
+                            selectedPackage = selectedPackage,
+                            titleText = title,
+                            subtitleText = subtitle,
+                            onSelected = onSelected,
+                            deps = deps
+                        )
+                    }
+                }.onFailure { error ->
+                    android.util.Log.e(
+                        TAG,
+                        "Unable to load launchable apps",
+                        error
+                    )
+                    Toast.makeText(
+                        activity,
+                        "Unable to load installed apps",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }, "RedMagicSliderApps").apply {
             priority = Thread.NORM_PRIORITY - 1
             start()
         }
@@ -186,11 +255,11 @@ internal object MagicKeyAppPickerDialog {
 
     private fun showSelectionDialog(
         activity: MainActivity,
-        targetButton: Button,
-        statusLabel: TextView,
         apps: List<MagicKeyAppItem>,
-        applyLaunchAppMagicKeyMode:
-            (String, String, TextView, Button) -> Unit,
+        selectedPackage: String?,
+        titleText: String,
+        subtitleText: String,
+        onSelected: (MagicKeyAppItem) -> Unit,
         deps: Deps
     ) {
         val rowNormal = Color.parseColor("#121A27")
@@ -198,8 +267,7 @@ internal object MagicKeyAppPickerDialog {
         val accent = Color.parseColor("#4EA1FF")
         val iconCache = LruCache<String, Drawable>(48)
 
-        var selectedPackage =
-            savedMagicKeyAppPackageStorage(activity)
+        var currentSelection = selectedPackage
 
         val listView = ListView(activity).apply {
             divider = null
@@ -231,7 +299,7 @@ internal object MagicKeyAppPickerDialog {
             ): View {
                 val app = apps[position]
                 val isSelected =
-                    selectedPackage == app.pkg
+                    currentSelection == app.pkg
 
                 return LinearLayout(activity).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -348,7 +416,7 @@ internal object MagicKeyAppPickerDialog {
                     addView(textWrap)
 
                     setOnClickListener {
-                        selectedPackage = app.pkg
+                        currentSelection = app.pkg
                         saveButton.isEnabled = true
                         notifyDataSetChanged()
                     }
@@ -361,7 +429,7 @@ internal object MagicKeyAppPickerDialog {
         var dialogRef: AlertDialog? = null
 
         val title = TextView(activity).apply {
-            text = "Choose Magic Key App"
+            text = titleText
             textSize = 18f
             setTextColor(deps.textPrimary)
             setTypeface(deps.typeface, Typeface.BOLD)
@@ -374,8 +442,7 @@ internal object MagicKeyAppPickerDialog {
         }
 
         val subtitle = TextView(activity).apply {
-            text =
-                "Pick one launchable app for the Magic Key"
+            text = subtitleText
             textSize = 12f
             setTextColor(deps.textSecondary)
             setPadding(
@@ -400,7 +467,7 @@ internal object MagicKeyAppPickerDialog {
             insetTop = 0
             insetBottom = 0
             minHeight = deps.dp(48)
-            isEnabled = selectedPackage != null
+            isEnabled = currentSelection != null
             setPadding(
                 deps.dp(18),
                 deps.dp(10),
@@ -410,17 +477,11 @@ internal object MagicKeyAppPickerDialog {
 
             setOnClickListener {
                 val selected = apps.firstOrNull {
-                    it.pkg == selectedPackage
+                    it.pkg == currentSelection
                 } ?: return@setOnClickListener
 
                 dialogRef?.dismiss()
-
-                applyLaunchAppMagicKeyMode(
-                    selected.pkg,
-                    selected.label,
-                    statusLabel,
-                    targetButton
-                )
+                onSelected(selected)
             }
         }
 
@@ -534,9 +595,9 @@ internal object MagicKeyAppPickerDialog {
             ColorDrawable(Color.TRANSPARENT)
         )
 
-        if (selectedPackage != null) {
+        if (currentSelection != null) {
             val selectedIndex = apps.indexOfFirst {
-                it.pkg == selectedPackage
+                it.pkg == currentSelection
             }
             if (selectedIndex >= 0) {
                 listView.setSelection(selectedIndex)
