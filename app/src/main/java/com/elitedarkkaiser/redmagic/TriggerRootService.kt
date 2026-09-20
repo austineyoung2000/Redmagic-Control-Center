@@ -1,15 +1,16 @@
 package com.elitedarkkaiser.redmagic
 
+import android.app.KeyguardManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.os.SystemClock
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 class TriggerRootService : Service() {
 
-    
-    private var rightTriggerUnlockedUntil: Long = 0L
+    private var rightCrossUnlockedUntil: Long = 0L
 
     @Volatile
     private var running = true
@@ -21,14 +22,17 @@ class TriggerRootService : Service() {
     private val repeatThreads = ConcurrentHashMap<String, Thread>()
     private val readerThreads = ConcurrentHashMap<String, Thread>()
     private val readerProcesses = ConcurrentHashMap<String, Process>()
+    private val lastDownAt = ConcurrentHashMap<String, Long>()
+    private val lastActionAt = ConcurrentHashMap<String, Long>()
 
     private var initializationThread: Thread? = null
     private var rightUnlockArmedAt = 0L
     private var rightUnlockTapCount = 0
     private var rightUnlockedUntil = 0L
 
-    private val RIGHT_UNLOCK_TAP_WINDOW_MS = 450L
-    private val RIGHT_UNLOCK_ACTIVE_MS = 2500L
+    private val INTENT_UNLOCK_TAP_WINDOW_MS = 450L
+    private val INPUT_DEBOUNCE_MS = 80L
+    private val ACTION_COOLDOWN_MS = 140L
     private val HOLD_REPEAT_START_MS = 350L
     private val HOLD_REPEAT_INTERVAL_MS = 110L
 
@@ -104,6 +108,62 @@ class TriggerRootService : Service() {
         return powerManager.isInteractive
     }
 
+    private fun isDeviceLocked(): Boolean {
+        val manager = getSystemService(
+            KeyguardManager::class.java
+        ) ?: return false
+        return manager.isKeyguardLocked
+    }
+
+    private fun safetyConfig(): TriggerSafetyConfig {
+        return readTriggerSafetyConfig(this)
+    }
+
+    private fun inputAllowed(
+        prefKey: String,
+        config: TriggerSafetyConfig
+    ): Boolean {
+        if (!isScreenInteractive()) {
+            android.util.Log.d(
+                "TRIGGER",
+                "$prefKey ignored because screen is off"
+            )
+            return false
+        }
+
+        if (config.blockOnLockScreen && isDeviceLocked()) {
+            android.util.Log.d(
+                "TRIGGER",
+                "$prefKey ignored because device is locked"
+            )
+            return false
+        }
+
+        if (
+            config.gameModeOnly &&
+            !isGameModeLedOverrideActiveStorage(this)
+        ) {
+            android.util.Log.d(
+                "TRIGGER",
+                "$prefKey ignored because Game Mode is inactive"
+            )
+            return false
+        }
+
+        val current = now()
+        val previous = lastDownAt[prefKey] ?: 0L
+        if (current - previous < INPUT_DEBOUNCE_MS) {
+            android.util.Log.d(
+                "TRIGGER",
+                "$prefKey ignored by input debounce"
+            )
+            return false
+        }
+
+        lastDownAt[prefKey] = current
+        return true
+    }
+
 
     private fun getAction(key: String): String {
         val value = prefs().getString(key, "NONE") ?: "NONE"
@@ -154,6 +214,25 @@ class TriggerRootService : Service() {
         performAction(action)
     }
 
+    private fun performInitialAction(
+        prefKey: String,
+        action: String
+    ): Boolean {
+        val current = now()
+        val previous = lastActionAt[prefKey] ?: 0L
+        if (current - previous < ACTION_COOLDOWN_MS) {
+            android.util.Log.d(
+                "TRIGGER",
+                "$prefKey action ignored by cooldown"
+            )
+            return false
+        }
+
+        lastActionAt[prefKey] = current
+        performInitialAction(action)
+        return true
+    }
+
     private fun isRepeatable(action: String): Boolean {
         return when (action) {
             "VOL_UP", "VOL_DOWN" -> true
@@ -161,7 +240,10 @@ class TriggerRootService : Service() {
         }
     }
 
-    private fun startRepeater(prefKey: String) {
+    private fun startRepeater(
+        prefKey: String,
+        config: TriggerSafetyConfig
+    ) {
         stopRepeater(prefKey)
 
         val action = getAction(prefKey)
@@ -175,18 +257,109 @@ class TriggerRootService : Service() {
                 Thread.sleep(HOLD_REPEAT_START_MS)
 
                 while (running && flag.get()) {
-                    if (prefKey == "right_trigger" && !isRightUnlocked()) {
+                    if (
+                        prefKey == "right_trigger" &&
+                        config.usesIntentUnlock() &&
+                        !isRightUnlocked(config)
+                    ) {
                         break
                     }
                     performAction(getAction(prefKey))
-                    if (prefKey == "right_trigger") {
-                        extendRightUnlock()
+                    if (
+                        prefKey == "right_trigger" &&
+                        config.usesIntentUnlock()
+                    ) {
+                        extendRightUnlock(config)
                     }
                     Thread.sleep(HOLD_REPEAT_INTERVAL_MS)
                 }
             } catch (_: InterruptedException) {
             } catch (t: Throwable) {
                 android.util.Log.e("TRIGGER", "startRepeater failed for " + prefKey + ": " + t)
+            }
+        }
+
+        repeatThreads[prefKey] = thread
+        thread.start()
+    }
+
+    private fun startHeldAction(
+        prefKey: String,
+        config: TriggerSafetyConfig
+    ) {
+        stopRepeater(prefKey)
+
+        val flag = AtomicBoolean(true)
+        held[prefKey] = flag
+
+        val thread = Thread {
+            try {
+                Thread.sleep(
+                    config.holdDurationMs.toLong()
+                )
+
+                if (!running || !flag.get()) {
+                    return@Thread
+                }
+
+                if (
+                    prefKey == "right_trigger" &&
+                    config.usesIntentUnlock() &&
+                    !isRightUnlocked(config)
+                ) {
+                    return@Thread
+                }
+
+                val action = getAction(prefKey)
+                if (!performInitialAction(prefKey, action)) {
+                    return@Thread
+                }
+
+                if (
+                    prefKey == "left_trigger" &&
+                    config.leftUnlocksRight
+                ) {
+                    unlockRightFromLeft(config)
+                }
+
+                if (!isRepeatable(action)) {
+                    return@Thread
+                }
+
+                val repeatDelay =
+                    (HOLD_REPEAT_START_MS -
+                        config.holdDurationMs)
+                        .coerceAtLeast(0)
+                        .toLong()
+
+                if (repeatDelay > 0L) {
+                    Thread.sleep(repeatDelay)
+                }
+
+                while (running && flag.get()) {
+                    if (
+                        prefKey == "right_trigger" &&
+                        config.usesIntentUnlock() &&
+                        !isRightUnlocked(config)
+                    ) {
+                        break
+                    }
+
+                    performAction(getAction(prefKey))
+                    if (
+                        prefKey == "right_trigger" &&
+                        config.usesIntentUnlock()
+                    ) {
+                        extendRightUnlock(config)
+                    }
+                    Thread.sleep(HOLD_REPEAT_INTERVAL_MS)
+                }
+            } catch (_: InterruptedException) {
+            } catch (error: Throwable) {
+                android.util.Log.e(
+                    "TRIGGER",
+                    "held activation failed for $prefKey: $error"
+                )
             }
         }
 
@@ -202,9 +375,11 @@ class TriggerRootService : Service() {
         repeatThreads.remove(prefKey)
     }
 
-    private fun now() = System.currentTimeMillis()
+    private fun now() = SystemClock.elapsedRealtime()
 
-    private fun isRightUnlocked(): Boolean {
+    private fun isRightUnlocked(
+        config: TriggerSafetyConfig = safetyConfig()
+    ): Boolean {
         val unlocked = now() <= rightUnlockedUntil
         if (!unlocked && rightUnlockedUntil != 0L) {
             android.util.Log.d("TRIGGER", "right trigger locked by timeout")
@@ -212,33 +387,48 @@ class TriggerRootService : Service() {
         return unlocked
     }
 
-    private fun extendRightUnlock() {
-        rightUnlockedUntil = now() + RIGHT_UNLOCK_ACTIVE_MS
+    private fun extendRightUnlock(
+        config: TriggerSafetyConfig = safetyConfig()
+    ) {
+        rightUnlockedUntil =
+            now() + config.unlockTimeoutMs
         android.util.Log.d("TRIGGER", "right unlock extended until=" + rightUnlockedUntil)
     }
 
-    private fun rightIntentUnlockTapCountRequired(): Int {
-        return prefs().getInt("intent_unlock_tap_count", 2).coerceIn(2, 4)
+    private fun unlockRightFromLeft(
+        config: TriggerSafetyConfig
+    ) {
+        val expiresAt = now() + config.unlockTimeoutMs
+        rightCrossUnlockedUntil = expiresAt
+        rightUnlockedUntil = expiresAt
+        rightUnlockArmedAt = 0L
+        rightUnlockTapCount = 0
+        android.util.Log.d(
+            "TRIGGER",
+            "left trigger unlocked right until=$expiresAt"
+        )
     }
 
-    private fun leftIntentUnlockTapCountRequired(): Int {
-        return prefs().getInt("left_intent_unlock_tap_count", 1).coerceIn(1, 4)
-    }
-
-    private fun handleRightIntentUnlock(): Boolean {
-        if (!prefs().getBoolean("intent_unlock_right_trigger", true)) {
+    private fun handleRightIntentUnlock(
+        config: TriggerSafetyConfig
+    ): Boolean {
+        if (!config.usesIntentUnlock()) {
             return true
         }
 
         val current = now()
-        val requiredTaps = rightIntentUnlockTapCountRequired()
+        val requiredTaps = config.rightUnlockTapCount
 
         if (current <= rightUnlockedUntil) {
-            extendRightUnlock()
+            extendRightUnlock(config)
             return true
         }
 
-        if (rightUnlockArmedAt == 0L || (current - rightUnlockArmedAt) > RIGHT_UNLOCK_TAP_WINDOW_MS) {
+        if (
+            rightUnlockArmedAt == 0L ||
+            current - rightUnlockArmedAt >
+                INTENT_UNLOCK_TAP_WINDOW_MS
+        ) {
             rightUnlockArmedAt = current
             rightUnlockTapCount = 1
         } else {
@@ -248,7 +438,8 @@ class TriggerRootService : Service() {
         if (rightUnlockTapCount >= requiredTaps) {
             rightUnlockArmedAt = 0L
             rightUnlockTapCount = 0
-            rightUnlockedUntil = current + RIGHT_UNLOCK_ACTIVE_MS
+            rightUnlockedUntil =
+                current + config.unlockTimeoutMs
             android.util.Log.d("TRIGGER", "right trigger UNLOCKED taps=$requiredTaps")
             return true
         }
@@ -261,8 +452,14 @@ class TriggerRootService : Service() {
     }
 
 
-    private fun handleLeftIntentUnlock(): Boolean {
-        val requiredTaps = leftIntentUnlockTapCountRequired()
+    private fun handleLeftIntentUnlock(
+        config: TriggerSafetyConfig
+    ): Boolean {
+        if (!config.usesIntentUnlock()) {
+            return true
+        }
+
+        val requiredTaps = config.leftUnlockTapCount
         if (requiredTaps <= 1) {
             return true
         }
@@ -270,11 +467,16 @@ class TriggerRootService : Service() {
         val current = now()
 
         if (current <= leftUnlockedUntil) {
-            leftUnlockedUntil = current + RIGHT_UNLOCK_ACTIVE_MS
+            leftUnlockedUntil =
+                current + config.unlockTimeoutMs
             return true
         }
 
-        if (leftUnlockArmedAt == 0L || (current - leftUnlockArmedAt) > RIGHT_UNLOCK_TAP_WINDOW_MS) {
+        if (
+            leftUnlockArmedAt == 0L ||
+            current - leftUnlockArmedAt >
+                INTENT_UNLOCK_TAP_WINDOW_MS
+        ) {
             leftUnlockArmedAt = current
             leftUnlockTapCount = 1
         } else {
@@ -284,7 +486,8 @@ class TriggerRootService : Service() {
         if (leftUnlockTapCount >= requiredTaps) {
             leftUnlockArmedAt = 0L
             leftUnlockTapCount = 0
-            leftUnlockedUntil = current + RIGHT_UNLOCK_ACTIVE_MS
+            leftUnlockedUntil =
+                current + config.unlockTimeoutMs
             android.util.Log.d("TRIGGER", "left trigger UNLOCKED taps=$requiredTaps")
             return true
         }
@@ -299,47 +502,67 @@ class TriggerRootService : Service() {
     private fun handleLeftDown(device: String, line: String) {
         android.util.Log.d("TRIGGER", "LEFT DOWN device=" + device + " line=" + line)
 
-        if (!isScreenInteractive()) {
-            android.util.Log.d("TRIGGER", "LEFT ignored because screen is off")
+        val config = safetyConfig()
+        if (!inputAllowed("left_trigger", config)) {
             return
         }
 
-        if (!handleLeftIntentUnlock()) {
+        if (!handleLeftIntentUnlock(config)) {
             stopRepeater("left_trigger")
             return
         }
 
-        rightTriggerUnlockedUntil = now() + RIGHT_UNLOCK_ACTIVE_MS
-        rightUnlockedUntil = now() + RIGHT_UNLOCK_ACTIVE_MS
-        rightUnlockArmedAt = 0L
-        rightUnlockTapCount = 0
-        android.util.Log.d("TRIGGER", "LEFT temporarily unlocked right trigger until=" + rightUnlockedUntil)
-        performInitialAction(getAction("left_trigger"))
-        startRepeater("left_trigger")
+        if (config.usesHold()) {
+            startHeldAction("left_trigger", config)
+        } else {
+            val accepted = performInitialAction(
+                "left_trigger",
+                getAction("left_trigger")
+            )
+            if (accepted) {
+                if (config.leftUnlocksRight) {
+                    unlockRightFromLeft(config)
+                }
+                startRepeater("left_trigger", config)
+            }
+        }
     }
 
     private fun handleRightDown(device: String, line: String) {
         android.util.Log.d("TRIGGER", "RIGHT DOWN device=" + device + " line=" + line)
 
-        if (!isScreenInteractive()) {
-            android.util.Log.d("TRIGGER", "RIGHT ignored because screen is off")
+        val config = safetyConfig()
+        if (!inputAllowed("right_trigger", config)) {
             return
         }
 
-        if (now() <= rightTriggerUnlockedUntil) {
-            extendRightUnlock()
-                performInitialAction(getAction("right_trigger"))
-            startRepeater("right_trigger")
-            return
-        }
+        val crossUnlocked =
+            config.leftUnlocksRight &&
+                now() <= rightCrossUnlockedUntil
 
-        if (!handleRightIntentUnlock()) {
+        if (
+            !crossUnlocked &&
+            !handleRightIntentUnlock(config)
+        ) {
             stopRepeater("right_trigger")
             return
         }
 
-        performInitialAction(getAction("right_trigger"))
-        startRepeater("right_trigger")
+        if (crossUnlocked && config.usesIntentUnlock()) {
+            extendRightUnlock(config)
+        }
+
+        if (config.usesHold()) {
+            startHeldAction("right_trigger", config)
+        } else {
+            val accepted = performInitialAction(
+                "right_trigger",
+                getAction("right_trigger")
+            )
+            if (accepted) {
+                startRepeater("right_trigger", config)
+            }
+        }
     }
 
     private fun handleUp(prefKey: String, device: String, line: String) {
@@ -461,6 +684,8 @@ class TriggerRootService : Service() {
 
         readerProcesses.clear()
         readerThreads.clear()
+        lastDownAt.clear()
+        lastActionAt.clear()
 
         android.util.Log.d(
             "TRIGGER",

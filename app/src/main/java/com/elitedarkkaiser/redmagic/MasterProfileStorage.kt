@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object MasterProfileStorage {
-    const val CURRENT_SCHEMA_VERSION = 5
+    const val CURRENT_SCHEMA_VERSION = 6
     private const val PREFS = "master_profiles"
     private const val KEY = "profiles"
     private const val LAST_APPLIED_KEY = "last_applied_profile"
@@ -376,15 +376,71 @@ object MasterProfileStorage {
         put("rightTriggerAction", rightTriggerAction)
         put("intentUnlockRightTrigger", intentUnlockRightTrigger)
         put("triggersAutoStart", triggersAutoStart)
+        put("safetyMode", safetyMode)
+        put("holdDurationMs", holdDurationMs)
+        put("unlockTimeoutMs", unlockTimeoutMs)
+        put("blockOnLockScreen", blockOnLockScreen)
+        put("gameModeOnly", gameModeOnly)
+        put("leftUnlocksRight", leftUnlocksRight)
+        put("leftUnlockTapCount", leftUnlockTapCount)
+        put("rightUnlockTapCount", rightUnlockTapCount)
     }
 
-    private fun JSONObject.toTriggerPrefsSnapshot() = TriggerPrefsSnapshot(
-        triggerEnabled = optBoolean("triggerEnabled", optBoolean("triggersAutoStart", false)),
-        leftTriggerAction = optString("leftTriggerAction", "NONE"),
-        rightTriggerAction = optString("rightTriggerAction", "NONE"),
-        intentUnlockRightTrigger = optBoolean("intentUnlockRightTrigger", true),
-        triggersAutoStart = optBoolean("triggersAutoStart", false)
-    )
+    private fun JSONObject.toTriggerPrefsSnapshot(): TriggerPrefsSnapshot {
+        val legacyIntent =
+            optBoolean("intentUnlockRightTrigger", true)
+        val defaultMode = if (legacyIntent) {
+            TriggerSafetyConfig.MODE_INTENT
+        } else {
+            TriggerSafetyConfig.MODE_OFF
+        }
+        val safetyMode = optString(
+            "safetyMode",
+            defaultMode
+        ).takeIf {
+            it in TriggerSafetyConfig.ALLOWED_MODES
+        } ?: defaultMode
+        val holdDuration = optInt(
+            "holdDurationMs",
+            TriggerSafetyConfig.DEFAULT_HOLD_MS
+        ).takeIf {
+            it in TriggerSafetyConfig.ALLOWED_HOLD_DURATIONS
+        } ?: TriggerSafetyConfig.DEFAULT_HOLD_MS
+        val unlockTimeout = optLong(
+            "unlockTimeoutMs",
+            TriggerSafetyConfig.DEFAULT_UNLOCK_TIMEOUT_MS
+        ).takeIf {
+            it in TriggerSafetyConfig.ALLOWED_UNLOCK_TIMEOUTS
+        } ?: TriggerSafetyConfig.DEFAULT_UNLOCK_TIMEOUT_MS
+
+        return TriggerPrefsSnapshot(
+            triggerEnabled = optBoolean(
+                "triggerEnabled",
+                optBoolean("triggersAutoStart", false)
+            ),
+            leftTriggerAction =
+                optString("leftTriggerAction", "NONE"),
+            rightTriggerAction =
+                optString("rightTriggerAction", "NONE"),
+            intentUnlockRightTrigger = legacyIntent,
+            triggersAutoStart =
+                optBoolean("triggersAutoStart", false),
+            safetyMode = safetyMode,
+            holdDurationMs = holdDuration,
+            unlockTimeoutMs = unlockTimeout,
+            blockOnLockScreen =
+                optBoolean("blockOnLockScreen", true),
+            gameModeOnly = optBoolean("gameModeOnly", false),
+            leftUnlocksRight =
+                optBoolean("leftUnlocksRight", false),
+            leftUnlockTapCount =
+                optInt("leftUnlockTapCount", 1)
+                    .coerceIn(1, 4),
+            rightUnlockTapCount =
+                optInt("rightUnlockTapCount", 2)
+                    .coerceIn(2, 4)
+        )
+    }
 
     private fun GameModeProfile.toJson() = JSONObject().apply {
         put("fanEnabled", fanEnabled); put("fanLevel", fanLevel)

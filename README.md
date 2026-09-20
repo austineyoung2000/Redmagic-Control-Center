@@ -57,7 +57,7 @@ Version 2.1.0 expands hardware access, automation, profile portability, and syst
 - Portable JSON export and import with malformed-profile isolation and a 5 MB input limit
 - Backup coverage for per-game profiles, RGB Studio, temperature units, Magic Key modes, shortcut targets, dual-slider schedules, triggers, and hardware haptics
 - Event-driven Master Profile rules for power connection, power disconnection, low battery, battery recovery, and first unlock after restart
-- Backward-compatible profile migrations through schema version 5
+- Backward-compatible profile migrations through schema version 6
 
 ### Hardware and reliability
 
@@ -231,7 +231,16 @@ Available mappings include:
 - Next Track
 - Previous Track
 
-Intent Unlock provides configurable tap counts before trigger actions become active, helping prevent accidental input.
+Configurable Trigger Safety reduces accidental input without continuously polling the raw SAR sensors. Four modes are available:
+
+- **Off** — actions run immediately after a valid hardware press
+- **Intent Unlock** — requires a configurable tap sequence before actions become active
+- **Hold to Activate** — requires an 80, 120, 180, or 250 millisecond hold
+- **Intent Unlock + Hold** — combines both protections
+
+Intent Unlock supports separate left and right tap counts plus a 1.5, 2.5, 5, or 10 second unlock timeout. Optional controls can block actions while the keyguard is locked, allow actions only while a selected Game Mode app is active, and let a valid left-trigger press temporarily unlock the right trigger. Input debounce and action cooldown filtering reject duplicate hardware events while preserving held volume-repeat behavior.
+
+Game Mode gating reuses the app's existing event-driven active-game state, so it does not add another foreground-app polling loop.
 
 Manual **Disable Triggers** stops the service and hardware without erasing the Auto-start preference. Automatic startup remains paused until the user presses **Enable Triggers** or restarts the phone.
 
@@ -258,11 +267,11 @@ Master profiles capture the wider application state, including:
 - Dual-app slider mappings and schedule
 - Hardware haptic enabled state and strength
 - Real-time preview preference
-- Trigger preferences
+- Trigger mappings, startup state, and complete Trigger Safety configuration
 
 Profiles can be named, applied, deleted, exported as a portable JSON backup, and imported on another installation.
 
-The versioned profile format uses schema version 5 for Magic Key shortcut targets. Schema version 4 added haptic configuration. Older profiles remain importable, omit unsupported shortcut targets, and default haptic feedback to disabled when those fields are absent.
+The versioned profile format uses schema version 6 for Trigger Safety configuration. Schema version 5 added Magic Key shortcut targets, and schema version 4 added haptic configuration. Older profiles remain importable and receive safe defaults for fields their schema did not contain.
 
 ### Automation rules
 

@@ -74,23 +74,13 @@ object HardwareTabUi {
             addView(deps.bodyText("Map shoulder triggers to quick actions or re-enable them if the system has disabled them."))
             addView(deps.space(deps.dp(10)))
 
-            addView(switchRow(
-                activity = activity,
-                label = "Intent Unlock Trigger",
-                prefsName = "triggers",
-                key = "intent_unlock_right_trigger",
-                defaultValue = true,
-                deps = deps
-            ) { checked ->
-                Toast.makeText(
-                    activity,
-                    "Intent Unlock Trigger " + if (checked) "enabled" else "disabled",
-                    Toast.LENGTH_SHORT
-                ).show()
-            })
-
-            addView(deps.space(deps.dp(4)))
-            addView(deps.bodyText("Prevents accidental touches. Double tap to activate the right trigger, then use it normally until it times out."))
+            addView(
+                deps.bodyText(
+                    "Configure Triggers includes Intent Unlock, " +
+                        "hold filtering, lock-screen blocking, " +
+                        "Game Mode gating, and adjustable timeouts."
+                )
+            )
 
             addView(deps.space(deps.dp(8)))
 
