@@ -254,7 +254,8 @@ internal object SliderDualAppDialog {
             )
             setOnClickListener { dialogRef?.dismiss() }
         }
-        val saveButton = appButton("Save").apply {
+        lateinit var saveButton: MaterialButton
+        saveButton = appButton("Save").apply {
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
