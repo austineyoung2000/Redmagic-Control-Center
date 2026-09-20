@@ -285,10 +285,20 @@ internal object SliderDualAppDialog {
 
                 saveButton.isEnabled = false
                 val submitted = runBackground {
-                    val hardwareReady =
-                        !updated.enabled ||
+                    var restoreSucceeded = true
+                    var restoredModeLabel = "Disabled"
+                    val hardwareReady = if (updated.enabled) {
+                        val previousCaptured =
+                            config.enabled ||
+                                SliderDualAppStorage
+                                    .capturePreviousMode(activity)
+
+                        previousCaptured &&
                             HardwareController
                                 .disableSliderSystemHandling()
+                    } else {
+                        true
+                    }
 
                     if (hardwareReady) {
                         SliderDualAppStorage.save(
@@ -299,8 +309,19 @@ internal object SliderDualAppDialog {
                             HardwareServiceActions
                                 .startSliderDualApp(activity)
                         } else {
-                            HardwareServiceActions
-                                .stopSliderDualApp(activity)
+                            restoreSucceeded = if (config.enabled) {
+                                SliderDualAppStorage.disable(
+                                    activity,
+                                    restorePrevious = true
+                                )
+                            } else {
+                                SliderDualAppStorage.disable(activity)
+                            }
+
+                            if (restoreSucceeded) {
+                                restoredModeLabel =
+                                    MagicKeyActions.readModeLabel()
+                            }
                         }
                     }
 
@@ -312,21 +333,31 @@ internal object SliderDualAppDialog {
 
                         saveButton.isEnabled = true
                         if (hardwareReady) {
-                            statusLabel.text = if (updated.enabled) {
-                                "Current: Dual App Slider"
-                            } else {
-                                "Current: Disabled"
+                            statusLabel.text = when {
+                                updated.enabled ->
+                                    "Current: Dual App Slider"
+                                restoreSucceeded ->
+                                    "Current: $restoredModeLabel"
+                                else ->
+                                    "Current: Restore failed"
                             }
                             onSaved(updated)
                             dialogRef?.dismiss()
                             Toast.makeText(
                                 activity,
-                                if (updated.enabled) {
-                                    "Dual-app slider enabled"
-                                } else {
-                                    "Dual-app slider disabled"
+                                when {
+                                    updated.enabled ->
+                                        "Dual-app slider enabled"
+                                    restoreSucceeded ->
+                                        "Dual-app slider disabled; previous Magic Key mode restored"
+                                    else ->
+                                        "Dual-app slider disabled, but the previous Magic Key mode could not be restored"
                                 },
-                                Toast.LENGTH_SHORT
+                                if (restoreSucceeded) {
+                                    Toast.LENGTH_SHORT
+                                } else {
+                                    Toast.LENGTH_LONG
+                                }
                             ).show()
                         } else {
                             Toast.makeText(

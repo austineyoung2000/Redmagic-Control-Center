@@ -87,6 +87,12 @@ object SliderDualAppStorage {
         "slider_dual_app_scheduled_up"
     private const val SCHEDULED_DOWN =
         "slider_dual_app_scheduled_down"
+    private const val PREVIOUS_MODE =
+        "slider_dual_app_previous_mode"
+    private const val PREVIOUS_APP =
+        "slider_dual_app_previous_app"
+    private const val PREVIOUS_VALID =
+        "slider_dual_app_previous_valid"
 
     fun read(context: Context): SliderDualAppConfig {
         val prefs = context.getSharedPreferences(
@@ -149,12 +155,111 @@ object SliderDualAppStorage {
             .apply()
     }
 
-    fun disable(context: Context) {
+    fun capturePreviousMode(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(
+            AppPrefs.PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
+
+        if (prefs.getBoolean(PREVIOUS_VALID, false)) {
+            return true
+        }
+
+        val mode = MagicKeyActions.readModeValue()
+        if (mode !in setOf(0, 1, 2, 3, 4, 5, 16)) {
+            return false
+        }
+
+        val appPackage = if (mode == 16) {
+            RootShell.execForOutput(
+                "settings get system physical_key_function_app_value"
+            )?.trim()?.takeIf {
+                it.isNotBlank() && it != "null"
+            } ?: savedMagicKeyAppPackageStorage(context)
+        } else {
+            null
+        }
+
+        if (mode == 16 && appPackage.isNullOrBlank()) {
+            return false
+        }
+
+        val editor = prefs.edit()
+            .putInt(PREVIOUS_MODE, mode)
+            .putBoolean(PREVIOUS_VALID, true)
+
+        if (appPackage == null) {
+            editor.remove(PREVIOUS_APP)
+        } else {
+            editor.putString(PREVIOUS_APP, appPackage)
+        }
+
+        return editor.commit()
+    }
+
+    fun disable(
+        context: Context,
+        restorePrevious: Boolean = false
+    ): Boolean {
         val current = read(context)
         if (current.enabled) {
             save(context, current.copy(enabled = false))
         }
         HardwareServiceActions.stopSliderDualApp(context)
+
+        return if (restorePrevious) {
+            restorePreviousMode(context)
+        } else {
+            clearPreviousMode(context)
+            true
+        }
+    }
+
+    private fun restorePreviousMode(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(
+            AppPrefs.PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
+
+        if (!prefs.getBoolean(PREVIOUS_VALID, false)) {
+            return false
+        }
+
+        val mode = prefs.getInt(PREVIOUS_MODE, -1)
+        val appPackage = prefs.getString(PREVIOUS_APP, null)
+
+        val restored = when (mode) {
+            0 -> HardwareController.disableSliderSystemHandling()
+            1 -> HardwareController.setSliderOpenCamera()
+            2 -> HardwareController.setSliderOpenGameSpace()
+            3 -> HardwareController.setSliderSoundMode()
+            4 -> HardwareController.setSliderFlashlight()
+            5 -> HardwareController.setSliderVoiceRecorder()
+            16 -> !appPackage.isNullOrBlank() &&
+                HardwareController.setSliderLaunchApp(appPackage)
+            else -> false
+        }
+
+        if (restored) {
+            saveMagicKeyAppPackageStorage(
+                context,
+                appPackage.takeIf { mode == 16 }
+            )
+            clearPreviousMode(context)
+        }
+
+        return restored
+    }
+
+    private fun clearPreviousMode(context: Context) {
+        context.getSharedPreferences(
+            AppPrefs.PREFS_NAME,
+            Context.MODE_PRIVATE
+        ).edit()
+            .remove(PREVIOUS_MODE)
+            .remove(PREVIOUS_APP)
+            .remove(PREVIOUS_VALID)
+            .apply()
     }
 
     fun summary(context: Context): String {
