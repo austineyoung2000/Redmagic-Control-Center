@@ -58,6 +58,7 @@ class MainActivity : Activity() {
     private lateinit var deviceCpuValue: TextView
     private lateinit var deviceRamValue: TextView
     private lateinit var dashboardText: TextView
+    private lateinit var activeModeText: TextView
     private lateinit var thermalHistoryView:
         com.elitedarkkaiser.redmagic.ui.ThermalHistoryView
     private var lastDisplayedRpm: Int = -1
@@ -826,6 +827,9 @@ class MainActivity : Activity() {
                 openUrl = { url -> openUrl(url) },
                 deviceScanSummary = {
                     deviceScanSummaryStorage(this)
+                },
+                activeModeSummary = {
+                    ActiveModeInspector.summary(this)
                 }
             )
         )
@@ -834,6 +838,7 @@ class MainActivity : Activity() {
         deviceCpuValue = result.refs.deviceCpuValue
         deviceRamValue = result.refs.deviceRamValue
         dashboardText = result.refs.dashboardText
+        activeModeText = result.refs.activeModeText
         thermalHistoryView =
             result.refs.thermalHistoryView
 
@@ -2264,6 +2269,11 @@ class MainActivity : Activity() {
 
             if (::dashboardText.isInitialized) {
                 dashboardText.text = dashboardSummary
+            }
+
+            if (::activeModeText.isInitialized) {
+                activeModeText.text =
+                    ActiveModeInspector.summary(this)
             }
 
             if (::thermalHistoryView.isInitialized) {

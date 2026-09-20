@@ -16,6 +16,7 @@ object HomeTabUi {
         val deviceCpuValue: TextView,
         val deviceRamValue: TextView,
         val dashboardText: TextView,
+        val activeModeText: TextView,
         val thermalHistoryView: ThermalHistoryView
     )
 
@@ -172,6 +173,25 @@ object HomeTabUi {
         lateinit var thermalHistoryView:
             ThermalHistoryView
 
+        val activeModeText =
+            TextView(container.context).apply {
+                text = deps.activeModeSummary()
+                textSize = 13f
+                setTextColor(AppTheme.textPrimary)
+                setLineSpacing(0f, 1.15f)
+                setPadding(0, 0, 0, deps.dp(12))
+            }
+
+        val activeModeCard = deps.sectionPanel().apply {
+            addView(
+                deps.sectionHeader(
+                    "◎",
+                    "ACTIVE MODE INSPECTOR"
+                )
+            )
+            addView(activeModeText)
+        }
+
         val dashboardCard = deps.sectionPanel().apply {
             addView(
                 deps.sectionHeader(
@@ -192,6 +212,8 @@ object HomeTabUi {
 
                     dashboardText.post {
                         dashboardText.text = summary
+                        activeModeText.text =
+                            deps.activeModeSummary()
                         refreshBtn.text = "REFRESH DASHBOARD"
                         refreshBtn.isEnabled = true
                     }
@@ -250,6 +272,7 @@ object HomeTabUi {
         }
 
         container.addView(summaryCard)
+        container.addView(activeModeCard)
         container.addView(dashboardCard)
         container.addView(diagnosticsCard)
 
@@ -260,6 +283,7 @@ object HomeTabUi {
                 deviceCpuValue = deviceCpuValue,
                 deviceRamValue = deviceRamValue,
                 dashboardText = dashboardText,
+                activeModeText = activeModeText,
                 thermalHistoryView = thermalHistoryView
             )
         )

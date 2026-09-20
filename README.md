@@ -76,6 +76,20 @@ Fan and pump telemetry is collected through a batched root read and cached to re
 
 The Live Dashboard also includes a 30-minute thermal-history graph. It reuses samples already produced by the shared temperature monitor, keeps at most 600 points in memory, and performs no additional sensor reads or storage writes.
 
+### Active Mode Inspector
+
+The Home dashboard reports which feature currently owns the shared LED hardware:
+
+- Charging Mode
+- Call Lighting
+- Game Mode
+- RGB Studio
+- Normal saved lighting
+
+It also shows whether cooling is controlled by Game Mode, Auto Fan, Auto Pump, an active call fan pause, or manual saved controls. The last applied Master Profile is shown separately as the base configuration so a temporary higher-priority LED owner is not confused with the profile that supplied the underlying settings.
+
+The inspector uses the app's existing ownership and preference state. It performs no additional root commands, sensor reads, polling loops, or hardware writes. Its priority display follows the real LED arbitration order: Charging, Call Lighting, Game Mode, RGB Studio, then Normal.
+
 ### Home-screen cooling widget
 
 The optional **RedMagic Cooling** widget shows the current temperature, fan level, and pump profile. It provides direct Fan, Pump, and Refresh controls, while tapping the widget background opens the full application.
