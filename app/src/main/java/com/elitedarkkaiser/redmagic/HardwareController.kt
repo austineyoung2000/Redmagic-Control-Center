@@ -384,8 +384,11 @@ object HardwareController {
     }
 
     private fun setSliderStockFunction(value: Int): Boolean {
-        val cmd = "settings put system fourth_physical_key_function_value $value; " +
-            "settings put system physical_key_function_app_value cn.nubia.gamelauncher"
+        val cmd =
+            "settings put system physical_key_function_app_value " +
+                "cn.nubia.gamelauncher; " +
+                "settings put system " +
+                "fourth_physical_key_function_value $value"
         return execHardwareWrite("slider_control", cmd)
     }
 
@@ -400,8 +403,26 @@ object HardwareController {
     fun setSliderVoiceRecorder(): Boolean = setSliderStockFunction(5)
 
     fun setSliderLaunchApp(pkg: String): Boolean {
-        val cmd = "settings put system fourth_physical_key_function_value 16; " +
-            "settings put system physical_key_function_app_value $pkg"
+        if (
+            !pkg.matches(
+                Regex(
+                    "[A-Za-z0-9_]+" +
+                        "(?:\\.[A-Za-z0-9_]+)+"
+                )
+            )
+        ) {
+            return false
+        }
+
+        /*
+         * Store the package first and switch to Launch App last.
+         * Stock and app modes therefore transition as one ordered
+         * root operation without exposing a stale stock target.
+         */
+        val cmd =
+            "settings put system physical_key_function_app_value " +
+                "$pkg; settings put system " +
+                "fourth_physical_key_function_value 16"
         return execHardwareWrite("slider_control", cmd)
     }
 
