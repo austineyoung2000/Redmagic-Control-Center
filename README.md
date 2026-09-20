@@ -72,6 +72,12 @@ Fan and pump telemetry is collected through a batched root read and cached to re
 
 The Live Dashboard also includes a 30-minute thermal-history graph. It reuses samples already produced by the shared temperature monitor, keeps at most 600 points in memory, and performs no additional sensor reads or storage writes.
 
+### Home-screen cooling widget
+
+The optional **RedMagic Cooling** widget shows the current temperature, fan level, and pump profile. It provides direct Fan, Pump, and Refresh controls, while tapping the widget background opens the full application.
+
+The widget has no scheduled update interval and performs no continuous polling. Hardware is read only when Android creates or updates the widget, when the user requests a refresh, or after a widget control is pressed. Fan and pump root work runs on one background executor rather than the launcher thread.
+
 ### Diagnostics
 
 The capability scanner reports whether the expected fan, pump, LED, trigger, and slider hardware interfaces are available. Missing interfaces are reported rather than silently treated as working.

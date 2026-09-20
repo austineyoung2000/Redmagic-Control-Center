@@ -2,4 +2,6 @@
     <string name="app_name">Redmagic Control Center</string>
     <string name="fan_level_value">Fan level: %1$d</string>
     <string name="accessibility_desc">Shoulder trigger handler</string>
+    <string name="cooling_widget_name">RedMagic Cooling</string>
+    <string name="cooling_widget_description">Temperature, fan, and pump controls without background polling</string>
 </resources>
