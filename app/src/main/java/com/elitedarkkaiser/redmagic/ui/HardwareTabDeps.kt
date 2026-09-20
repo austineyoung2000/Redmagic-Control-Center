@@ -20,6 +20,8 @@ data class HardwareTabDeps(
     val capabilities: DeviceCapabilities,
 
     val showTriggerSetupDialog: () -> Unit,
+    val triggerSafetySummary: () -> String,
+    val showTriggerSafetyDialog: ((() -> Unit) -> Unit),
     val enableTriggersAndService: ((Boolean) -> Unit) -> Unit,
     val disableTriggersAndService: ((Boolean) -> Unit) -> Unit,
 

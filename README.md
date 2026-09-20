@@ -231,7 +231,7 @@ Available mappings include:
 - Next Track
 - Previous Track
 
-Configurable Trigger Safety reduces accidental input without continuously polling the raw SAR sensors. Four modes are available:
+The Hardware tab presents Trigger Safety as its own card directly below the main Triggers card. Its dedicated configuration dialog reduces accidental input without continuously polling the raw SAR sensors. Four modes are available:
 
 - **Off** — actions run immediately after a valid hardware press
 - **Intent Unlock** — requires a configurable tap sequence before actions become active

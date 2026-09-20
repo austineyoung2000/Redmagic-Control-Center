@@ -1072,6 +1072,12 @@ class MainActivity : Activity() {
                 capabilities = deviceCapabilities,
 
                 showTriggerSetupDialog = { showTriggerSetupDialog() },
+                triggerSafetySummary = {
+                    triggerSafetySummaryStorage(this)
+                },
+                showTriggerSafetyDialog = { onSaved ->
+                    showTriggerSafetyDialog(onSaved)
+                },
                 enableTriggersAndService = { onComplete ->
                     val submitted = submitBackgroundTask {
                         val enabled =
@@ -1540,6 +1546,29 @@ class MainActivity : Activity() {
                 roundedFill = { color, radius -> roundedFill(color, radius) },
                 space = { value -> space(value) }
             )
+        )
+    }
+
+    private fun showTriggerSafetyDialog(
+        onSaved: () -> Unit
+    ) {
+        TriggerSafetyDialog.show(
+            activity = this,
+            deps = TriggerSafetyDialog.Deps(
+                textPrimary = textPrimary,
+                textSecondary = textSecondary,
+                panelColor = panelColor,
+                borderColor = borderColor,
+                panelPressed = panelPressed,
+                accent = accent,
+                typeface = typeface,
+                dp = { value -> dp(value) },
+                roundedBg = { fill, stroke, radius ->
+                    roundedBg(fill, stroke, radius)
+                },
+                space = { value -> space(value) }
+            ),
+            onSaved = onSaved
         )
     }
 

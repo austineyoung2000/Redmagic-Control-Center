@@ -74,16 +74,6 @@ object HardwareTabUi {
             addView(deps.bodyText("Map shoulder triggers to quick actions or re-enable them if the system has disabled them."))
             addView(deps.space(deps.dp(10)))
 
-            addView(
-                deps.bodyText(
-                    "Configure Triggers includes Intent Unlock, " +
-                        "hold filtering, lock-screen blocking, " +
-                        "Game Mode gating, and adjustable timeouts."
-                )
-            )
-
-            addView(deps.space(deps.dp(8)))
-
             addView(switchRow(
                 activity = activity,
                 label = "Auto-start triggers",
@@ -136,6 +126,40 @@ object HardwareTabUi {
         }
 
         container.addView(triggerCard)
+
+        val triggerSafetySummary =
+            deps.subtleLabel(deps.triggerSafetySummary())
+        val configureSafetyButton = deps.actionButton(
+            "CONFIGURE TRIGGER SAFETY",
+            false
+        ) {
+            deps.showTriggerSafetyDialog {
+                triggerSafetySummary.text =
+                    deps.triggerSafetySummary()
+            }
+        }
+        val triggerSafetyCard = deps.sectionPanel().apply {
+            addView(deps.sectionHeader("🛡", "TRIGGER SAFETY"))
+            addView(
+                deps.bodyText(
+                    "Prevent accidental shoulder-trigger actions " +
+                        "with intent taps, hold filtering, " +
+                        "lock-screen blocking, or Game Mode gating."
+                )
+            )
+            addView(deps.space(deps.dp(8)))
+            addView(triggerSafetySummary)
+            addView(deps.singleRow(configureSafetyButton))
+        }
+
+        if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.triggersAvailable
+        ) {
+            CapabilityUi.disableInteractions(triggerSafetyCard)
+        }
+
+        container.addView(triggerSafetyCard)
 
         val hapticSummary = deps.subtleLabel("")
         var selectedHapticStrength =

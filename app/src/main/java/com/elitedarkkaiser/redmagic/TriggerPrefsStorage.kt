@@ -189,6 +189,34 @@ fun saveTriggerSafetyConfig(
         .apply()
 }
 
+fun triggerSafetySummaryStorage(context: Context): String {
+    val config = readTriggerSafetyConfig(context)
+    val modeLabel = when (config.mode) {
+        TriggerSafetyConfig.MODE_OFF -> "Off"
+        TriggerSafetyConfig.MODE_INTENT -> "Intent Unlock"
+        TriggerSafetyConfig.MODE_HOLD ->
+            "Hold ${config.holdDurationMs}ms"
+        TriggerSafetyConfig.MODE_INTENT_HOLD ->
+            "Intent + Hold ${config.holdDurationMs}ms"
+        else -> "Intent Unlock"
+    }
+    val restrictions = buildList {
+        if (config.blockOnLockScreen) {
+            add("lock screen blocked")
+        }
+        if (config.gameModeOnly) {
+            add("Game Mode only")
+        }
+    }
+
+    return if (restrictions.isEmpty()) {
+        "Current mode: $modeLabel"
+    } else {
+        "Current mode: $modeLabel • " +
+            restrictions.joinToString(" • ")
+    }
+}
+
 fun readTriggerPrefsSnapshot(context: Context): TriggerPrefsSnapshot {
     val prefs = context.getSharedPreferences(TRIGGER_PREFS_NAME, Context.MODE_PRIVATE)
     val autoStart = prefs.getBoolean(TRIGGERS_AUTO_START_KEY, false)
