@@ -68,23 +68,22 @@ class TriggerAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun runRoot(command: String) {
-        if (!DeviceCompatibility.isSupportedDevice()) return
+    private fun performAction(action: String) {
+        val command = when (action) {
+            "VOL_UP" -> "input keyevent 24"
+            "VOL_DOWN" -> "input keyevent 25"
+            "MEDIA_PLAY_PAUSE" -> "input keyevent 85"
+            "MEDIA_NEXT" -> "input keyevent 87"
+            "MEDIA_PREVIOUS" -> "input keyevent 88"
+            else -> return
+        }
 
         submitRootAction {
+            HapticFeedback.pulse(
+                this,
+                HapticFeedback.Event.TRIGGER
+            )
             RootShell.exec(command)
-        }
-    }
-
-    private fun performAction(action: String) {
-        when (action) {
-            "VOL_UP" -> runRoot("input keyevent 24")
-            "VOL_DOWN" -> runRoot("input keyevent 25")
-            "MEDIA_PLAY_PAUSE" -> runRoot("input keyevent 85")
-            "MEDIA_NEXT" -> runRoot("input keyevent 87")
-            "MEDIA_PREVIOUS" -> runRoot("input keyevent 88")
-            "NONE" -> Unit
-            else -> Unit
         }
     }
 

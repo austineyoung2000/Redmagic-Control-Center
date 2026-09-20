@@ -144,6 +144,16 @@ class TriggerRootService : Service() {
         }
     }
 
+    private fun performInitialAction(action: String) {
+        if (action != "NONE") {
+            HapticFeedback.pulse(
+                this,
+                HapticFeedback.Event.TRIGGER
+            )
+        }
+        performAction(action)
+    }
+
     private fun isRepeatable(action: String): Boolean {
         return when (action) {
             "VOL_UP", "VOL_DOWN" -> true
@@ -304,7 +314,7 @@ class TriggerRootService : Service() {
         rightUnlockArmedAt = 0L
         rightUnlockTapCount = 0
         android.util.Log.d("TRIGGER", "LEFT temporarily unlocked right trigger until=" + rightUnlockedUntil)
-        performAction(getAction("left_trigger"))
+        performInitialAction(getAction("left_trigger"))
         startRepeater("left_trigger")
     }
 
@@ -318,7 +328,7 @@ class TriggerRootService : Service() {
 
         if (now() <= rightTriggerUnlockedUntil) {
             extendRightUnlock()
-                performAction(getAction("right_trigger"))
+                performInitialAction(getAction("right_trigger"))
             startRepeater("right_trigger")
             return
         }
@@ -328,7 +338,7 @@ class TriggerRootService : Service() {
             return
         }
 
-        performAction(getAction("right_trigger"))
+        performInitialAction(getAction("right_trigger"))
         startRepeater("right_trigger")
     }
 

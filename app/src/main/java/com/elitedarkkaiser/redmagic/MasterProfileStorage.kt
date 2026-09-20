@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object MasterProfileStorage {
-    const val CURRENT_SCHEMA_VERSION = 3
+    const val CURRENT_SCHEMA_VERSION = 4
     private const val PREFS = "master_profiles"
     private const val KEY = "profiles"
     private const val LAST_APPLIED_KEY = "last_applied_profile"
@@ -151,6 +151,7 @@ object MasterProfileStorage {
         put("magicKeyMode", magicKeyMode)
         put("magicKeyAppPackage", magicKeyAppPackage ?: JSONObject.NULL)
         put("sliderDualApp", sliderDualApp.toJson())
+        put("hapticFeedback", hapticFeedback.toJson())
     }
 
     private fun JSONObject.toMasterProfile(): MasterProfile {
@@ -211,7 +212,36 @@ object MasterProfileStorage {
                     .toSliderDualAppConfig()
             } else {
                 SliderDualAppConfig()
+            },
+            hapticFeedback = if (version >= 4) {
+                optJSONObject("hapticFeedback")
+                    .toHapticFeedbackConfig()
+            } else {
+                HapticFeedbackConfig()
             }
+        )
+    }
+
+    private fun HapticFeedbackConfig.toJson() =
+        JSONObject().apply {
+            put("enabled", enabled)
+            put("strength", HapticFeedback.Strength.fromKey(
+                strength
+            ).key)
+        }
+
+    private fun JSONObject?.toHapticFeedbackConfig():
+        HapticFeedbackConfig {
+        if (this == null) return HapticFeedbackConfig()
+
+        return HapticFeedbackConfig(
+            enabled = optBoolean("enabled", false),
+            strength = HapticFeedback.Strength.fromKey(
+                optString(
+                    "strength",
+                    HapticFeedback.Strength.MEDIUM.key
+                )
+            ).key
         )
     }
 

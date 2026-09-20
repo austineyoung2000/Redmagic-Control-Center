@@ -130,6 +130,13 @@ class SliderDualAppService : Service() {
                 ">/dev/null 2>&1"
         )
 
+        if (launched) {
+            HapticFeedback.pulse(
+                this,
+                HapticFeedback.Event.MAGIC_KEY
+            )
+        }
+
         android.util.Log.i(
             TAG,
             "Slider ${if (state == 1) "up" else "down"} " +

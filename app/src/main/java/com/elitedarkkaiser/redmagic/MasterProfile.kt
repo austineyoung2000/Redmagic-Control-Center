@@ -30,5 +30,7 @@ data class MasterProfile(
     val magicKeyMode: Int,
     val magicKeyAppPackage: String?,
     val sliderDualApp: SliderDualAppConfig =
-        SliderDualAppConfig()
+        SliderDualAppConfig(),
+    val hapticFeedback: HapticFeedbackConfig =
+        HapticFeedbackConfig()
 )

@@ -112,6 +112,119 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
 
+        val hapticSummary = text("", 12f, secondary = true)
+        var selectedHapticStrength = HapticFeedback.Strength.fromKey(
+            HapticFeedback.read(this).strength
+        )
+
+        val hapticStrengthButtons = LinkedHashMap<
+            HapticFeedback.Strength,
+            MaterialButton
+        >()
+
+        fun refreshHapticStrengthButtons() {
+            hapticStrengthButtons.forEach { (strength, button) ->
+                val selected = strength == selectedHapticStrength
+                button.backgroundTintList = ColorStateList.valueOf(
+                    if (selected) {
+                        AppTheme.chipActiveColor
+                    } else {
+                        AppTheme.chipOnColor
+                    }
+                )
+                button.setTextColor(AppTheme.textPrimary)
+            }
+
+            hapticSummary.text =
+                "Uses a short ${selectedHapticStrength.label.lowercase()} " +
+                    "pulse for trigger actions, dual-app slider launches, " +
+                    "and Master Profile application. No polling is used."
+        }
+
+        val hapticStrengthRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        HapticFeedback.Strength.entries.forEach { strength ->
+            val button = MaterialButton(this).apply {
+                text = strength.label
+                textSize = 12f
+                isAllCaps = false
+                cornerRadius = dp(14)
+                insetTop = 0
+                insetBottom = 0
+                minHeight = dp(44)
+                setOnClickListener {
+                    selectedHapticStrength = strength
+                    HapticFeedback.setStrength(
+                        this@SettingsActivity,
+                        strength
+                    )
+                    refreshHapticStrengthButtons()
+
+                    Thread(
+                        {
+                            HapticFeedback.testPulse(strength)
+                        },
+                        "RedMagicHapticTest"
+                    ).start()
+                }
+            }
+
+            hapticStrengthButtons[strength] = button
+            hapticStrengthRow.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                ).apply {
+                    marginEnd = if (
+                        strength != HapticFeedback.Strength.HIGH
+                    ) dp(6) else 0
+                }
+            )
+        }
+
+        val hapticSwitch = MaterialSwitch(this).apply {
+            text = "Hardware action feedback"
+            textSize = 14f
+            setTextColor(AppTheme.textPrimary)
+            isChecked = HapticFeedback.read(
+                this@SettingsActivity
+            ).enabled
+            setOnCheckedChangeListener { _, checked ->
+                HapticFeedback.setEnabled(
+                    this@SettingsActivity,
+                    checked
+                )
+            }
+        }
+
+        refreshHapticStrengthButtons()
+
+        val hapticPanel = panel().apply {
+            addView(text(
+                "HAPTIC FEEDBACK",
+                12f,
+                secondary = true,
+                bold = true
+            ))
+            addView(hapticSwitch)
+            addView(text(
+                "Strength",
+                13f,
+                secondary = true
+            ).apply {
+                setPadding(0, dp(8), 0, dp(6))
+            })
+            addView(hapticStrengthRow)
+            addView(hapticSummary.apply {
+                setPadding(0, dp(8), 0, 0)
+            })
+        }
+
         val nightMode = resources.configuration.uiMode and
             Configuration.UI_MODE_NIGHT_MASK
         val appearanceName = if (
@@ -136,6 +249,7 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(dp(18), dp(12), dp(18), dp(28))
             addView(header)
             addView(temperaturePanel)
+            addView(hapticPanel)
             addView(appearancePanel)
         }
 

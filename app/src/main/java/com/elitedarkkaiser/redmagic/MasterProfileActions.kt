@@ -78,7 +78,8 @@ object MasterProfileActions {
             useFahrenheit = isUseFahrenheitStorage(context),
             magicKeyMode = MagicKeyActions.readModeValue(),
             magicKeyAppPackage = savedMagicKeyAppPackageStorage(context),
-            sliderDualApp = SliderDualAppStorage.read(context)
+            sliderDualApp = SliderDualAppStorage.read(context),
+            hapticFeedback = HapticFeedback.read(context)
         )
     }
 
@@ -119,6 +120,13 @@ object MasterProfileActions {
                     profile.magicKeyAppPackage
                 )
             }
+        }
+
+        if (profile.schemaVersion >= 4) {
+            HapticFeedback.save(
+                context,
+                profile.hapticFeedback
+            )
         }
 
         ChargingLedState.setEnabled(context, profile.chargingEnabled)
@@ -181,6 +189,10 @@ object MasterProfileActions {
         }
         ModeTransitionCoordinator.invalidate()
         ModeTransitionCoordinator.restoreEffectiveOwner(context, "master-profile-applied")
+        HapticFeedback.pulse(
+            context,
+            HapticFeedback.Event.MASTER_PROFILE
+        )
     }
 
     private fun applyMagicKey(context: Context, mode: Int, pkg: String?) {
