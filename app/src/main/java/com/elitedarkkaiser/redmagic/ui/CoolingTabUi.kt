@@ -541,6 +541,57 @@ object CoolingTabUi {
             addView(deps.subtleLabel("Turbo → max cooling and sound, stays between fan 4-5"))
         }
 
+        if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.fanAvailable
+        ) {
+            coolingCard.addView(
+                deps.bodyText(
+                    "Fan controls unavailable: required " +
+                        "vendor/kernel interfaces were not detected."
+                ),
+                1
+            )
+
+            listOf(
+                fanSeek,
+                fanOnBtn,
+                fanOffBtn,
+                rpmBtn,
+                autoCurveCheck,
+                modeRow
+            ).forEach {
+                CapabilityUi.disableInteractions(it)
+            }
+        } else if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.fanRpmAvailable
+        ) {
+            rpmBtn.isEnabled = false
+            rpmBtn.alpha = 0.5f
+            coolingCard.addView(
+                deps.subtleLabel(
+                    "Fan control is available, but RPM telemetry " +
+                        "was not detected on this ROM."
+                ),
+                2
+            )
+        }
+
+        if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.pumpAvailable
+        ) {
+            pumpCard.addView(
+                deps.bodyText(
+                    "Micropump controls unavailable: required " +
+                        "vendor interfaces were not detected."
+                ),
+                1
+            )
+            CapabilityUi.disableInteractions(pumpCard)
+        }
+
         container.addView(coolingCard)
         container.addView(deps.spacer(deps.dp(16)))
         container.addView(pumpCard)

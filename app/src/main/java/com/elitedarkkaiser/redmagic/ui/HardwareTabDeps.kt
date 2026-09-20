@@ -4,6 +4,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.elitedarkkaiser.redmagic.MasterProfile
+import com.elitedarkkaiser.redmagic.DeviceCapabilities
 
 data class HardwareTabDeps(
     val scrollTabContainer: () -> LinearLayout,
@@ -16,6 +17,7 @@ data class HardwareTabDeps(
     val row: (Button, Button) -> LinearLayout,
     val space: (Int) -> TextView,
     val dp: (Int) -> Int,
+    val capabilities: DeviceCapabilities,
 
     val showTriggerSetupDialog: () -> Unit,
     val enableTriggersAndService: ((Boolean) -> Unit) -> Unit,

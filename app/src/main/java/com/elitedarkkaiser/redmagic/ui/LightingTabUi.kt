@@ -105,6 +105,27 @@ object LightingTabUi {
             ))
         }
 
+        if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.ledAvailable
+        ) {
+            listOf(
+                zonesCard to
+                    "LED controls unavailable: required vendor " +
+                    "interfaces were not detected.",
+                rgbStudioCard to
+                    "RGB Studio is unavailable on this ROM.",
+                chargingModeCard to
+                    "Charging lighting is unavailable on this ROM."
+            ).forEach { (card, message) ->
+                card.addView(
+                    deps.bodyText(message),
+                    1
+                )
+                CapabilityUi.disableInteractions(card)
+            }
+        }
+
         container.addView(zonesCard)
         container.addView(rgbStudioCard)
         val callLightingCard = deps.sectionPanel().apply {
@@ -155,6 +176,22 @@ object LightingTabUi {
                 deps.actionButton("INCOMING CALL PROFILE", false) { deps.showIncomingCallProfileDialog() },
                 deps.actionButton("CONNECTED CALL PROFILE", false) { deps.showConnectedCallProfileDialog() }
             ))
+        }
+
+        if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.ledAvailable
+        ) {
+            callLightingCard.addView(
+                deps.bodyText(
+                    "Call lighting is unavailable because LED " +
+                        "interfaces were not detected."
+                ),
+                1
+            )
+            CapabilityUi.disableInteractions(
+                callLightingCard
+            )
         }
 
         container.addView(gameModeCard)

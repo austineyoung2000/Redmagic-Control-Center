@@ -8,6 +8,7 @@ data class DeviceCapabilityReport(
     val fingerprint: String,
     val isKnownRedmagic11Pro: Boolean,
     val fanAvailable: Boolean,
+    val fanRpmAvailable: Boolean,
     val pumpAvailable: Boolean,
     val ledAvailable: Boolean,
     val triggersAvailable: Boolean,
@@ -37,7 +38,9 @@ object DeviceCapabilityScanner {
 
         val fanAvailable =
             exists(DeviceCompatibility.Paths.FAN_ENABLE) &&
-            exists(DeviceCompatibility.Paths.FAN_LEVEL) &&
+            exists(DeviceCompatibility.Paths.FAN_LEVEL)
+
+        val fanRpmAvailable =
             exists(DeviceCompatibility.Paths.FAN_RPM)
 
         val pumpAvailable =
@@ -53,9 +56,17 @@ object DeviceCapabilityScanner {
             exists(DeviceCompatibility.Paths.SAR0_MODE) &&
             exists(DeviceCompatibility.Paths.SAR1_MODE)
 
+        /*
+         * NX809J exposes Magic Key behavior primarily through
+         * system settings, not a consistently readable node.
+         * The physical slider is guaranteed by the model gate;
+         * optional vendor signals only strengthen that result.
+         */
         val sliderAvailable =
-            exists("/proc/driver/slider") ||
-            prop("persist.sys.nubia.slider").isNotBlank()
+            identity.supported ||
+                exists("/proc/driver/slider") ||
+                prop("persist.sys.nubia.slider")
+                    .isNotBlank()
 
         val summary = buildString {
             append("Model: ").append(model.ifBlank { "unknown" })
@@ -68,6 +79,9 @@ object DeviceCapabilityScanner {
                 }
             )
             append("\nFan: ").append(if (fanAvailable) "available" else "missing")
+            append("\nFan RPM: ").append(
+                if (fanRpmAvailable) "available" else "missing"
+            )
             append("\nPump: ").append(if (pumpAvailable) "available" else "missing")
             append("\nLED: ").append(if (ledAvailable) "available" else "missing")
             append("\nTriggers: ").append(if (triggersAvailable) "available" else "missing")
@@ -80,6 +94,7 @@ object DeviceCapabilityScanner {
             fingerprint = fingerprint,
             isKnownRedmagic11Pro = identity.supported,
             fanAvailable = fanAvailable,
+            fanRpmAvailable = fanRpmAvailable,
             pumpAvailable = pumpAvailable,
             ledAvailable = ledAvailable,
             triggersAvailable = triggersAvailable,

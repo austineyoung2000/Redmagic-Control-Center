@@ -3,6 +3,7 @@ package com.elitedarkkaiser.redmagic.ui
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.elitedarkkaiser.redmagic.DeviceCapabilities
 
 data class LightingTabDeps(
     val scrollTabContainer: () -> LinearLayout,
@@ -17,6 +18,7 @@ data class LightingTabDeps(
     val singleRow: (Button) -> LinearLayout,
     val row: (Button, Button) -> LinearLayout,
     val dp: (Int) -> Int,
+    val capabilities: DeviceCapabilities,
 
     val getRealTimePreviewEnabled: () -> Boolean,
     val setRealTimePreviewEnabled: (Boolean) -> Unit,

@@ -129,6 +129,20 @@ object HardwareTabUi {
             addView(deps.row(trigEnableBtn, trigDisableBtn))
         }
 
+        if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.triggersAvailable
+        ) {
+            triggerCard.addView(
+                deps.bodyText(
+                    "Shoulder trigger controls unavailable: both " +
+                        "trigger interfaces were not detected."
+                ),
+                1
+            )
+            CapabilityUi.disableInteractions(triggerCard)
+        }
+
         container.addView(triggerCard)
 
         val masterProfilesCard = deps.sectionPanel().apply {

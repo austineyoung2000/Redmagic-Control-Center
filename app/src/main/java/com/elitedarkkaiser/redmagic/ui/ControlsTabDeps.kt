@@ -3,6 +3,7 @@ package com.elitedarkkaiser.redmagic.ui
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.elitedarkkaiser.redmagic.DeviceCapabilities
 
 data class ControlsTabDeps(
     val scrollTabContainer: () -> LinearLayout,
@@ -19,6 +20,7 @@ data class ControlsTabDeps(
     val spacer: (Int) -> TextView,
     val dp: (Int) -> Int,
     val runBackground: (() -> Unit) -> Boolean,
+    val capabilities: DeviceCapabilities,
 
     val refreshStatus: () -> Unit,
     val readMagicKeyModeLabel: () -> String,

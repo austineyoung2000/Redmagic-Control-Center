@@ -3,6 +3,7 @@ package com.elitedarkkaiser.redmagic.ui
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.elitedarkkaiser.redmagic.DeviceCapabilities
 
 data class CoolingTabDeps(
     val scrollTabContainer: () -> LinearLayout,
@@ -20,6 +21,7 @@ data class CoolingTabDeps(
     val dp: (Int) -> Int,
     val roundedBg: (Int, Int, Int) -> android.graphics.drawable.GradientDrawable,
     val runBackground: (() -> Unit) -> Boolean,
+    val capabilities: DeviceCapabilities,
 
     val getSelectedCurve: () -> String,
     val setSelectedCurve: (String) -> Unit,

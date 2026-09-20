@@ -147,6 +147,8 @@ class MainActivity : Activity() {
     }
 
     private var mainUiReady = false
+    private var deviceCapabilities =
+        DeviceCapabilities.unknown()
     private var temperatureSubscription:
         DeviceTemperatureMonitor.Subscription? = null
 
@@ -172,7 +174,8 @@ class MainActivity : Activity() {
         }
         
         initDefaultTriggerMappingsStorage(this)
-        DeviceScanActions.runBackgroundScan(this)
+        deviceCapabilities =
+            deviceCapabilitiesStorage(this)
 
         val needsFirstInstallSetup =
             !isFirstInstallPermissionsPromptedStorage(this) ||
@@ -575,7 +578,22 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun startCapabilityScan() {
+        DeviceScanActions.runBackgroundScan(this) {
+            capabilities ->
+            deviceCapabilities = capabilities
+
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) {
+                    refreshCapabilityAwareTabs()
+                }
+            }
+        }
+    }
+
     private fun launchMainUi() {
+        startCapabilityScan()
+
         MainUiStartup.applySavedHardwareState(
             applySavedFanLedStateOnLaunch = {
                 val state = savedFanLedStateStorage(this)
@@ -681,9 +699,19 @@ class MainActivity : Activity() {
     private fun restoreFanCurveUiState() {
         selectedCurve = selectedCurveStorage(this)
         autoFanCurveEnabled = isAutoFanEnabledStorage(this)
-        autoCurveCheck.isChecked = autoFanCurveEnabled
+        val fanAvailable =
+            !deviceCapabilities.scanComplete ||
+                deviceCapabilities.fanAvailable
 
-        if (autoFanCurveEnabled) {
+        if (fanAvailable) {
+            autoCurveCheck.isChecked =
+                autoFanCurveEnabled
+        }
+
+        if (!fanAvailable) {
+            curveStatusText.text =
+                "Fan controls unavailable on this ROM"
+        } else if (autoFanCurveEnabled) {
             curveStatusText.text = "Auto fan curve active • Running in background service"
         } else {
             curveStatusText.text = "Selected curve: $selectedCurve • Manual control"
@@ -776,6 +804,7 @@ class MainActivity : Activity() {
                 runBackground = { task ->
                     submitBackgroundTask(task)
                 },
+                capabilities = deviceCapabilities,
 
                 getSelectedCurve = { selectedCurve },
                 setSelectedCurve = { value -> selectedCurve = value },
@@ -900,6 +929,7 @@ class MainActivity : Activity() {
                 runBackground = { task ->
                     submitBackgroundTask(task)
                 },
+                capabilities = deviceCapabilities,
 
                 refreshStatus = { refreshStatus() },
                 readMagicKeyModeLabel = { MagicKeyActions.readModeLabel() },
@@ -951,6 +981,7 @@ class MainActivity : Activity() {
                 row = { left, right -> row(left, right) },
                 space = { width -> space(width) },
                 dp = { value -> dp(value) },
+                capabilities = deviceCapabilities,
 
                 showTriggerSetupDialog = { showTriggerSetupDialog() },
                 enableTriggersAndService = { onComplete ->
@@ -1141,6 +1172,7 @@ class MainActivity : Activity() {
                 singleRow = { button -> singleRow(button) },
                 row = { left, right -> row(left, right) },
                 dp = { value -> dp(value) },
+                capabilities = deviceCapabilities,
 
                 getRealTimePreviewEnabled = { realTimePreviewEnabled },
                 setRealTimePreviewEnabled = { value -> realTimePreviewEnabled = value },
@@ -1851,6 +1883,63 @@ class MainActivity : Activity() {
     }
 
 
+    private fun refreshCapabilityAwareTabs() {
+        if (
+            !mainUiReady ||
+            !::homeTab.isInitialized
+        ) {
+            return
+        }
+
+        val parent = homeTab.parent as? ViewGroup
+            ?: return
+
+        fun replaceBuiltTab(
+            oldTab: LinearLayout,
+            newTab: LinearLayout
+        ): LinearLayout {
+            val index = parent.indexOfChild(oldTab)
+
+            if (index < 0) {
+                return oldTab
+            }
+
+            newTab.visibility = oldTab.visibility
+            parent.removeViewAt(index)
+            parent.addView(newTab, index)
+            return newTab
+        }
+
+        if (coolingTabBuilt) {
+            coolingTab = replaceBuiltTab(
+                coolingTab,
+                createCoolingTab()
+            )
+            restoreFanCurveUiState()
+        }
+
+        if (controlsTabBuilt) {
+            controlsTab = replaceBuiltTab(
+                controlsTab,
+                createControlsTab()
+            )
+        }
+
+        if (hardwareTabBuilt) {
+            hardwareTab = replaceBuiltTab(
+                hardwareTab,
+                createHardwareTab()
+            )
+        }
+
+        if (lightingTabBuilt) {
+            lightingTab = replaceBuiltTab(
+                lightingTab,
+                createLightingTab()
+            )
+        }
+    }
+
     private fun switchTab(tab: String) {
         val parent = homeTab.parent as ViewGroup
 
@@ -1974,19 +2063,24 @@ class MainActivity : Activity() {
     }
 
     private fun updateManualCurveUiState() {
-        val alpha = if (autoFanCurveEnabled) 0.40f else 1f
+        val fanAvailable =
+            !deviceCapabilities.scanComplete ||
+                deviceCapabilities.fanAvailable
+        val manualEnabled =
+            fanAvailable && !autoFanCurveEnabled
+        val alpha = if (manualEnabled) 1f else 0.40f
 
         quietCurveButton.alpha = alpha
         balancedCurveButton.alpha = alpha
         turboCurveButton.alpha = alpha
 
-        quietCurveButton.isEnabled = !autoFanCurveEnabled
-        balancedCurveButton.isEnabled = !autoFanCurveEnabled
-        turboCurveButton.isEnabled = !autoFanCurveEnabled
+        quietCurveButton.isEnabled = manualEnabled
+        balancedCurveButton.isEnabled = manualEnabled
+        turboCurveButton.isEnabled = manualEnabled
 
-        quietCurveButton.isClickable = !autoFanCurveEnabled
-        balancedCurveButton.isClickable = !autoFanCurveEnabled
-        turboCurveButton.isClickable = !autoFanCurveEnabled
+        quietCurveButton.isClickable = manualEnabled
+        balancedCurveButton.isClickable = manualEnabled
+        turboCurveButton.isClickable = manualEnabled
     }
 
     private fun refreshStatus() {

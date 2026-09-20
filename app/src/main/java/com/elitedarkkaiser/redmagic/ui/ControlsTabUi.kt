@@ -89,20 +89,31 @@ object ControlsTabUi {
         val magicKeyStatusLabel =
             deps.subtleLabel("Current: loading…")
 
-        val modeReadSubmitted = deps.runBackground {
-            val modeLabel = deps.readMagicKeyModeLabel()
+        val sliderAvailable =
+            !deps.capabilities.scanComplete ||
+                deps.capabilities.sliderAvailable
 
-            magicKeyStatusLabel.post {
-                if (
-                    activity.isFinishing ||
-                    activity.isDestroyed
-                ) {
-                    return@post
+        val modeReadSubmitted = if (sliderAvailable) {
+            deps.runBackground {
+                val modeLabel =
+                    deps.readMagicKeyModeLabel()
+
+                magicKeyStatusLabel.post {
+                    if (
+                        activity.isFinishing ||
+                        activity.isDestroyed
+                    ) {
+                        return@post
+                    }
+
+                    magicKeyStatusLabel.text =
+                        "Current: $modeLabel"
                 }
-
-                magicKeyStatusLabel.text =
-                    "Current: $modeLabel"
             }
+        } else {
+            magicKeyStatusLabel.text =
+                "Current: Hardware unavailable"
+            true
         }
 
         if (!modeReadSubmitted) {
@@ -168,6 +179,29 @@ object ControlsTabUi {
             addView(deps.singleRow(clearSliderAppBtn))
             addView(deps.space(deps.dp(4)))
             setPadding(deps.dp(18), deps.dp(18), deps.dp(18), deps.dp(26))
+        }
+
+        if (
+            deps.capabilities.scanComplete &&
+            !deps.capabilities.sliderAvailable
+        ) {
+            stockFunctionsCard.addView(
+                deps.bodyText(
+                    "Magic Key controls unavailable: the slider " +
+                        "vendor interface was not detected."
+                ),
+                1
+            )
+            sliderCard.addView(
+                deps.bodyText(
+                    "App launch is unavailable on this ROM."
+                ),
+                1
+            )
+            CapabilityUi.disableInteractions(
+                stockFunctionsCard
+            )
+            CapabilityUi.disableInteractions(sliderCard)
         }
 
         container.addView(systemCard)
