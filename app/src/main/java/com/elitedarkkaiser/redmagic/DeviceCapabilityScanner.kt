@@ -30,26 +30,28 @@ object DeviceCapabilityScanner {
     }
 
     fun scan(): DeviceCapabilityReport {
-        val model = Build.MODEL.orEmpty().ifBlank { prop("ro.product.model") }
-        val marketName = prop("ro.product.marketname")
+        val identity = DeviceCompatibility.identity()
+        val model = identity.detectedModel
+        val marketName = identity.marketName
         val fingerprint = Build.FINGERPRINT.orEmpty().ifBlank { prop("ro.build.fingerprint") }
 
         val fanAvailable =
-            exists("/sys/kernel/fan/fan_enable") ||
-            exists("/sys/kernel/fan/fan_speed_level") ||
-            exists("/sys/kernel/fan/fan_speed_count")
+            exists(DeviceCompatibility.Paths.FAN_ENABLE) &&
+            exists(DeviceCompatibility.Paths.FAN_LEVEL) &&
+            exists(DeviceCompatibility.Paths.FAN_RPM)
 
         val pumpAvailable =
-            exists("/proc/driver/micropump/enable") ||
-            exists("/proc/driver/micropump/mode")
+            exists(DeviceCompatibility.Paths.PUMP_ENABLE) &&
+            exists(DeviceCompatibility.Paths.PUMP_FREQ) &&
+            exists(DeviceCompatibility.Paths.PUMP_SPEED)
 
         val ledAvailable =
-            exists("/sys/class/leds/aw22xxx_led/effect") ||
-            exists("/sys/class/leds/aw22xxx_led/cfg")
+            exists(DeviceCompatibility.Paths.LED_EFFECT) &&
+            exists(DeviceCompatibility.Paths.LED_CFG)
 
         val triggersAvailable =
-            exists("/sys/class/leds/sar0/mode_operation") ||
-            exists("/sys/class/leds/sar1/mode_operation")
+            exists(DeviceCompatibility.Paths.SAR0_MODE) &&
+            exists(DeviceCompatibility.Paths.SAR1_MODE)
 
         val sliderAvailable =
             exists("/proc/driver/slider") ||
@@ -58,6 +60,13 @@ object DeviceCapabilityScanner {
         val summary = buildString {
             append("Model: ").append(model.ifBlank { "unknown" })
             if (marketName.isNotBlank()) append(" / ").append(marketName)
+            append("\nCompatibility: ").append(
+                if (identity.supported) {
+                    "NX809J confirmed"
+                } else {
+                    "unsupported device"
+                }
+            )
             append("\nFan: ").append(if (fanAvailable) "available" else "missing")
             append("\nPump: ").append(if (pumpAvailable) "available" else "missing")
             append("\nLED: ").append(if (ledAvailable) "available" else "missing")
@@ -69,7 +78,7 @@ object DeviceCapabilityScanner {
             model = model,
             marketName = marketName,
             fingerprint = fingerprint,
-            isKnownRedmagic11Pro = model.equals("NX809J", ignoreCase = true),
+            isKnownRedmagic11Pro = identity.supported,
             fanAvailable = fanAvailable,
             pumpAvailable = pumpAvailable,
             ledAvailable = ledAvailable,

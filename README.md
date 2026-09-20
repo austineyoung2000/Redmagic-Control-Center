@@ -42,7 +42,11 @@ LineageOS-based and other custom ROMs can work when they retain the stock RedMag
 - `/sys/class/leds/sar1/*`
 - RedMagic/Nubia Magic Key system settings
 
-The app verifies the NX809J model and scans the fan, pump, LED, trigger, and slider interfaces before exposing the main controls.
+The app verifies the NX809J identity before requesting root or exposing any controls. The launch gate accepts only exact NX809J model/product identities, including NX809J regional product suffixes, and does not rely on the marketing name alone.
+
+The compatibility layer centralizes the confirmed fan, pump, LED, and trigger paths so capability diagnostics, telemetry, and hardware writes use the same interface definitions. Hardware writes are blocked again at the controller boundary if the device identity is unsupported, protecting against widget, Quick Settings, service, or boot entry points that bypass the activity.
+
+For NX809J custom ROMs, CPU temperature detection resolves the confirmed `cpullc-0-0` sensor by thermal-zone type before falling back to known zone numbers. This tolerates framework-level thermal-zone reordering while remaining restricted to NX809J hardware.
 
 ## Application layout
 

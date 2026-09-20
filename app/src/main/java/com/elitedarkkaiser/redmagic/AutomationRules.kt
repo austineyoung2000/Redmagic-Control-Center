@@ -256,6 +256,10 @@ class AutomationRulesReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent?
     ) {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return
+        }
+
         val event = AutomationRuleEvent
             .fromBroadcastAction(intent?.action)
             ?: return

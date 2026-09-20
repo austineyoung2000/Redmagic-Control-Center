@@ -37,6 +37,11 @@ class TriggerRootService : Service() {
     override fun onCreate() {
         super.onCreate()
 
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            stopSelf()
+            return
+        }
+
         if (triggersDisabledUntilRestartStorage(this)) {
             stopSelf()
             return
@@ -107,6 +112,10 @@ class TriggerRootService : Service() {
     }
 
     private fun runRoot(command: String) {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return
+        }
+
         android.util.Log.d("TRIGGER", "runRoot=$command")
 
         val session: RootShell.Session? = null

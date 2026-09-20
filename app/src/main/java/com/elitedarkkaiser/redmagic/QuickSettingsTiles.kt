@@ -48,11 +48,23 @@ abstract class RedMagicTileService : TileService() {
 
     final override fun onStartListening() {
         super.onStartListening()
+
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            showUnsupportedTile()
+            return
+        }
+
         refreshTile()
     }
 
     final override fun onClick() {
         super.onClick()
+
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            showUnsupportedTile()
+            return
+        }
+
         qsTile?.state = Tile.STATE_UNAVAILABLE
         qsTile?.updateTile()
 
@@ -89,6 +101,18 @@ abstract class RedMagicTileService : TileService() {
         QuickSettingsTileWorker.execute {
             runCatching(reader)
         }
+    }
+
+    private fun showUnsupportedTile() {
+        val tile = qsTile ?: return
+        tile.label = "RedMagic Control"
+        tile.state = Tile.STATE_UNAVAILABLE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            tile.subtitle = "NX809J only"
+        }
+        tile.contentDescription =
+            "RedMagic Control, NX809J only"
+        tile.updateTile()
     }
 
     @Suppress("DEPRECATION")

@@ -4,6 +4,7 @@ import android.content.Context
 
 object DeviceScanActions {
     fun runBackgroundScan(context: Context, force: Boolean = false) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         if (!force && hasDeviceCapabilityReportStorage(context)) return
 
         Thread {

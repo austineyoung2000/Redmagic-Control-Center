@@ -18,6 +18,8 @@ class TriggerAccessibilityService : AccessibilityService() {
         }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
+
         val pkg = event?.packageName?.toString() ?: return
         if (pkg.isBlank() || pkg == packageName || pkg == "com.android.systemui") return
 
@@ -37,6 +39,12 @@ class TriggerAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            disableSelf()
+            return
+        }
+
         submitRootAction {
             HardwareServiceActions
                 .startTriggersIfAutoStartEnabled(this)
@@ -61,6 +69,8 @@ class TriggerAccessibilityService : AccessibilityService() {
     }
 
     private fun runRoot(command: String) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
+
         submitRootAction {
             RootShell.exec(command)
         }

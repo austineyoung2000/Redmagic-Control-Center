@@ -165,6 +165,11 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            showUnsupportedDeviceDialog()
+            return
+        }
         
         initDefaultTriggerMappingsStorage(this)
         DeviceScanActions.runBackgroundScan(this)
@@ -543,6 +548,33 @@ class MainActivity : Activity() {
             )
         )
     }
+
+    private fun showUnsupportedDeviceDialog() {
+        DeviceGateDialogs.showUnsupportedDeviceDialog(
+            activity = this,
+            model = DeviceCompatibility
+                .identity()
+                .detectedModel,
+            onClose = { finish() },
+            deps = DeviceGateDialogs.Deps(
+                textPrimary = textPrimary,
+                textSecondary = textSecondary,
+                panelColor = panelColor,
+                borderColor = borderColor,
+                panelPressed = panelPressed,
+                accent = accent,
+                typeface = typeface,
+                dp = { value -> dp(value) },
+                roundedBg = { fill, stroke, radius ->
+                    roundedBg(fill, stroke, radius)
+                },
+                roundedFill = { color, radius ->
+                    roundedFill(color, radius)
+                }
+            )
+        )
+    }
+
     private fun launchMainUi() {
         MainUiStartup.applySavedHardwareState(
             applySavedFanLedStateOnLaunch = {

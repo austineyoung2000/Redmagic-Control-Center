@@ -26,6 +26,10 @@ object HardwareTelemetry {
     private var cachedSnapshotAtMs = 0L
 
     fun read(): HardwareTelemetrySnapshot {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return emptySnapshot()
+        }
+
         return synchronized(readLock) {
             val now =
                 android.os.SystemClock.elapsedRealtime()
@@ -51,27 +55,27 @@ object HardwareTelemetry {
             val command = buildString {
                 appendRead(
                     "fan_enabled",
-                    "/sys/kernel/fan/fan_enable"
+                    DeviceCompatibility.Paths.FAN_ENABLE
                 )
                 appendRead(
                     "fan_level",
-                    "/sys/kernel/fan/fan_speed_level"
+                    DeviceCompatibility.Paths.FAN_LEVEL
                 )
                 appendRead(
                     "fan_rpm",
-                    "/sys/kernel/fan/fan_speed_count"
+                    DeviceCompatibility.Paths.FAN_RPM
                 )
                 appendRead(
                     "pump_enabled",
-                    "/proc/driver/micropump/enable"
+                    DeviceCompatibility.Paths.PUMP_ENABLE
                 )
                 appendRead(
                     "pump_freq",
-                    "/proc/driver/micropump/freq"
+                    DeviceCompatibility.Paths.PUMP_FREQ
                 )
                 appendRead(
                     "pump_speed",
-                    "/proc/driver/micropump/speed"
+                    DeviceCompatibility.Paths.PUMP_SPEED
                 )
             }
 

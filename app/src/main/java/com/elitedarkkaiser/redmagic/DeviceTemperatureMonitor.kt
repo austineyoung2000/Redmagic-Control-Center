@@ -58,16 +58,9 @@ object DeviceTemperatureMonitor {
     @Volatile
     private var cachedAtMs = 0L
 
-    private val temperaturePaths = listOf(
-        "/sys/class/thermal/thermal_zone0/temp",
-        "/sys/class/thermal/thermal_zone1/temp",
-        "/sys/class/thermal/thermal_zone2/temp",
-        "/sys/class/thermal/thermal_zone3/temp",
-        "/sys/devices/virtual/thermal/thermal_zone0/temp",
-        "/sys/devices/virtual/thermal/thermal_zone1/temp",
-        "/sys/devices/virtual/thermal/thermal_zone2/temp",
-        "/sys/devices/virtual/thermal/thermal_zone3/temp"
-    )
+    private val temperaturePaths by lazy {
+        DeviceCompatibility.temperaturePaths()
+    }
 
     class Subscription internal constructor(
         private val closeAction: () -> Unit

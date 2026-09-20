@@ -16,6 +16,14 @@ class CoolingWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            appWidgetManager.updateAppWidget(
+                appWidgetIds,
+                unsupportedViews(context)
+            )
+            return
+        }
+
         appWidgetManager.updateAppWidget(
             appWidgetIds,
             buildViews(context, null)
@@ -25,6 +33,11 @@ class CoolingWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
+
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return
+        }
+
         val action = intent.action ?: return
         if (action !in widgetActions) return
 
@@ -59,6 +72,36 @@ class CoolingWidgetProvider : AppWidgetProvider() {
             WidgetState.saveFanLevel(context, telemetry.fanLevel ?: 3)
         }
         manager.updateAppWidget(ids, buildViews(context, telemetry))
+    }
+
+    private fun unsupportedViews(context: Context): RemoteViews {
+        return RemoteViews(
+            context.packageName,
+            R.layout.widget_cooling
+        ).apply {
+            setTextViewText(
+                R.id.widget_temperature,
+                "Unsupported"
+            )
+            setTextViewText(
+                R.id.widget_fan_state,
+                "NX809J only"
+            )
+            setTextViewText(
+                R.id.widget_pump_state,
+                "Controls disabled"
+            )
+            setTextViewText(R.id.widget_fan_button, "FAN —")
+            setTextViewText(R.id.widget_pump_button, "PUMP —")
+            setTextViewText(
+                R.id.widget_refresh_button,
+                "UNAVAILABLE"
+            )
+            setOnClickPendingIntent(
+                R.id.widget_root,
+                openAppIntent(context)
+            )
+        }
     }
 
     private fun buildViews(

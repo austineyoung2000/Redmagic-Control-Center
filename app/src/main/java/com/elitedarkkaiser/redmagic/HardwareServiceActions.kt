@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 
 object HardwareServiceActions {
     fun startAutoFan(context: Context) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         startForegroundCapableService(context, Intent(context, AutoFanService::class.java))
     }
 
@@ -18,6 +19,7 @@ object HardwareServiceActions {
     }
 
     fun startFanLed(context: Context) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         startForegroundCapableService(context, Intent(context, FanLedService::class.java))
     }
 
@@ -26,6 +28,7 @@ object HardwareServiceActions {
     }
 
     fun startRgbCycle(context: Context) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         stopFanLed(context)
         startForegroundCapableService(
             context,
@@ -41,6 +44,7 @@ object HardwareServiceActions {
     }
 
     fun startAutoPump(context: Context) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         startForegroundCapableService(context, Intent(context, AutoPumpService::class.java))
     }
 
@@ -49,6 +53,10 @@ object HardwareServiceActions {
     }
 
     fun startTriggers(context: Context): Boolean {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return false
+        }
+
         if (triggersDisabledUntilRestartStorage(context)) {
             return false
         }
@@ -60,6 +68,10 @@ object HardwareServiceActions {
     }
 
     fun enableTriggersManually(context: Context): Boolean {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return false
+        }
+
         setTriggersDisabledUntilRestartStorage(
             context,
             false
@@ -75,6 +87,10 @@ object HardwareServiceActions {
     fun startTriggersIfAutoStartEnabled(
         context: Context
     ): Boolean {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return false
+        }
+
         if (!readTriggerPrefsSnapshot(context).triggersAutoStart) {
             return false
         }
@@ -113,10 +129,12 @@ object HardwareServiceActions {
     }
 
     fun startChargingMode(context: Context) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         context.startService(Intent(context, ChargingModeService::class.java))
     }
 
     fun startCallLighting(context: Context) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         context.startService(Intent(context, CallLightingService::class.java))
     }
 
@@ -125,6 +143,7 @@ object HardwareServiceActions {
     }
 
     fun enqueueFanLedRestore(context: Context, delaySeconds: Long = 2) {
+        if (!DeviceCompatibility.isSupportedDevice()) return
         val request = OneTimeWorkRequestBuilder<FanLedRestoreWorker>()
             .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
             .addTag("fan_led_manual_restore")

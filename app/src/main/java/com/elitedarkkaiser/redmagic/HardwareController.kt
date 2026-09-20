@@ -22,6 +22,14 @@ object HardwareController {
         command: String,
         rootSession: RootShell.Session? = null
     ): Boolean {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            android.util.Log.e(
+                "HardwareController",
+                "Blocked $resource write on unsupported device"
+            )
+            return false
+        }
+
         val now = android.os.SystemClock.elapsedRealtime()
         val previous = recentHardwareWrites[resource]
 
@@ -55,20 +63,31 @@ object HardwareController {
         return succeeded
     }
 
-    private const val FAN_ENABLE = "/sys/kernel/fan/fan_enable"
-    private const val FAN_LEVEL = "/sys/kernel/fan/fan_speed_level"
-    private const val FAN_PWM = "/sys/kernel/fan/fan_speed_pwm"
-    private const val FAN_RPM = "/sys/kernel/fan/fan_speed_count"
+    private const val FAN_ENABLE =
+        DeviceCompatibility.Paths.FAN_ENABLE
+    private const val FAN_LEVEL =
+        DeviceCompatibility.Paths.FAN_LEVEL
+    private const val FAN_PWM =
+        DeviceCompatibility.Paths.FAN_PWM
+    private const val FAN_RPM =
+        DeviceCompatibility.Paths.FAN_RPM
 
-    private const val PUMP_ENABLE = "/proc/driver/micropump/enable"
-    private const val PUMP_FREQ = "/proc/driver/micropump/freq"
-    private const val PUMP_SPEED = "/proc/driver/micropump/speed"
+    private const val PUMP_ENABLE =
+        DeviceCompatibility.Paths.PUMP_ENABLE
+    private const val PUMP_FREQ =
+        DeviceCompatibility.Paths.PUMP_FREQ
+    private const val PUMP_SPEED =
+        DeviceCompatibility.Paths.PUMP_SPEED
 
-    private const val LED_EFFECT = "/sys/class/leds/aw22xxx_led/effect"
-    private const val LED_CFG = "/sys/class/leds/aw22xxx_led/cfg"
+    private const val LED_EFFECT =
+        DeviceCompatibility.Paths.LED_EFFECT
+    private const val LED_CFG =
+        DeviceCompatibility.Paths.LED_CFG
 
-    private const val SAR0_MODE = "/sys/class/leds/sar0/mode_operation"
-    private const val SAR1_MODE = "/sys/class/leds/sar1/mode_operation"
+    private const val SAR0_MODE =
+        DeviceCompatibility.Paths.SAR0_MODE
+    private const val SAR1_MODE =
+        DeviceCompatibility.Paths.SAR1_MODE
 
 
     fun enableFan(enabled: Boolean): Boolean {
@@ -329,6 +348,10 @@ object HardwareController {
     }
 
     fun areTriggersEnabled(): Boolean {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return false
+        }
+
         val output = RootShell.execForOutput(
             "cat $SAR0_MODE 2>/dev/null; " +
                 "cat $SAR1_MODE 2>/dev/null"
@@ -354,6 +377,9 @@ object HardwareController {
     }
 
     fun injectTap(x: Int, y: Int): Boolean {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return false
+        }
         return RootShell.exec("input tap $x $y")
     }
 
@@ -384,6 +410,9 @@ object HardwareController {
     }
 
     fun readSliderState(): String? {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return null
+        }
         return RootShell.execForOutput("settings get global zte_keypad_slide_on_or_off")?.trim()
     }
 

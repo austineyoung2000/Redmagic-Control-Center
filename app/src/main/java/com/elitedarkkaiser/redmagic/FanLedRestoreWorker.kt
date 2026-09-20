@@ -10,6 +10,10 @@ class FanLedRestoreWorker(
 ) : Worker(appContext, workerParams) {
 
     override fun doWork(): Result {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return Result.success()
+        }
+
         val prefs = applicationContext.getSharedPreferences(
             "redmagic_hw_controls_prefs",
             Context.MODE_PRIVATE

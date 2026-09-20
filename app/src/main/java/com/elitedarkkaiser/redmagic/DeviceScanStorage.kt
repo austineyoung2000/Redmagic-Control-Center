@@ -11,6 +11,8 @@ private const val DEVICE_SCAN_PUMP_AVAILABLE = "device_scan_pump_available"
 private const val DEVICE_SCAN_LED_AVAILABLE = "device_scan_led_available"
 private const val DEVICE_SCAN_TRIGGERS_AVAILABLE = "device_scan_triggers_available"
 private const val DEVICE_SCAN_LAST_RUN = "device_scan_last_run"
+private const val DEVICE_SCAN_FINGERPRINT =
+    "device_scan_fingerprint"
 
 fun saveDeviceCapabilityReportStorage(context: Context, report: DeviceCapabilityReport) {
     context.getSharedPreferences(AppPrefs.PREFS_NAME, Context.MODE_PRIVATE)
@@ -23,6 +25,10 @@ fun saveDeviceCapabilityReportStorage(context: Context, report: DeviceCapability
         .putBoolean(DEVICE_SCAN_LED_AVAILABLE, report.ledAvailable)
         .putBoolean(DEVICE_SCAN_TRIGGERS_AVAILABLE, report.triggersAvailable)
         .putLong(DEVICE_SCAN_LAST_RUN, System.currentTimeMillis())
+        .putString(
+            DEVICE_SCAN_FINGERPRINT,
+            report.fingerprint
+        )
         .apply()
 }
 
@@ -33,6 +39,14 @@ fun deviceScanSummaryStorage(context: Context): String {
 
 
 fun hasDeviceCapabilityReportStorage(context: Context): Boolean {
-    return context.getSharedPreferences("device_capability_scan", Context.MODE_PRIVATE)
-        .contains("device_capability_report")
+    val prefs = context.getSharedPreferences(
+        AppPrefs.PREFS_NAME,
+        Context.MODE_PRIVATE
+    )
+
+    return prefs.contains(DEVICE_SCAN_SUMMARY) &&
+        prefs.getString(
+            DEVICE_SCAN_FINGERPRINT,
+            null
+        ) == android.os.Build.FINGERPRINT
 }
