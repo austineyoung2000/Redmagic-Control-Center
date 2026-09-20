@@ -1,12 +1,26 @@
 package com.elitedarkkaiser.redmagic
 
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
+import android.util.LruCache
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.widget.AbsListView
+import android.widget.BaseAdapter
 import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 internal object MagicKeyAppPickerDialog {
@@ -64,15 +78,7 @@ internal object MagicKeyAppPickerDialog {
                     return@runOnUiThread
                 }
 
-                targetButton.isEnabled = true
-                targetButton.text =
-                    "MAGIC KEY APP: " +
-                        MagicKeyActions.resolveAppLabel(
-                            activity,
-                            savedMagicKeyAppPackageStorage(
-                                activity
-                            )
-                        )
+                restoreTargetButton(activity, targetButton)
 
                 result.onSuccess { apps ->
                     if (apps.isEmpty()) {
@@ -90,7 +96,8 @@ internal object MagicKeyAppPickerDialog {
                         statusLabel = status,
                         apps = apps,
                         applyLaunchAppMagicKeyMode =
-                            applyLaunchAppMagicKeyMode
+                            applyLaunchAppMagicKeyMode,
+                        deps = deps
                     )
                 }.onFailure { error ->
                     android.util.Log.e(
@@ -110,6 +117,21 @@ internal object MagicKeyAppPickerDialog {
             priority = Thread.NORM_PRIORITY - 1
             start()
         }
+    }
+
+    private fun restoreTargetButton(
+        activity: MainActivity,
+        targetButton: Button
+    ) {
+        targetButton.isEnabled = true
+        targetButton.text =
+            "MAGIC KEY APP: " +
+                MagicKeyActions.resolveAppLabel(
+                    activity,
+                    savedMagicKeyAppPackageStorage(
+                        activity
+                    )
+                )
     }
 
     private fun loadLaunchableApps(
@@ -168,35 +190,231 @@ internal object MagicKeyAppPickerDialog {
         statusLabel: TextView,
         apps: List<MagicKeyAppItem>,
         applyLaunchAppMagicKeyMode:
-            (String, String, TextView, Button) -> Unit
+            (String, String, TextView, Button) -> Unit,
+        deps: Deps
     ) {
-        val labels = apps.map { app ->
-            "${app.label}\n${app.pkg}"
-        }.toTypedArray()
+        val rowNormal = Color.parseColor("#121A27")
+        val rowSelected = Color.parseColor("#1E2A3D")
+        val accent = Color.parseColor("#4EA1FF")
+        val iconCache = LruCache<String, Drawable>(48)
 
-        val currentPackage =
+        var selectedPackage =
             savedMagicKeyAppPackageStorage(activity)
-        val currentIndex = apps.indexOfFirst {
-            it.pkg == currentPackage
+
+        val listView = ListView(activity).apply {
+            divider = null
+            dividerHeight = 0
+            clipToPadding = false
+            isVerticalScrollBarEnabled = true
+            overScrollMode =
+                View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            background = null
         }
 
-        val dialog = MaterialAlertDialogBuilder(activity)
-            .setTitle("Choose Magic Key app")
-            .setSingleChoiceItems(
-                labels,
-                currentIndex
-            ) { activeDialog, which ->
-                val selected = apps.getOrNull(which)
-                    ?: return@setSingleChoiceItems
+        lateinit var saveButton: MaterialButton
 
-                activeDialog.dismiss()
+        val adapter = object : BaseAdapter() {
+            override fun getCount(): Int = apps.size
 
-                /*
-                 * Launch App is a complete Magic Key mode. The
-                 * hardware write changes the stock-function mode
-                 * to 16 and replaces its package in one serialized
-                 * root command, so the two modes cannot overlap.
-                 */
+            override fun getItem(
+                position: Int
+            ): MagicKeyAppItem = apps[position]
+
+            override fun getItemId(
+                position: Int
+            ): Long = position.toLong()
+
+            override fun getView(
+                position: Int,
+                convertView: View?,
+                parent: ViewGroup
+            ): View {
+                val app = apps[position]
+                val isSelected =
+                    selectedPackage == app.pkg
+
+                return LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(
+                        deps.dp(14),
+                        deps.dp(10),
+                        deps.dp(14),
+                        deps.dp(10)
+                    )
+                    background = deps.roundedBg(
+                        if (isSelected) {
+                            rowSelected
+                        } else {
+                            rowNormal
+                        },
+                        deps.borderColor,
+                        16
+                    )
+                    layoutParams = AbsListView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+
+                    val check =
+                        MaterialCheckBox(activity).apply {
+                            isChecked = isSelected
+                            isClickable = false
+                            isFocusable = false
+                            buttonTintList =
+                                ColorStateList.valueOf(
+                                    accent
+                                )
+                        }
+
+                    val icon = ImageView(activity).apply {
+                        val size = deps.dp(40)
+                        layoutParams =
+                            LinearLayout.LayoutParams(
+                                size,
+                                size
+                            ).apply {
+                                marginStart = deps.dp(8)
+                            }
+
+                        val drawable =
+                            iconCache.get(app.pkg)
+                                ?: runCatching {
+                                    activity.packageManager
+                                        .getApplicationIcon(
+                                            app.pkg
+                                        )
+                                }.getOrNull()?.also {
+                                    iconCache.put(
+                                        app.pkg,
+                                        it
+                                    )
+                                }
+
+                        setImageDrawable(drawable)
+                    }
+
+                    val textWrap =
+                        LinearLayout(activity).apply {
+                            orientation =
+                                LinearLayout.VERTICAL
+                            layoutParams =
+                                LinearLayout.LayoutParams(
+                                    0,
+                                    ViewGroup.LayoutParams
+                                        .WRAP_CONTENT,
+                                    1f
+                                ).apply {
+                                    marginStart = deps.dp(12)
+                                }
+
+                            addView(TextView(activity).apply {
+                                text = app.label
+                                textSize = 15f
+                                setTextColor(
+                                    deps.textPrimary
+                                )
+                                setTypeface(
+                                    deps.typeface,
+                                    Typeface.BOLD
+                                )
+                                maxLines = 1
+                                ellipsize =
+                                    android.text.TextUtils
+                                        .TruncateAt.END
+                            })
+
+                            addView(TextView(activity).apply {
+                                text = app.pkg
+                                textSize = 11f
+                                setTextColor(
+                                    deps.textSecondary
+                                )
+                                maxLines = 1
+                                ellipsize =
+                                    android.text.TextUtils
+                                        .TruncateAt.END
+                                setPadding(
+                                    0,
+                                    deps.dp(2),
+                                    0,
+                                    0
+                                )
+                            })
+                        }
+
+                    addView(check)
+                    addView(icon)
+                    addView(textWrap)
+
+                    setOnClickListener {
+                        selectedPackage = app.pkg
+                        saveButton.isEnabled = true
+                        notifyDataSetChanged()
+                    }
+                }
+            }
+        }
+
+        listView.adapter = adapter
+
+        var dialogRef: AlertDialog? = null
+
+        val title = TextView(activity).apply {
+            text = "Choose Magic Key App"
+            textSize = 18f
+            setTextColor(deps.textPrimary)
+            setTypeface(deps.typeface, Typeface.BOLD)
+            setPadding(
+                deps.dp(4),
+                deps.dp(2),
+                deps.dp(4),
+                deps.dp(12)
+            )
+        }
+
+        val subtitle = TextView(activity).apply {
+            text =
+                "Pick one launchable app for the Magic Key"
+            textSize = 12f
+            setTextColor(deps.textSecondary)
+            setPadding(
+                deps.dp(4),
+                0,
+                deps.dp(4),
+                deps.dp(12)
+            )
+        }
+
+        saveButton = MaterialButton(activity).apply {
+            text = "Save"
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(deps.textPrimary)
+            backgroundTintList =
+                ColorStateList.valueOf(accent)
+            rippleColor = ColorStateList.valueOf(
+                Color.parseColor("#33445A")
+            )
+            cornerRadius = deps.dp(14)
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            isEnabled = selectedPackage != null
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
+
+            setOnClickListener {
+                val selected = apps.firstOrNull {
+                    it.pkg == selectedPackage
+                } ?: return@setOnClickListener
+
+                dialogRef?.dismiss()
+
                 applyLaunchAppMagicKeyMode(
                     selected.pkg,
                     selected.label,
@@ -204,18 +422,125 @@ internal object MagicKeyAppPickerDialog {
                     targetButton
                 )
             }
-            .setNegativeButton("Cancel", null)
-            .create()
+        }
 
-        dialog.setOnShowListener {
-            if (
-                activity.isFinishing ||
-                activity.isDestroyed
-            ) {
-                dialog.dismiss()
+        val cancelButton = MaterialButton(
+            activity,
+            null,
+            com.google.android.material.R.attr
+                .materialButtonOutlinedStyle
+        ).apply {
+            text = "Cancel"
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(deps.textPrimary)
+            backgroundTintList =
+                ColorStateList.valueOf(
+                    Color.TRANSPARENT
+                )
+            strokeWidth = deps.dp(1)
+            strokeColor =
+                ColorStateList.valueOf(
+                    deps.borderColor
+                )
+            rippleColor = ColorStateList.valueOf(
+                Color.parseColor("#33445A")
+            )
+            cornerRadius = deps.dp(14)
+            insetTop = 0
+            insetBottom = 0
+            minHeight = deps.dp(48)
+            setPadding(
+                deps.dp(18),
+                deps.dp(10),
+                deps.dp(18),
+                deps.dp(10)
+            )
+            setOnClickListener {
+                dialogRef?.dismiss()
             }
         }
 
+        val buttonRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            setPadding(0, deps.dp(14), 0, 0)
+            addView(cancelButton)
+            addView(deps.space(deps.dp(10)))
+            addView(saveButton)
+        }
+
+        val listHolder = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            background = deps.roundedBg(
+                rowNormal,
+                deps.borderColor,
+                18
+            )
+            setPadding(
+                deps.dp(8),
+                deps.dp(8),
+                deps.dp(8),
+                deps.dp(8)
+            )
+            addView(
+                listView,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    deps.dp(420)
+                )
+            )
+        }
+
+        val container = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                deps.dp(18),
+                deps.dp(18),
+                deps.dp(18),
+                deps.dp(18)
+            )
+            background = deps.roundedBg(
+                deps.panelColor,
+                deps.borderColor,
+                22
+            )
+            addView(title)
+            addView(subtitle)
+            addView(listHolder)
+            addView(buttonRow)
+        }
+
+        val root = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                deps.dp(12),
+                deps.dp(12),
+                deps.dp(12),
+                deps.dp(12)
+            )
+            setBackgroundColor(Color.parseColor("#070B12"))
+            addView(container)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(activity)
+            .setView(root)
+            .setCancelable(true)
+            .create()
+
+        dialogRef = dialog
         dialog.show()
+        dialog.window?.setBackgroundDrawable(
+            ColorDrawable(Color.TRANSPARENT)
+        )
+
+        if (selectedPackage != null) {
+            val selectedIndex = apps.indexOfFirst {
+                it.pkg == selectedPackage
+            }
+            if (selectedIndex >= 0) {
+                listView.setSelection(selectedIndex)
+            }
+        }
     }
 }
