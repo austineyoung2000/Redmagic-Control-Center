@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import com.google.android.material.slider.Slider
 import android.widget.TextView
 import com.elitedarkkaiser.redmagic.HardwareController
+import com.google.android.material.materialswitch.MaterialSwitch
 
 object CoolingTabUi {
     data class Refs(
