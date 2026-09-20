@@ -15,6 +15,7 @@ object MagicKeyActions {
             4 -> "Flashlight"
             5 -> "Voice Recorder"
             16 -> "Launch App"
+            17 -> "Launch Shortcut"
             0 -> "Disabled"
             else -> "Unknown"
         }
@@ -35,6 +36,7 @@ object MagicKeyActions {
         applyMode: () -> Boolean,
         statusLabel: android.widget.TextView,
         sliderButton: android.widget.Button? = null,
+        shortcutButton: android.widget.Button? = null,
         runBackground: (() -> Unit) -> Boolean,
         refreshStatus: () -> Unit
     ) {
@@ -51,8 +53,11 @@ object MagicKeyActions {
 
                 if (ok) {
                     saveMagicKeyAppPackageStorage(activity, null)
+                    saveMagicKeyShortcutStorage(activity, null)
                     sliderButton?.text =
                         "MAGIC KEY APP: Choose App"
+                    shortcutButton?.text =
+                        "MAGIC KEY SHORTCUT: Choose Shortcut"
                     statusLabel.text = "Current: $label"
                     refreshStatus()
 
@@ -91,6 +96,7 @@ object MagicKeyActions {
         label: String,
         statusLabel: android.widget.TextView,
         sliderButton: android.widget.Button,
+        shortcutButton: android.widget.Button? = null,
         runBackground: (() -> Unit) -> Boolean,
         refreshStatus: () -> Unit
     ) {
@@ -110,7 +116,10 @@ object MagicKeyActions {
 
                 if (ok) {
                     saveMagicKeyAppPackageStorage(activity, pkg)
+                    saveMagicKeyShortcutStorage(activity, null)
                     sliderButton.text = "MAGIC KEY APP: $label"
+                    shortcutButton?.text =
+                        "MAGIC KEY SHORTCUT: Choose Shortcut"
                     statusLabel.text = "Current: Launch App"
                     refreshStatus()
 
@@ -144,10 +153,75 @@ object MagicKeyActions {
         }
     }
 
+    fun applyLaunchShortcutMode(
+        activity: android.app.Activity,
+        target: MagicKeyShortcutTarget,
+        statusLabel: android.widget.TextView,
+        shortcutButton: android.widget.Button,
+        appButton: android.widget.Button? = null,
+        runBackground: (() -> Unit) -> Boolean,
+        refreshStatus: () -> Unit
+    ) {
+        statusLabel.text = "Current: Applying Launch Shortcut…"
+        shortcutButton.isEnabled = false
+
+        val submitted = runBackground {
+            SliderDualAppStorage.disable(activity)
+            val ok = HardwareController.setSliderLaunchShortcut(
+                target.packageName,
+                target.shortcutId
+            )
+
+            statusLabel.post {
+                if (activity.isFinishing || activity.isDestroyed) {
+                    return@post
+                }
+
+                shortcutButton.isEnabled = true
+
+                if (ok) {
+                    saveMagicKeyAppPackageStorage(activity, null)
+                    saveMagicKeyShortcutStorage(activity, target)
+                    appButton?.text =
+                        "MAGIC KEY APP: Choose App"
+                    shortcutButton.text =
+                        "MAGIC KEY SHORTCUT: ${target.label}"
+                    statusLabel.text = "Current: Launch Shortcut"
+                    refreshStatus()
+
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Magic Key set to ${target.label}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    statusLabel.text =
+                        "Current: Failed to apply Launch Shortcut"
+                    android.widget.Toast.makeText(
+                        activity,
+                        "Failed to set Magic Key shortcut",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+        if (!submitted) {
+            shortcutButton.isEnabled = true
+            statusLabel.text = "Current: Unable to update"
+            android.widget.Toast.makeText(
+                activity,
+                "Unable to start the Magic Key update",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     fun disableMode(
         activity: android.app.Activity,
         statusLabel: android.widget.TextView,
         sliderButton: android.widget.Button? = null,
+        shortcutButton: android.widget.Button? = null,
         runBackground: (() -> Unit) -> Boolean,
         refreshStatus: () -> Unit
     ) {
@@ -165,8 +239,11 @@ object MagicKeyActions {
 
                 if (ok) {
                     saveMagicKeyAppPackageStorage(activity, null)
+                    saveMagicKeyShortcutStorage(activity, null)
                     sliderButton?.text =
                         "MAGIC KEY APP: Choose App"
+                    shortcutButton?.text =
+                        "MAGIC KEY SHORTCUT: Choose Shortcut"
                     statusLabel.text = "Current: Disabled"
                     refreshStatus()
 

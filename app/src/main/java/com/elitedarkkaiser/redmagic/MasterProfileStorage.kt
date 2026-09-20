@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object MasterProfileStorage {
-    const val CURRENT_SCHEMA_VERSION = 4
+    const val CURRENT_SCHEMA_VERSION = 5
     private const val PREFS = "master_profiles"
     private const val KEY = "profiles"
     private const val LAST_APPLIED_KEY = "last_applied_profile"
@@ -150,6 +150,10 @@ object MasterProfileStorage {
         put("useFahrenheit", useFahrenheit)
         put("magicKeyMode", magicKeyMode)
         put("magicKeyAppPackage", magicKeyAppPackage ?: JSONObject.NULL)
+        put(
+            "magicKeyShortcut",
+            magicKeyShortcut?.toJson() ?: JSONObject.NULL
+        )
         put("sliderDualApp", sliderDualApp.toJson())
         put("hapticFeedback", hapticFeedback.toJson())
     }
@@ -207,6 +211,12 @@ object MasterProfileStorage {
             magicKeyMode = optInt("magicKeyMode", -1),
             magicKeyAppPackage = optString("magicKeyAppPackage")
                 .takeIf { it.isNotBlank() && it != "null" },
+            magicKeyShortcut = if (version >= 5) {
+                optJSONObject("magicKeyShortcut")
+                    .toMagicKeyShortcutTarget()
+            } else {
+                null
+            },
             sliderDualApp = if (version >= 3) {
                 optJSONObject("sliderDualApp")
                     .toSliderDualAppConfig()
@@ -219,6 +229,31 @@ object MasterProfileStorage {
             } else {
                 HapticFeedbackConfig()
             }
+        )
+    }
+
+    private fun MagicKeyShortcutTarget.toJson() =
+        JSONObject().apply {
+            put("packageName", packageName)
+            put("shortcutId", shortcutId)
+            put("label", label)
+        }
+
+    private fun JSONObject?.toMagicKeyShortcutTarget():
+        MagicKeyShortcutTarget? {
+        if (this == null) return null
+
+        val packageName = optString("packageName")
+        val shortcutId = optString("shortcutId")
+        if (packageName.isBlank() || shortcutId.isBlank()) {
+            return null
+        }
+
+        return MagicKeyShortcutTarget(
+            packageName = packageName,
+            shortcutId = shortcutId,
+            label = optString("label", shortcutId)
+                .ifBlank { shortcutId }
         )
     }
 

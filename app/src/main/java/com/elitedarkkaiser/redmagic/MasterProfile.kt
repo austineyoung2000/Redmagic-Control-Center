@@ -29,6 +29,7 @@ data class MasterProfile(
     val useFahrenheit: Boolean,
     val magicKeyMode: Int,
     val magicKeyAppPackage: String?,
+    val magicKeyShortcut: MagicKeyShortcutTarget? = null,
     val sliderDualApp: SliderDualAppConfig =
         SliderDualAppConfig(),
     val hapticFeedback: HapticFeedbackConfig =

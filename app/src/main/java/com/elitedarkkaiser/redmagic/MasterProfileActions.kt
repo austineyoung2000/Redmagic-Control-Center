@@ -78,6 +78,7 @@ object MasterProfileActions {
             useFahrenheit = isUseFahrenheitStorage(context),
             magicKeyMode = MagicKeyActions.readModeValue(),
             magicKeyAppPackage = savedMagicKeyAppPackageStorage(context),
+            magicKeyShortcut = savedMagicKeyShortcutStorage(context),
             sliderDualApp = SliderDualAppStorage.read(context),
             hapticFeedback = HapticFeedback.read(context)
         )
@@ -117,7 +118,8 @@ object MasterProfileActions {
                 applyMagicKey(
                     context,
                     profile.magicKeyMode,
-                    profile.magicKeyAppPackage
+                    profile.magicKeyAppPackage,
+                    profile.magicKeyShortcut
                 )
             }
         }
@@ -195,7 +197,12 @@ object MasterProfileActions {
         )
     }
 
-    private fun applyMagicKey(context: Context, mode: Int, pkg: String?) {
+    private fun applyMagicKey(
+        context: Context,
+        mode: Int,
+        pkg: String?,
+        shortcut: MagicKeyShortcutTarget?
+    ) {
         if (mode < 0) return
         val applied = when (mode) {
             1 -> HardwareController.setSliderOpenCamera()
@@ -204,10 +211,24 @@ object MasterProfileActions {
             4 -> HardwareController.setSliderFlashlight()
             5 -> HardwareController.setSliderVoiceRecorder()
             16 -> !pkg.isNullOrBlank() && HardwareController.setSliderLaunchApp(pkg)
+            17 -> shortcut != null &&
+                HardwareController.setSliderLaunchShortcut(
+                    shortcut.packageName,
+                    shortcut.shortcutId
+                )
             0 -> HardwareController.disableSliderSystemHandling()
             else -> false
         }
-        if (applied) saveMagicKeyAppPackageStorage(context, pkg.takeIf { mode == 16 })
+        if (applied) {
+            saveMagicKeyAppPackageStorage(
+                context,
+                pkg.takeIf { mode == 16 }
+            )
+            saveMagicKeyShortcutStorage(
+                context,
+                shortcut.takeIf { mode == 17 }
+            )
+        }
     }
 
     private fun chargingLed(context: Context, enabledKey: String, effectKey: String,

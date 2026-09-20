@@ -151,7 +151,9 @@ Stock Magic Key actions include:
 - Voice Recorder
 - Disabled
 
-The Magic Key can alternatively launch a selected user or system application. Stock-action mode and app-launch mode are mutually exclusive. The app picker supports app-name and package-name searches.
+The Magic Key can alternatively launch a selected user or system application. It can also use confirmed ZTE mode `17` to launch an Android app shortcut, such as YouTube Search, a new message, or another shortcut published by an installed application.
+
+Shortcut selection uses a two-stage picker: choose the application, then choose one of its manifest, dynamic, or cached Android shortcuts. Shortcut discovery runs through the system shortcut service on a background worker. Stock-action, app-launch, shortcut-launch, and dual-app modes are mutually exclusive.
 
 ### Dual-app slider
 
@@ -197,6 +199,7 @@ Master profiles capture the wider application state, including:
 - RGB Studio configuration
 - Temperature-unit preference
 - Magic Key mode and selected application
+- Magic Key shortcut package, ID, and display label
 - Dual-app slider mappings and schedule
 - Hardware haptic enabled state and strength
 - Real-time preview preference
@@ -204,7 +207,7 @@ Master profiles capture the wider application state, including:
 
 Profiles can be named, applied, deleted, exported as a portable JSON backup, and imported on another installation.
 
-The versioned profile format currently stores haptic configuration in schema version 4. Older profiles remain importable and default haptic feedback to disabled when those fields are absent.
+The versioned profile format uses schema version 5 for Magic Key shortcut targets. Schema version 4 added haptic configuration. Older profiles remain importable, omit unsupported shortcut targets, and default haptic feedback to disabled when those fields are absent.
 
 ### Automation rules
 

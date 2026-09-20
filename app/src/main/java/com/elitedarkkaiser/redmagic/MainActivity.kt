@@ -373,7 +373,10 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun showMagicKeyAppPicker(targetButton: Button) {
+    private fun showMagicKeyAppPicker(
+        targetButton: Button,
+        shortcutButton: Button?
+    ) {
         MagicKeyAppPickerDialog.show(
             activity = this,
             targetButton = targetButton,
@@ -385,6 +388,7 @@ class MainActivity : Activity() {
                     label = label,
                     statusLabel = statusLabel,
                     sliderButton = sliderButton,
+                    shortcutButton = shortcutButton,
                     runBackground = { task ->
                             submitBackgroundTask(task)
                         },
@@ -427,6 +431,23 @@ class MainActivity : Activity() {
                     SliderDualAppStorage.summary(this)
                 refreshStatus()
             }
+        )
+    }
+
+    private fun showMagicKeyShortcutPicker(
+        targetButton: Button,
+        appButton: Button?
+    ) {
+        MagicKeyShortcutDialog.show(
+            activity = this,
+            targetButton = targetButton,
+            appButton = appButton,
+            statusLabel = magicKeyStatusLabelRef,
+            pickerDeps = magicKeyPickerDeps(),
+            runBackground = { task ->
+                submitBackgroundTask(task)
+            },
+            refreshStatus = { refreshStatus() }
         )
     }
 
@@ -979,24 +1000,26 @@ class MainActivity : Activity() {
                         MagicKeyActions.readModeLabel()
                     }
                 },
-                applyStockMagicKeyMode = { label, action, statusLabel, sliderButton ->
+                applyStockMagicKeyMode = { label, action, statusLabel, sliderButton, shortcutButton ->
                     MagicKeyActions.applyStockMode(
                         activity = this,
                         label = label,
                         applyMode = action,
                         statusLabel = statusLabel,
                         sliderButton = sliderButton,
+                        shortcutButton = shortcutButton,
                         runBackground = { task ->
                             submitBackgroundTask(task)
                         },
                         refreshStatus = { refreshStatus() }
                     )
                 },
-                disableMagicKeyMode = { statusLabel, sliderButton ->
+                disableMagicKeyMode = { statusLabel, sliderButton, shortcutButton ->
                     MagicKeyActions.disableMode(
                         activity = this,
                         statusLabel = statusLabel,
                         sliderButton = sliderButton,
+                        shortcutButton = shortcutButton,
                         runBackground = { task ->
                             submitBackgroundTask(task)
                         },
@@ -1005,7 +1028,15 @@ class MainActivity : Activity() {
                 },
                 resolveMagicKeyAppLabel = { pkg -> MagicKeyActions.resolveAppLabel(this, pkg) },
                 savedMagicKeyAppPackage = { savedMagicKeyAppPackageStorage(this) },
-                showMagicKeyAppPicker = { button -> showMagicKeyAppPicker(button) },
+                showMagicKeyAppPicker = { button, shortcutButton ->
+                    showMagicKeyAppPicker(button, shortcutButton)
+                },
+                savedMagicKeyShortcut = {
+                    savedMagicKeyShortcutStorage(this)?.label
+                },
+                showMagicKeyShortcutPicker = { button, appButton ->
+                    showMagicKeyShortcutPicker(button, appButton)
+                },
                 sliderDualAppSummary = {
                     SliderDualAppStorage.summary(this)
                 },

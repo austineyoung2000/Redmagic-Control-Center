@@ -122,25 +122,26 @@ object ControlsTabUi {
         }
 
         var sliderAppBtnRef: Button? = null
+        var sliderShortcutBtnRef: Button? = null
 
         val cameraBtn = deps.smallActionButton("CAMERA", false) {
-            deps.applyStockMagicKeyMode("Camera", { HardwareController.setSliderOpenCamera() }, magicKeyStatusLabel, sliderAppBtnRef)
+            deps.applyStockMagicKeyMode("Camera", { HardwareController.setSliderOpenCamera() }, magicKeyStatusLabel, sliderAppBtnRef, sliderShortcutBtnRef)
         }
 
         val gameSpaceBtn = deps.smallActionButton("GAMESPACE", false) {
-            deps.applyStockMagicKeyMode("GameSpace", { HardwareController.setSliderOpenGameSpace() }, magicKeyStatusLabel, sliderAppBtnRef)
+            deps.applyStockMagicKeyMode("GameSpace", { HardwareController.setSliderOpenGameSpace() }, magicKeyStatusLabel, sliderAppBtnRef, sliderShortcutBtnRef)
         }
 
         val soundModeBtn = deps.smallActionButton("SOUND MODE", false) {
-            deps.applyStockMagicKeyMode("Sound Mode", { HardwareController.setSliderSoundMode() }, magicKeyStatusLabel, sliderAppBtnRef)
+            deps.applyStockMagicKeyMode("Sound Mode", { HardwareController.setSliderSoundMode() }, magicKeyStatusLabel, sliderAppBtnRef, sliderShortcutBtnRef)
         }
 
         val flashlightBtn = deps.smallActionButton("FLASHLIGHT", false) {
-            deps.applyStockMagicKeyMode("Flashlight", { HardwareController.setSliderFlashlight() }, magicKeyStatusLabel, sliderAppBtnRef)
+            deps.applyStockMagicKeyMode("Flashlight", { HardwareController.setSliderFlashlight() }, magicKeyStatusLabel, sliderAppBtnRef, sliderShortcutBtnRef)
         }
 
         val recorderBtn = deps.smallActionButton("VOICE RECORDER", false) {
-            deps.applyStockMagicKeyMode("Voice Recorder", { HardwareController.setSliderVoiceRecorder() }, magicKeyStatusLabel, sliderAppBtnRef)
+            deps.applyStockMagicKeyMode("Voice Recorder", { HardwareController.setSliderVoiceRecorder() }, magicKeyStatusLabel, sliderAppBtnRef, sliderShortcutBtnRef)
         }
 
         val stockFunctionsCard = deps.sectionPanel().apply {
@@ -153,7 +154,11 @@ object ControlsTabUi {
             addView(deps.flowRow(arrayOf(flashlightBtn, recorderBtn)))
             addView(deps.spacer(deps.dp(8)))
             addView(deps.singleRow(deps.actionButton("DISABLE MAGIC KEY ACTION", true) {
-                deps.disableMagicKeyMode(magicKeyStatusLabel, sliderAppBtnRef)
+                deps.disableMagicKeyMode(
+                    magicKeyStatusLabel,
+                    sliderAppBtnRef,
+                    sliderShortcutBtnRef
+                )
             }))
         }
 
@@ -163,11 +168,32 @@ object ControlsTabUi {
         ) {}
         sliderAppBtnRef = sliderAppBtn
         sliderAppBtn.setOnClickListener {
-            deps.showMagicKeyAppPicker(sliderAppBtn)
+            deps.showMagicKeyAppPicker(
+                sliderAppBtn,
+                sliderShortcutBtnRef
+            )
+        }
+
+        val sliderShortcutBtn = deps.actionButton(
+            "MAGIC KEY SHORTCUT: " +
+                (deps.savedMagicKeyShortcut()
+                    ?: "Choose Shortcut"),
+            false
+        ) {}
+        sliderShortcutBtnRef = sliderShortcutBtn
+        sliderShortcutBtn.setOnClickListener {
+            deps.showMagicKeyShortcutPicker(
+                sliderShortcutBtn,
+                sliderAppBtn
+            )
         }
 
         val clearSliderAppBtn = deps.actionButton("CLEAR APP SELECTION", true) {
-            deps.disableMagicKeyMode(magicKeyStatusLabel, sliderAppBtn)
+            deps.disableMagicKeyMode(
+                magicKeyStatusLabel,
+                sliderAppBtn,
+                sliderShortcutBtn
+            )
         }
 
         val dualAppButton = deps.actionButton(
@@ -180,9 +206,15 @@ object ControlsTabUi {
 
         val sliderCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("↕", "SLIDER APP LAUNCH"))
-            addView(deps.bodyText("Choose one app for Magic Key launch mode. Selecting an app disables stock Magic Key functions."))
+            addView(deps.bodyText(
+                "Choose one app or one Android app shortcut. " +
+                    "App, shortcut, stock, and dual-slider modes " +
+                    "are mutually exclusive."
+            ))
             addView(deps.space(deps.dp(12)))
             addView(deps.singleRow(sliderAppBtn))
+            addView(deps.space(deps.dp(12)))
+            addView(deps.singleRow(sliderShortcutBtn))
             addView(deps.space(deps.dp(12)))
             addView(deps.singleRow(clearSliderAppBtn))
             addView(deps.space(deps.dp(12)))

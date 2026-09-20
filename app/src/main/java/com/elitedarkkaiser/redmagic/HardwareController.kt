@@ -426,6 +426,33 @@ object HardwareController {
         return execHardwareWrite("slider_control", cmd)
     }
 
+    fun setSliderLaunchShortcut(
+        packageName: String,
+        shortcutId: String
+    ): Boolean {
+        val validPackage = packageName.matches(
+            Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
+        )
+        val validShortcut =
+            isValidMagicKeyShortcutId(shortcutId)
+
+        if (!validPackage || !validShortcut) {
+            return false
+        }
+
+        val target = "$packageName;$shortcutId"
+        val quotedTarget = "'" +
+            target.replace("'", "'\"'\"'") +
+            "'"
+        val cmd =
+            "settings put system " +
+                "physical_key_function_shortcut_value " +
+                "$quotedTarget; settings put system " +
+                "fourth_physical_key_function_value 17"
+
+        return execHardwareWrite("slider_control", cmd)
+    }
+
     fun disableSliderSystemHandling(): Boolean {
         return execHardwareWrite("slider_control", "settings put system fourth_physical_key_function_value 0")
     }

@@ -91,6 +91,10 @@ object SliderDualAppStorage {
         "slider_dual_app_previous_mode"
     private const val PREVIOUS_APP =
         "slider_dual_app_previous_app"
+    private const val PREVIOUS_SHORTCUT =
+        "slider_dual_app_previous_shortcut"
+    private const val PREVIOUS_SHORTCUT_LABEL =
+        "slider_dual_app_previous_shortcut_label"
     private const val PREVIOUS_VALID =
         "slider_dual_app_previous_valid"
 
@@ -166,7 +170,7 @@ object SliderDualAppStorage {
         }
 
         val mode = MagicKeyActions.readModeValue()
-        if (mode !in setOf(0, 1, 2, 3, 4, 5, 16)) {
+        if (mode !in setOf(0, 1, 2, 3, 4, 5, 16, 17)) {
             return false
         }
 
@@ -184,6 +188,29 @@ object SliderDualAppStorage {
             return false
         }
 
+        val shortcutTarget = if (mode == 17) {
+            RootShell.execForOutput(
+                "settings get system " +
+                    "physical_key_function_shortcut_value"
+            )?.trim()?.takeIf {
+                it.isNotBlank() &&
+                    it != "null" &&
+                    it.contains(';')
+            }
+        } else {
+            null
+        }
+
+        if (mode == 17 && shortcutTarget == null) {
+            return false
+        }
+
+        val shortcutLabel = if (mode == 17) {
+            savedMagicKeyShortcutStorage(context)?.label
+        } else {
+            null
+        }
+
         val editor = prefs.edit()
             .putInt(PREVIOUS_MODE, mode)
             .putBoolean(PREVIOUS_VALID, true)
@@ -192,6 +219,21 @@ object SliderDualAppStorage {
             editor.remove(PREVIOUS_APP)
         } else {
             editor.putString(PREVIOUS_APP, appPackage)
+        }
+
+        if (shortcutTarget == null) {
+            editor
+                .remove(PREVIOUS_SHORTCUT)
+                .remove(PREVIOUS_SHORTCUT_LABEL)
+        } else {
+            editor.putString(
+                PREVIOUS_SHORTCUT,
+                shortcutTarget
+            )
+            editor.putString(
+                PREVIOUS_SHORTCUT_LABEL,
+                shortcutLabel
+            )
         }
 
         return editor.commit()
@@ -227,6 +269,17 @@ object SliderDualAppStorage {
 
         val mode = prefs.getInt(PREVIOUS_MODE, -1)
         val appPackage = prefs.getString(PREVIOUS_APP, null)
+        val shortcutTarget = prefs.getString(
+            PREVIOUS_SHORTCUT,
+            null
+        )
+        val shortcutParts = shortcutTarget
+            ?.split(';', limit = 2)
+            ?.takeIf {
+                it.size == 2 &&
+                    it[0].isNotBlank() &&
+                    it[1].isNotBlank()
+            }
 
         val restored = when (mode) {
             0 -> HardwareController.disableSliderSystemHandling()
@@ -237,6 +290,11 @@ object SliderDualAppStorage {
             5 -> HardwareController.setSliderVoiceRecorder()
             16 -> !appPackage.isNullOrBlank() &&
                 HardwareController.setSliderLaunchApp(appPackage)
+            17 -> shortcutParts != null &&
+                HardwareController.setSliderLaunchShortcut(
+                    shortcutParts[0],
+                    shortcutParts[1]
+                )
             else -> false
         }
 
@@ -244,6 +302,22 @@ object SliderDualAppStorage {
             saveMagicKeyAppPackageStorage(
                 context,
                 appPackage.takeIf { mode == 16 }
+            )
+            saveMagicKeyShortcutStorage(
+                context,
+                if (mode == 17 && shortcutParts != null) {
+                    MagicKeyShortcutTarget(
+                        packageName = shortcutParts[0],
+                        shortcutId = shortcutParts[1],
+                        label = prefs.getString(
+                            PREVIOUS_SHORTCUT_LABEL,
+                            null
+                        )?.takeIf { it.isNotBlank() }
+                            ?: shortcutParts[1]
+                    )
+                } else {
+                    null
+                }
             )
             clearPreviousMode(context)
         }
@@ -258,6 +332,8 @@ object SliderDualAppStorage {
         ).edit()
             .remove(PREVIOUS_MODE)
             .remove(PREVIOUS_APP)
+            .remove(PREVIOUS_SHORTCUT)
+            .remove(PREVIOUS_SHORTCUT_LABEL)
             .remove(PREVIOUS_VALID)
             .apply()
     }
