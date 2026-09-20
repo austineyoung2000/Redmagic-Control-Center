@@ -3,6 +3,7 @@ package com.elitedarkkaiser.redmagic
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.res.ColorStateList
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -15,6 +16,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.util.LruCache
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -34,9 +36,7 @@ internal object MagicKeyAppPickerDialog {
 
     data class MagicKeyAppItem(
         val pkg: String,
-        val label: String,
-        val launchable: Boolean,
-        val icon: Drawable?
+        val label: String
     )
 
     fun show(
@@ -47,36 +47,8 @@ internal object MagicKeyAppPickerDialog {
         deps: Deps
     ) {
         val packageManager = activity.packageManager
-
-        val allApps = packageManager.getInstalledApplications(0)
-            .map { appInfo ->
-                val pkg = appInfo.packageName
-                val label = try {
-                    packageManager.getApplicationLabel(appInfo).toString()
-                } catch (_: Throwable) {
-                    pkg
-                }
-                val icon = try {
-                    packageManager.getApplicationIcon(appInfo)
-                } catch (_: Throwable) {
-                    null
-                }
-                MagicKeyAppItem(
-                    pkg = pkg,
-                    label = label,
-                    launchable = packageManager.getLaunchIntentForPackage(pkg) != null,
-                    icon = icon
-                )
-            }
-            .sortedWith(
-                compareBy<MagicKeyAppItem> { it.label.lowercase() }
-                    .thenBy { it.pkg.lowercase() }
-            )
-
-        if (allApps.isEmpty()) {
-            Toast.makeText(activity, "No installed apps found", Toast.LENGTH_SHORT).show()
-            return
-        }
+        val allApps = ArrayList<MagicKeyAppItem>()
+        val iconCache = LruCache<String, Drawable>(48)
 
         val titleView = TextView(activity).apply {
             text = "Choose Magic Key app"
@@ -87,7 +59,7 @@ internal object MagicKeyAppPickerDialog {
         }
 
         val subtitleView = TextView(activity).apply {
-            text = "Search by app name or package name. Lists user and system apps."
+            text = "Loading launchable apps…"
             textSize = 12f
             setTextColor(deps.textSecondary)
             setPadding(0, 0, 0, deps.dp(12))
@@ -164,7 +136,15 @@ internal object MagicKeyAppPickerDialog {
 
                 val iconView = ImageView(activity).apply {
                     layoutParams = LinearLayout.LayoutParams(deps.dp(40), deps.dp(40))
-                    setImageDrawable(item.icon)
+                    val cached = iconCache.get(item.pkg)
+                    val icon = cached ?: runCatching {
+                        packageManager.getApplicationIcon(
+                            item.pkg
+                        )
+                    }.getOrNull()?.also {
+                        iconCache.put(item.pkg, it)
+                    }
+                    setImageDrawable(icon)
                 }
 
                 val textWrap = LinearLayout(activity).apply {
@@ -181,7 +161,7 @@ internal object MagicKeyAppPickerDialog {
                 }
 
                 val pkgView = TextView(activity).apply {
-                    text = if (item.launchable) item.pkg else "${item.pkg}  •  No launcher activity"
+                    text = item.pkg
                     textSize = 11f
                     setTextColor(deps.textSecondary)
                     setLineSpacing(0f, 1.1f)
@@ -292,14 +272,6 @@ internal object MagicKeyAppPickerDialog {
                 targetButton
             )
 
-            if (!item.launchable) {
-                Toast.makeText(
-                    activity,
-                    "${item.label} saved, but it may not open because it has no launcher activity",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-
             dialog.dismiss()
         }
 
@@ -312,6 +284,93 @@ internal object MagicKeyAppPickerDialog {
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setDimAmount(0.65f)
+        }
+
+        Thread({
+            val result = runCatching {
+                val launcherIntent = Intent(
+                    Intent.ACTION_MAIN
+                ).addCategory(
+                    Intent.CATEGORY_LAUNCHER
+                )
+
+                @Suppress("DEPRECATION")
+                packageManager.queryIntentActivities(
+                    launcherIntent,
+                    0
+                ).mapNotNull { info ->
+                    val pkg = info.activityInfo
+                        ?.packageName
+                        ?.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                    val label = runCatching {
+                        info.loadLabel(packageManager)
+                            .toString()
+                            .trim()
+                    }.getOrDefault(pkg)
+
+                    MagicKeyAppItem(
+                        pkg = pkg,
+                        label = label.ifBlank { pkg }
+                    )
+                }.distinctBy { it.pkg }
+                    .sortedWith(
+                        compareBy<MagicKeyAppItem> {
+                            it.label.lowercase()
+                        }.thenBy {
+                            it.pkg.lowercase()
+                        }
+                    )
+            }
+
+            activity.runOnUiThread {
+                if (
+                    activity.isFinishing ||
+                    activity.isDestroyed ||
+                    !dialog.isShowing
+                ) {
+                    return@runOnUiThread
+                }
+
+                result.onSuccess { apps ->
+                    if (apps.isEmpty()) {
+                        Toast.makeText(
+                            activity,
+                            "No launchable apps found",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        dialog.dismiss()
+                        return@onSuccess
+                    }
+
+                    allApps.clear()
+                    allApps.addAll(apps)
+                    subtitleView.text =
+                        "Search ${apps.size} launchable apps " +
+                            "by name or package"
+                    applyFilter(
+                        searchInput.text
+                            ?.toString()
+                            .orEmpty()
+                    )
+                }.onFailure { error ->
+                    android.util.Log.e(
+                        "MagicKeyAppPicker",
+                        "Unable to load launchable apps",
+                        error
+                    )
+                    Toast.makeText(
+                        activity,
+                        "Unable to load installed apps",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    dialog.dismiss()
+                }
+            }
+        }, "RedMagicMagicKeyApps").apply {
+            priority = Thread.NORM_PRIORITY - 1
+            start()
         }
     }
 }
