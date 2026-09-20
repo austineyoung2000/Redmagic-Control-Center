@@ -242,6 +242,8 @@ Intent Unlock supports separate left and right tap counts plus a 1.5, 2.5, 5, or
 
 Game Mode gating reuses the app's existing event-driven active-game state, so it does not add another foreground-app polling loop.
 
+The Trigger Mapping and Trigger Safety dialogs use the same app-themed Material presentation as the rest of the control center: grouped surface cards, compact selection chips, visible selected states, outlined secondary actions, and accent-colored save actions. Both dialogs follow the selected system light or dark appearance.
+
 Manual **Disable Triggers** stops the service and hardware without erasing the Auto-start preference. Automatic startup remains paused until the user presses **Enable Triggers** or restarts the phone.
 
 ### Haptic feedback

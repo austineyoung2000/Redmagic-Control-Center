@@ -1,10 +1,6 @@
 package com.elitedarkkaiser.redmagic
 
-import androidx.appcompat.app.AlertDialog
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
-import android.content.res.ColorStateList
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
@@ -13,10 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.radiobutton.MaterialRadioButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 internal object TriggerSetupDialog {
     data class Deps(
@@ -34,9 +28,11 @@ internal object TriggerSetupDialog {
     )
 
     fun show(activity: MainActivity, deps: Deps) {
-        val prefs = activity.getSharedPreferences("triggers", Context.MODE_PRIVATE)
-
-        val labels = arrayOf(
+        val prefs = activity.getSharedPreferences(
+            "triggers",
+            Context.MODE_PRIVATE
+        )
+        val labels = listOf(
             "None",
             "Volume Up",
             "Volume Down",
@@ -44,7 +40,7 @@ internal object TriggerSetupDialog {
             "Next Track",
             "Previous Track"
         )
-        val values = arrayOf(
+        val values = listOf(
             "NONE",
             "VOL_UP",
             "VOL_DOWN",
@@ -53,198 +49,214 @@ internal object TriggerSetupDialog {
             "MEDIA_PREVIOUS"
         )
 
-        fun indexOfValue(value: String): Int {
-            val i = values.indexOf(value)
-            return if (i >= 0) i else 0
+        fun choiceIndex(value: String): Int {
+            return values.indexOf(value).takeIf { it >= 0 } ?: 0
         }
 
-        var leftChoice = indexOfValue(prefs.getString("left_trigger", "VOL_DOWN") ?: "VOL_DOWN")
-        var rightChoice = indexOfValue(prefs.getString("right_trigger", "VOL_UP") ?: "VOL_UP")
+        var leftChoice = choiceIndex(
+            prefs.getString("left_trigger", "VOL_DOWN")
+                ?: "VOL_DOWN"
+        )
+        var rightChoice = choiceIndex(
+            prefs.getString("right_trigger", "VOL_UP")
+                ?: "VOL_UP"
+        )
+        val style = TriggerDialogUi.Style(
+            textPrimary = deps.textPrimary,
+            textSecondary = deps.textSecondary,
+            panelColor = deps.panelColor,
+            borderColor = deps.borderColor,
+            accent = deps.accent,
+            typeface = deps.typeface,
+            dp = deps.dp,
+            roundedBg = deps.roundedBg
+        )
 
-        val container = LinearLayout(activity).apply {
+        fun choiceSection(
+            title: String,
+            description: String,
+            selected: () -> Int,
+            update: (Int) -> Unit
+        ): LinearLayout {
+            val section = TriggerDialogUi.section(
+                activity,
+                style,
+                title,
+                description
+            )
+            val fixedChildren = section.childCount
+
+            fun render() {
+                if (section.childCount > fixedChildren) {
+                    section.removeViews(
+                        fixedChildren,
+                        section.childCount - fixedChildren
+                    )
+                }
+
+                labels.chunked(2).forEachIndexed {
+                        rowIndex,
+                        rowLabels ->
+                    val row = TriggerDialogUi.optionRow(
+                        activity,
+                        style
+                    )
+                    rowLabels.forEachIndexed {
+                            columnIndex,
+                            label ->
+                        val index = rowIndex * 2 + columnIndex
+                        val button = TriggerDialogUi.optionButton(
+                            activity,
+                            style,
+                            label,
+                            index == selected()
+                        ) {
+                            update(index)
+                            render()
+                        }
+                        TriggerDialogUi.addWeightedOption(
+                            row,
+                            button,
+                            style,
+                            addGap = columnIndex > 0
+                        )
+                    }
+                    if (rowIndex > 0) {
+                        section.addView(
+                            TriggerDialogUi.space(
+                                activity,
+                                deps.dp(8)
+                            )
+                        )
+                    }
+                    section.addView(row)
+                }
+            }
+
+            render()
+            return section
+        }
+
+        val content = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(deps.dp(22), deps.dp(18), deps.dp(22), deps.dp(12))
-            background = deps.roundedBg(deps.panelColor, deps.borderColor, 22)
-        }
-
-        val titleView = TextView(activity).apply {
-            text = "Trigger Mapping"
-            textSize = 20f
-            setTextColor(deps.textPrimary)
-            setTypeface(deps.typeface, Typeface.BOLD)
-        }
-
-        val subtitleView = TextView(activity).apply {
-            text = "Set left and right shoulder triggers independently."
-            textSize = 13f
-            setTextColor(deps.textSecondary)
-            setPadding(0, deps.dp(8), 0, deps.dp(12))
-        }
-
-        val leftLabel = TextView(activity).apply {
-            text = "Left Trigger (F7)"
-            textSize = 13f
-            setTextColor(deps.textSecondary)
-            setPadding(0, 0, 0, deps.dp(6))
-        }
-
-        val leftGroup = android.widget.RadioGroup(activity).apply {
-            orientation = android.widget.RadioGroup.VERTICAL
-        }
-
-        labels.forEachIndexed { index, label ->
-            leftGroup.addView(MaterialRadioButton(activity).apply {
-                id = View.generateViewId()
-                tag = index
-                text = label
-                textSize = 14f
-                setTextColor(deps.textPrimary)
-                buttonTintList = ColorStateList.valueOf(deps.accent)
-                isChecked = index == leftChoice
-            })
-        }
-        leftGroup.setOnCheckedChangeListener { group, checkedId ->
-            val selected = group.findViewById<MaterialRadioButton>(checkedId)
-            leftChoice = selected?.tag as? Int ?: leftChoice
-        }
-
-        val rightLabel = TextView(activity).apply {
-            text = "Right Trigger (F8)"
-            textSize = 13f
-            setTextColor(deps.textSecondary)
-            setPadding(0, deps.dp(14), 0, deps.dp(6))
-        }
-
-        val rightGroup = android.widget.RadioGroup(activity).apply {
-            orientation = android.widget.RadioGroup.VERTICAL
-        }
-
-        labels.forEachIndexed { index, label ->
-            rightGroup.addView(MaterialRadioButton(activity).apply {
-                id = View.generateViewId()
-                tag = index
-                text = label
-                textSize = 14f
-                setTextColor(deps.textPrimary)
-                buttonTintList = ColorStateList.valueOf(deps.accent)
-                isChecked = index == rightChoice
-            })
-        }
-        rightGroup.setOnCheckedChangeListener { group, checkedId ->
-            val selected = group.findViewById<MaterialRadioButton>(checkedId)
-            rightChoice = selected?.tag as? Int ?: rightChoice
-        }
-
-        val buttonRow = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            setPadding(0, deps.dp(18), 0, 0)
-        }
-
-        val cancelBtn = MaterialButton(
-            activity,
-            null,
-            com.google.android.material.R.attr.materialButtonOutlinedStyle
-        ).apply {
-            text = "Cancel"
-            textSize = 13f
-            isAllCaps = false
-            setTextColor(deps.textPrimary)
-
-            backgroundTintList =
-                ColorStateList.valueOf(Color.TRANSPARENT)
-            strokeWidth = deps.dp(1)
-            strokeColor =
-                ColorStateList.valueOf(deps.borderColor)
-            rippleColor =
-                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
-            cornerRadius = deps.dp(14)
-
-            insetTop = 0
-            insetBottom = 0
-            minHeight = deps.dp(48)
             setPadding(
                 deps.dp(18),
-                deps.dp(10),
                 deps.dp(18),
-                deps.dp(10)
+                deps.dp(18),
+                deps.dp(16)
+            )
+            background = deps.roundedBg(
+                deps.panelColor,
+                deps.borderColor,
+                22
+            )
+            addView(
+                TriggerDialogUi.title(
+                    activity,
+                    style,
+                    "Trigger Mapping"
+                )
+            )
+            addView(
+                TriggerDialogUi.subtitle(
+                    activity,
+                    style,
+                    "Assign an action to each shoulder trigger."
+                )
+            )
+            addView(
+                choiceSection(
+                    "LEFT TRIGGER",
+                    "Top shoulder trigger • F7",
+                    { leftChoice },
+                    { leftChoice = it }
+                )
+            )
+            addView(
+                TriggerDialogUi.space(
+                    activity,
+                    deps.dp(10)
+                )
+            )
+            addView(
+                choiceSection(
+                    "RIGHT TRIGGER",
+                    "Bottom shoulder trigger • F8",
+                    { rightChoice },
+                    { rightChoice = it }
+                )
             )
         }
-
-        val saveBtn = MaterialButton(activity).apply {
-            text = "Save"
-            textSize = 13f
-            isAllCaps = false
-            setTextColor(deps.textPrimary)
-
-            backgroundTintList =
-                ColorStateList.valueOf(deps.panelPressed)
-            rippleColor =
-                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
-            cornerRadius = deps.dp(14)
-
-            insetTop = 0
-            insetBottom = 0
-            minHeight = deps.dp(48)
-            setPadding(
-                deps.dp(20),
-                deps.dp(10),
-                deps.dp(20),
-                deps.dp(10)
-            )
-        }
-
-        buttonRow.addView(cancelBtn)
-        buttonRow.addView(deps.space(deps.dp(10)))
-        buttonRow.addView(saveBtn)
-
-        container.addView(titleView)
-        container.addView(subtitleView)
-        container.addView(leftLabel)
-        container.addView(leftGroup)
-        container.addView(rightLabel)
-        container.addView(rightGroup)
-        container.addView(buttonRow)
 
         val scroll = ScrollView(activity).apply {
             isFillViewport = true
             addView(
-                container,
+                content,
                 ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
             )
         }
-
+        val root = TriggerDialogUi.dialogRoot(
+            activity,
+            style,
+            scroll
+        )
         val dialog = MaterialAlertDialogBuilder(activity)
-            .setView(scroll)
+            .setView(root)
             .setCancelable(true)
             .create()
 
-        cancelBtn.setOnClickListener {
+        val buttonRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            setPadding(0, deps.dp(14), 0, 0)
+        }
+        val cancelButton = TriggerDialogUi.actionButton(
+            activity,
+            style,
+            "Cancel",
+            primary = false
+        ) {
             dialog.dismiss()
         }
-
-        saveBtn.setOnClickListener {
+        val saveButton = TriggerDialogUi.actionButton(
+            activity,
+            style,
+            "Save mapping",
+            primary = true
+        ) {
             prefs.edit()
                 .putString("left_trigger", values[leftChoice])
                 .putString("right_trigger", values[rightChoice])
                 .apply()
-
             Toast.makeText(
                 activity,
-                "Saved: Left = ${labels[leftChoice]}, " +
-                    "Right = ${labels[rightChoice]}",
+                "Trigger mapping saved",
                 Toast.LENGTH_SHORT
             ).show()
-
             dialog.dismiss()
         }
+        TriggerDialogUi.addWeightedOption(
+            buttonRow,
+            cancelButton,
+            style,
+            addGap = false
+        )
+        TriggerDialogUi.addWeightedOption(
+            buttonRow,
+            saveButton,
+            style,
+            addGap = true
+        )
+        content.addView(buttonRow)
 
         dialog.show()
         dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setBackgroundDrawable(
+                ColorDrawable(android.graphics.Color.TRANSPARENT)
+            )
             setDimAmount(0.65f)
         }
     }
