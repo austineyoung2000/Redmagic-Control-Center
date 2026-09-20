@@ -84,13 +84,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: RedMagic Root Control ${{ github.ref_name }}
-          body: |
-            Signed release build for ${{ github.ref_name }}
-
-            Included files:
-            - Debug APK
-            - Signed release APK
+          name: RedMagic Control Center ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
           files: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk

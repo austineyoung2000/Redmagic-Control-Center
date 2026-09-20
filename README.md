@@ -1,7 +1,7 @@
 # RedMagic Control Center
 
 [![Android CI](https://github.com/austineyoung2000/Redmagic-Control-Center/actions/workflows/android.yml/badge.svg?branch=sixteen)](https://github.com/austineyoung2000/Redmagic-Control-Center/actions/workflows/android.yml)
-![Version](https://img.shields.io/badge/version-2.0.0-red)
+![Version](https://img.shields.io/badge/version-2.1.0-red)
 ![Android](https://img.shields.io/badge/Android-9%2B-3DDC84?logo=android&logoColor=white)
 ![Device](https://img.shields.io/badge/device-RedMagic%2011%20Pro-red)
 ![Root](https://img.shields.io/badge/root-required-orange)
@@ -19,7 +19,7 @@ RedMagic Control Center combines cooling, liquid-pump, lighting, shoulder-trigge
 | Item | Configuration |
 |---|---|
 | Application ID | `com.elitedarkkaiser.redmagic` |
-| Version | `2.0.0` |
+| Version | `2.1.0` |
 | Development branch | `sixteen` |
 | Minimum Android | Android 9 / API 28 |
 | Target and compile SDK | API 35 |
@@ -28,6 +28,47 @@ RedMagic Control Center combines cooling, liquid-pump, lighting, shoulder-trigge
 | UI | Material Components |
 | Root | Required |
 | Supported device | RedMagic 11 Pro / NX809J |
+
+## What's new in 2.1.0
+
+Version 2.1.0 expands hardware access, automation, profile portability, and system-level controls while preserving the app's local-only and battery-conscious design.
+
+### System controls and dashboard
+
+- Six optional Quick Settings tiles for the fan, pump, automatic cooling, shoulder triggers, RGB Studio, and the last applied Master Profile
+- A launcher cooling widget with temperature, fan, pump, refresh, and direct hardware controls
+- A 30-minute in-memory thermal-history graph that reuses shared monitor samples
+- An Active Mode Inspector showing the effective LED owner, cooling controller, last applied Master Profile, and real ownership priority
+- Strict NX809J validation at both application launch and the hardware-controller boundary
+- Capability-aware handling for missing vendor interfaces on supported custom ROMs
+
+### Magic Key and slider
+
+- A redesigned Material app picker shared with Game Mode, including app icons, labels, package names, and search
+- Stability fixes that isolate Magic Key selection from stock Magic Key functions and prevent picker force closes
+- Optional dual-app slider assignments for the physical up and down positions
+- An optional daily scheduled app pair, including schedules that cross midnight
+- Automatic restoration of the previous stock action, app target, or Android shortcut after dual-app mode is disabled
+- Confirmed ZTE mode `17` support for launching Android app shortcuts directly from the slider
+
+### Profiles and automation
+
+- Hardware Profiles were replaced by the broader versioned Master Profile system
+- Portable JSON export and import with malformed-profile isolation and a 5 MB input limit
+- Backup coverage for per-game profiles, RGB Studio, temperature units, Magic Key modes, shortcut targets, dual-slider schedules, triggers, and hardware haptics
+- Event-driven Master Profile rules for power connection, power disconnection, low battery, battery recovery, and first unlock after restart
+- Backward-compatible profile migrations through schema version 5
+
+### Hardware and reliability
+
+- Optional Low, Medium, or High NX809J hardware haptic feedback for trigger actions, successful slider launches, and Master Profile application
+- Serialized whole-profile LED transitions across Charging Mode, Call Lighting, Game Mode, RGB Studio, and normal lighting
+- Modern Android telephony callback handling with legacy fallback for Call Lighting
+- Safer call fan-pause restoration, charging-owner recovery, Game Mode transition debouncing, and RGB frame coordination
+- Accurate Shoulder Trigger Quick Settings state parsing from both NX809J SAR nodes
+- A Settings page for Fahrenheit/Celsius selection and automatic Android light/dark theme following
+
+The sections below document the complete 2.1.0 behavior and current architecture.
 
 ## Compatibility
 
