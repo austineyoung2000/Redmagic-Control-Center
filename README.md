@@ -82,6 +82,19 @@ The optional **RedMagic Cooling** widget shows the current temperature, fan leve
 
 The widget has no scheduled update interval and performs no continuous polling. Hardware is read only when Android creates or updates the widget, when the user requests a refresh, or after a widget control is pressed. Fan and pump root work runs on one background executor rather than the launcher thread.
 
+### Quick Settings tiles
+
+Android Quick Settings can expose six optional RedMagic controls:
+
+- Cooling Fan
+- Cooling Pump
+- Auto Cooling
+- Shoulder Triggers
+- RGB Studio
+- Last applied Master Profile
+
+Each tile reads its state when Android starts listening and refreshes after a press; the tiles do not run a continuous polling loop. Privileged hardware work is dispatched to a shared background executor. Unsupported devices show the tiles as unavailable, and the Shoulder Triggers tile reflects the parsed state of both NX809J trigger nodes.
+
 ### Diagnostics
 
 The capability scanner reports whether the expected fan, pump, LED, trigger, and slider hardware interfaces are available. Missing interfaces are reported rather than silently treated as working.
@@ -140,6 +153,12 @@ Stock Magic Key actions include:
 
 The Magic Key can alternatively launch a selected user or system application. Stock-action mode and app-launch mode are mutually exclusive. The app picker supports app-name and package-name searches.
 
+### Dual-app slider
+
+The optional dual-app mode assigns one launchable app to slider-up and another to slider-down. A scheduled pair can replace both default apps during a chosen daily time window, including schedules that cross midnight.
+
+Slider changes are received through the Android setting observer rather than a polling loop. Enabling dual-app mode saves and temporarily replaces the existing Magic Key action; disabling it restores the action and selected application that were active beforehand.
+
 ## Hardware
 
 ### Shoulder triggers
@@ -159,6 +178,12 @@ Intent Unlock provides configurable tap counts before trigger actions become act
 
 Manual **Disable Triggers** stops the service and hardware without erasing the Auto-start preference. Automatic startup remains paused until the user presses **Enable Triggers** or restarts the phone.
 
+### Haptic feedback
+
+The Hardware tab contains optional hardware haptic feedback for shoulder-trigger actions, successful dual-app slider launches, and Master Profile application. It is disabled by default and offers Low, Medium, and High strengths with an immediate test pulse when a strength is selected.
+
+Haptic pulses use the confirmed NX809J `zte_vibrator` duration, gain, and activate nodes through the shared root broker. Feedback is event-driven, rate-limited, and performs no continuous polling.
+
 ### Master profiles
 
 Master profiles capture the wider application state, including:
@@ -172,14 +197,27 @@ Master profiles capture the wider application state, including:
 - RGB Studio configuration
 - Temperature-unit preference
 - Magic Key mode and selected application
+- Dual-app slider mappings and schedule
+- Hardware haptic enabled state and strength
 - Real-time preview preference
 - Trigger preferences
 
 Profiles can be named, applied, deleted, exported as a portable JSON backup, and imported on another installation.
 
+The versioned profile format currently stores haptic configuration in schema version 4. Older profiles remain importable and default haptic feedback to disabled when those fields are absent.
+
 ### Automation rules
 
 Saved Master Profiles can be assigned to power connected, power disconnected, battery low, battery recovered, and first-unlock-after-restart events. Android broadcasts trigger the rules only when those events occur; the automation engine performs no continuous polling. Rules are included in portable JSON backups and are cleared automatically if their assigned profile is deleted.
+
+## Settings
+
+The settings page opens from the gear beside the animated RedMagic Control Center header. It contains app-wide display preferences rather than physical hardware controls:
+
+- Fahrenheit or Celsius temperature display
+- Automatic light/dark appearance following the Android system theme
+
+Physical haptic configuration remains in the Hardware tab.
 
 ## Lighting
 
@@ -282,6 +320,8 @@ After boot or user unlock, the app can restore enabled behavior for:
 - Charging Mode
 - Call Lighting
 - RGB Studio
+- Dual-app slider handling
+- First-unlock Master Profile automation
 
 A temporary manual trigger disable is cleared by a full restart.
 
@@ -325,6 +365,8 @@ The public repository contains the application source, Gradle configuration, and
 - In-memory thermal history using existing samples
 - Event-driven charging and phone-state handling
 - Event-driven Master Profile automation rules
+- Event-driven dual-app slider launches and scheduled mapping selection
+- Event-driven, rate-limited hardware haptic feedback
 - Event-assisted Game Mode activation
 - Two-minute Game Mode checks only while a selected game is active
 - Fan, pump, and general write deduplication

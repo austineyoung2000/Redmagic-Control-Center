@@ -2,12 +2,14 @@ package com.elitedarkkaiser.redmagic.ui
 
 import android.app.Activity
 import android.content.Context
+import android.content.res.ColorStateList
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.elitedarkkaiser.redmagic.HapticFeedback
 import com.elitedarkkaiser.redmagic.ProfileDialogs
 import com.google.android.material.materialswitch.MaterialSwitch
 
@@ -144,6 +146,110 @@ object HardwareTabUi {
         }
 
         container.addView(triggerCard)
+
+        val hapticSummary = deps.subtleLabel("")
+        var selectedHapticStrength =
+            HapticFeedback.Strength.fromKey(
+                HapticFeedback.read(activity).strength
+            )
+
+        val hapticStrengthButtons = LinkedHashMap<
+            HapticFeedback.Strength,
+            Button
+        >()
+
+        fun refreshHapticStrengthButtons() {
+            hapticStrengthButtons.forEach { (strength, button) ->
+                button.backgroundTintList =
+                    ColorStateList.valueOf(
+                        if (strength == selectedHapticStrength) {
+                            AppTheme.chipActiveColor
+                        } else {
+                            AppTheme.chipOnColor
+                        }
+                    )
+                button.setTextColor(AppTheme.textPrimary)
+            }
+
+            hapticSummary.text =
+                "Current strength: " +
+                    selectedHapticStrength.label +
+                    ". Feedback is event-driven; no polling is used."
+        }
+
+        val hapticStrengthRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        HapticFeedback.Strength.entries.forEach { strength ->
+            val button = deps.actionButton(
+                strength.label,
+                false
+            ) {
+                selectedHapticStrength = strength
+                HapticFeedback.setStrength(activity, strength)
+                refreshHapticStrengthButtons()
+
+                Thread(
+                    {
+                        HapticFeedback.testPulse(strength)
+                    },
+                    "RedMagicHapticTest"
+                ).start()
+            }
+
+            hapticStrengthButtons[strength] = button
+            hapticStrengthRow.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                ).apply {
+                    marginEnd = if (
+                        strength != HapticFeedback.Strength.HIGH
+                    ) deps.dp(6) else 0
+                }
+            )
+        }
+
+        val hapticSwitch = MaterialSwitch(activity).apply {
+            text = "Hardware action feedback"
+            textSize = 14f
+            setTextColor(AppTheme.textPrimary)
+            isChecked = HapticFeedback.read(activity).enabled
+            setOnCheckedChangeListener { _, checked ->
+                HapticFeedback.setEnabled(activity, checked)
+                Toast.makeText(
+                    activity,
+                    "Hardware haptic feedback " +
+                        if (checked) "enabled" else "disabled",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        refreshHapticStrengthButtons()
+
+        val hapticCard = deps.sectionPanel().apply {
+            addView(deps.sectionHeader("〰", "HAPTIC FEEDBACK"))
+            addView(deps.bodyText(
+                "Add a short hardware vibration to trigger actions, " +
+                    "dual-app slider launches, and Master Profile " +
+                    "application."
+            ))
+            addView(deps.space(deps.dp(8)))
+            addView(hapticSwitch)
+            addView(deps.space(deps.dp(8)))
+            addView(deps.subtleLabel("Strength — tap to select and test"))
+            addView(deps.space(deps.dp(6)))
+            addView(hapticStrengthRow)
+            addView(deps.space(deps.dp(8)))
+            addView(hapticSummary)
+        }
+
+        container.addView(hapticCard)
 
         val masterProfilesCard = deps.sectionPanel().apply {
             addView(deps.sectionHeader("◆", "MASTER PROFILES"))
