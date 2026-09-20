@@ -204,7 +204,7 @@ internal object FanLedDialogUi {
             strokeColor =
                 ColorStateList.valueOf(deps.borderColor)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -227,7 +227,7 @@ internal object FanLedDialogUi {
             backgroundTintList =
                 ColorStateList.valueOf(deps.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -351,7 +351,7 @@ internal object FanLedDialogUi {
                     if (selected) {
                         deps.panelPressed
                     } else {
-                        Color.parseColor("#1E2633")
+                        deps.panelColor
                     },
                     999
                 )

@@ -24,6 +24,7 @@ data class HomeTabDeps(
     val openUsageStatsAccessSettings: () -> Unit,
     val showGamePickerDialog: () -> Unit,
     val updateGameModeStatusUI: (TextView) -> Unit,
+    val openSettings: () -> Unit,
     val openUrl: (String) -> Unit,
     val deviceScanSummary: () -> String
 )

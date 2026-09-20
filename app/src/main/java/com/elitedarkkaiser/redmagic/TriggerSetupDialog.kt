@@ -215,7 +215,7 @@ internal object TriggerSetupDialog {
             strokeColor =
                 ColorStateList.valueOf(deps.borderColor)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -238,7 +238,7 @@ internal object TriggerSetupDialog {
             backgroundTintList =
                 ColorStateList.valueOf(deps.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0

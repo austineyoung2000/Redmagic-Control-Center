@@ -31,10 +31,6 @@ data class CoolingTabDeps(
     val setAutoFanCurveEnabled: (Boolean) -> Unit,
     val setAutoFanEnabledSaved: (Boolean) -> Unit,
 
-    val getUseFahrenheit: () -> Boolean,
-    val setUseFahrenheit: (Boolean) -> Unit,
-    val saveUseFahrenheit: (Boolean) -> Unit,
-
     val getPumpEnabled: () -> Boolean,
     val setPumpEnabled: (Boolean) -> Unit,
     val getPumpProfile: () -> String,

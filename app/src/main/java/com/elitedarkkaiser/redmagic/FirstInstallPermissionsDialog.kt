@@ -55,7 +55,7 @@ object FirstInstallPermissionsDialog {
             backgroundTintList =
                 ColorStateList.valueOf(AppTheme.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = dp(16)
 
             insetTop = 0

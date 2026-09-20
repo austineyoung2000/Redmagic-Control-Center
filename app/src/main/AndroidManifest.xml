@@ -33,6 +33,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

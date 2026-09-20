@@ -112,7 +112,7 @@ internal object CallLightingProfileUi {
             strokeColor =
                 ColorStateList.valueOf(deps.borderColor)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -135,7 +135,7 @@ internal object CallLightingProfileUi {
             backgroundTintList =
                 ColorStateList.valueOf(deps.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -230,7 +230,7 @@ internal object CallLightingProfileUi {
                     if (selected) {
                         deps.panelPressed
                     } else {
-                        Color.parseColor("#1E2633")
+                        deps.panelColor
                     },
                     18
                 )

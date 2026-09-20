@@ -1,5 +1,6 @@
 package com.elitedarkkaiser.redmagic.ui
 
+import android.content.res.ColorStateList
 import android.view.Gravity
 import android.widget.Button
 import android.widget.ImageView
@@ -7,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.elitedarkkaiser.redmagic.DashboardSnapshot
 import com.elitedarkkaiser.redmagic.R
+import com.google.android.material.button.MaterialButton
 
 object HomeTabUi {
     data class Refs(
@@ -87,8 +89,35 @@ object HomeTabUi {
 
             val titleView = deps.ledTitleText("Redmagic Control Center")
 
+            titleView.layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+
+            val settingsButton = MaterialButton(context).apply {
+                text = "⚙"
+                textSize = 22f
+                contentDescription = "Open settings"
+                minWidth = deps.dp(48)
+                minHeight = deps.dp(48)
+                insetTop = 0
+                insetBottom = 0
+                setPadding(0, 0, 0, 0)
+                backgroundTintList = ColorStateList.valueOf(
+                    AppTheme.chipOnColor
+                )
+                rippleColor = ColorStateList.valueOf(
+                    AppTheme.rippleColor
+                )
+                setTextColor(AppTheme.textPrimary)
+                cornerRadius = deps.dp(16)
+                setOnClickListener { deps.openSettings() }
+            }
+
             headerRow.addView(iconView)
             headerRow.addView(titleView)
+            headerRow.addView(settingsButton)
 
             addView(headerRow)
             addView(deps.subtitleText("Cooling, lighting, triggers and hardware controls for Redmagic 11 Pro"))

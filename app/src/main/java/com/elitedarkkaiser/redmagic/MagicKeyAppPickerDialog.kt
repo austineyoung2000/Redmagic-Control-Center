@@ -22,6 +22,7 @@ import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.elitedarkkaiser.redmagic.ui.AppTheme
 
 internal object MagicKeyAppPickerDialog {
     private const val TAG = "MagicKeyAppPicker"
@@ -262,9 +263,9 @@ internal object MagicKeyAppPickerDialog {
         onSelected: (MagicKeyAppItem) -> Unit,
         deps: Deps
     ) {
-        val rowNormal = Color.parseColor("#121A27")
-        val rowSelected = Color.parseColor("#1E2A3D")
-        val accent = Color.parseColor("#4EA1FF")
+        val rowNormal = AppTheme.panelColor
+        val rowSelected = AppTheme.chipActiveColor
+        val accent = AppTheme.accentColor
         val iconCache = LruCache<String, Drawable>(48)
 
         var currentSelection = selectedPackage
@@ -461,7 +462,7 @@ internal object MagicKeyAppPickerDialog {
             backgroundTintList =
                 ColorStateList.valueOf(accent)
             rippleColor = ColorStateList.valueOf(
-                Color.parseColor("#33445A")
+                AppTheme.rippleColor
             )
             cornerRadius = deps.dp(14)
             insetTop = 0
@@ -505,7 +506,7 @@ internal object MagicKeyAppPickerDialog {
                     deps.borderColor
                 )
             rippleColor = ColorStateList.valueOf(
-                Color.parseColor("#33445A")
+                AppTheme.rippleColor
             )
             cornerRadius = deps.dp(14)
             insetTop = 0
@@ -580,7 +581,7 @@ internal object MagicKeyAppPickerDialog {
                 deps.dp(12),
                 deps.dp(12)
             )
-            setBackgroundColor(Color.parseColor("#070B12"))
+            setBackgroundColor(AppTheme.bgColor)
             addView(container)
         }
 

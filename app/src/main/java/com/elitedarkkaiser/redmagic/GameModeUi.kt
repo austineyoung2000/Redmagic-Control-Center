@@ -139,7 +139,7 @@ internal object GameModeUi {
                 quickBtn = quickBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
-                unselectedColor = Color.parseColor("#1E2633")
+                unselectedColor = deps.panelColor
             )
         }
 
@@ -198,7 +198,7 @@ internal object GameModeUi {
                 rapidBtn = ledRapidBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
-                unselectedColor = Color.parseColor("#1E2633")
+                unselectedColor = deps.panelColor
             )
         }
 
@@ -449,7 +449,7 @@ internal object GameModeUi {
             strokeColor =
                 ColorStateList.valueOf(deps.borderColor)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -472,7 +472,7 @@ internal object GameModeUi {
             backgroundTintList =
                 ColorStateList.valueOf(deps.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -549,7 +549,7 @@ internal object GameModeUi {
                 rapidBtn = logoRapidBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
-                unselectedColor = Color.parseColor("#1E2633")
+                unselectedColor = deps.panelColor
             )
         }
 
@@ -662,7 +662,7 @@ internal object GameModeUi {
                 rapidBtn = shoulderRapidBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
-                unselectedColor = Color.parseColor("#1E2633")
+                unselectedColor = deps.panelColor
             )
         }
 

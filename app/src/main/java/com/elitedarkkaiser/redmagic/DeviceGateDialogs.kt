@@ -181,7 +181,7 @@ internal object DeviceGateDialogs {
             backgroundTintList =
                 ColorStateList.valueOf(deps.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0

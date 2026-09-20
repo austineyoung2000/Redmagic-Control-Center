@@ -109,7 +109,7 @@ internal object ChargingLedProfileDialog {
                     }
                 )
                 rippleColor =
-                    ColorStateList.valueOf(Color.parseColor("#33445A"))
+                    ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
                 cornerRadius = deps.dp(16)
 
                 insetTop = 0
@@ -161,7 +161,7 @@ internal object ChargingLedProfileDialog {
                     if (selected) {
                         deps.panelPressed
                     } else {
-                        Color.parseColor("#1E2633")
+                        deps.panelColor
                     },
                     999
                 )
@@ -313,7 +313,7 @@ internal object ChargingLedProfileDialog {
             strokeColor =
                 ColorStateList.valueOf(deps.borderColor)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -336,7 +336,7 @@ internal object ChargingLedProfileDialog {
             backgroundTintList =
                 ColorStateList.valueOf(deps.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0

@@ -19,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
+import com.elitedarkkaiser.redmagic.ui.AppTheme
 
 private fun gpDp(context: Context, value: Int): Int {
     return (value * context.resources.displayMetrics.density).toInt()
@@ -38,15 +39,16 @@ fun showGamePickerDialogUI(
     onSave: (Set<String>) -> Unit
 ) {
     val pm = context.packageManager
+    AppTheme.configure(context)
 
-    val bgColor = Color.parseColor("#070B12")
-    val panelColor = Color.parseColor("#101722")
-    val panelStroke = Color.parseColor("#243041")
-    val rowNormal = Color.parseColor("#121A27")
-    val rowSelected = Color.parseColor("#1E2A3D")
-    val textPrimary = Color.parseColor("#EAF1FF")
-    val textSecondary = Color.parseColor("#9AA8BC")
-    val accent = Color.parseColor("#4EA1FF")
+    val bgColor = AppTheme.bgColor
+    val panelColor = AppTheme.panelColor
+    val panelStroke = AppTheme.borderColor
+    val rowNormal = AppTheme.panelColor
+    val rowSelected = AppTheme.chipActiveColor
+    val textPrimary = AppTheme.textPrimary
+    val textSecondary = AppTheme.textSecondary
+    val accent = AppTheme.accentColor
 
     val apps = pm.getInstalledApplications(0)
         .filter { app ->
@@ -188,7 +190,7 @@ fun showGamePickerDialogUI(
         backgroundTintList =
             ColorStateList.valueOf(accent)
         rippleColor =
-            ColorStateList.valueOf(Color.parseColor("#33445A"))
+            ColorStateList.valueOf(AppTheme.rippleColor)
         cornerRadius = gpDp(context, 14)
 
         insetTop = 0
@@ -228,7 +230,7 @@ fun showGamePickerDialogUI(
         strokeColor =
             ColorStateList.valueOf(panelStroke)
         rippleColor =
-            ColorStateList.valueOf(Color.parseColor("#33445A"))
+            ColorStateList.valueOf(AppTheme.rippleColor)
         cornerRadius = gpDp(context, 14)
 
         insetTop = 0

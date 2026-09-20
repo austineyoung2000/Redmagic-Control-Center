@@ -12,7 +12,6 @@ import android.widget.LinearLayout
 import com.google.android.material.slider.Slider
 import android.widget.TextView
 import com.elitedarkkaiser.redmagic.HardwareController
-import com.google.android.material.materialswitch.MaterialSwitch
 
 object CoolingTabUi {
     data class Refs(
@@ -218,32 +217,6 @@ object CoolingTabUi {
             addView(deps.sectionHeader("❄", "COOLING"))
             addView(tempText)
 
-            val tempUnitRow = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, deps.dp(8), 0, deps.dp(4))
-            }
-
-            val tempUnitLabel = TextView(context).apply {
-                text = "Use Fahrenheit"
-                textSize = 13f
-                setTextColor(AppTheme.textPrimary)
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            }
-
-            val tempUnitSwitch = MaterialSwitch(context).apply {
-                isChecked = deps.getUseFahrenheit()
-                setOnCheckedChangeListener { _, checked ->
-                    deps.setUseFahrenheit(checked)
-                    deps.saveUseFahrenheit(checked)
-                    deps.refreshStatus()
-                }
-            }
-
-            tempUnitRow.addView(tempUnitLabel)
-            tempUnitRow.addView(tempUnitSwitch)
-
-            addView(tempUnitRow)
             addView(deps.subtleLabel("Fan level"))
             addView(fanSeek)
             addView(deps.row(fanOnBtn, fanOffBtn))

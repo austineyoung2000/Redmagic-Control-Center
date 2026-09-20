@@ -22,14 +22,18 @@ class ThermalHistoryView(
     private val gridPaint = Paint(
         Paint.ANTI_ALIAS_FLAG
     ).apply {
-        color = Color.parseColor("#2A3443")
+        color = context.getColor(
+            com.elitedarkkaiser.redmagic.R.color.redmagic_graph_grid
+        )
         strokeWidth = density
     }
 
     private val linePaint = Paint(
         Paint.ANTI_ALIAS_FLAG
     ).apply {
-        color = Color.parseColor("#AFC6E5")
+        color = context.getColor(
+            com.elitedarkkaiser.redmagic.R.color.redmagic_graph_line
+        )
         strokeWidth = 2.25f * density
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -45,7 +49,9 @@ class ThermalHistoryView(
     private val pointPaint = Paint(
         Paint.ANTI_ALIAS_FLAG
     ).apply {
-        color = Color.parseColor("#E8EEF7")
+        color = context.getColor(
+            com.elitedarkkaiser.redmagic.R.color.redmagic_graph_point
+        )
         style = Paint.Style.FILL
     }
 

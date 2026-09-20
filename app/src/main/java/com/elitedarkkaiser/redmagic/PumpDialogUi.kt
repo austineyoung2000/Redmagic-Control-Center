@@ -142,7 +142,7 @@ internal object PumpDialogUi {
             strokeColor =
                 ColorStateList.valueOf(deps.borderColor)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -165,7 +165,7 @@ internal object PumpDialogUi {
             backgroundTintList =
                 ColorStateList.valueOf(deps.panelPressed)
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(com.elitedarkkaiser.redmagic.ui.AppTheme.rippleColor)
             cornerRadius = deps.dp(14)
 
             insetTop = 0
@@ -207,8 +207,8 @@ internal object PumpDialogUi {
                 experimentalBtn = experimentalBtn,
                 roundedFill = deps.roundedFill,
                 selectedColor = deps.panelPressed,
-                normalColor = Color.parseColor("#1E2633"),
-                experimentalColor = Color.parseColor("#2A1D1D")
+                normalColor = deps.panelColor,
+                experimentalColor = com.elitedarkkaiser.redmagic.ui.AppTheme.dangerColor
             )
         }
 

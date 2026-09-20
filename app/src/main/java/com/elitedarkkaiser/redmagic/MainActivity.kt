@@ -34,6 +34,7 @@ import com.elitedarkkaiser.redmagic.state.LedState
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.shape.MaterialShapeDrawable
 import com.google.android.material.shape.ShapeAppearanceModel
+import com.elitedarkkaiser.redmagic.ui.AppTheme
 
 class MainActivity : Activity() {
     companion object {
@@ -110,19 +111,19 @@ class MainActivity : Activity() {
 
 
 
-    private val bgColor = Color.parseColor("#0A0D12")
-    private val panelColor = Color.parseColor("#121720")
-    private val panelPressed = Color.parseColor("#1A2230")
-    private val borderColor = Color.parseColor("#232C3B")
+    private val bgColor get() = AppTheme.bgColor
+    private val panelColor get() = AppTheme.panelColor
+    private val panelPressed get() = AppTheme.panelPressed
+    private val borderColor get() = AppTheme.borderColor
 
-    private val accent = Color.parseColor("#8FA3BF")
-    private val chipOn = Color.parseColor("#202B38")
-    private val chipActive = Color.parseColor("#2B3A4F")
-    private val danger = Color.parseColor("#5B2C33")
-    private val textPrimary = Color.parseColor("#E8EEF7")
-    private val textSecondary = Color.parseColor("#9AA8BA")
+    private val accent get() = AppTheme.accentColor
+    private val chipOn get() = AppTheme.chipOnColor
+    private val chipActive get() = AppTheme.chipActiveColor
+    private val danger get() = AppTheme.dangerColor
+    private val textPrimary get() = AppTheme.textPrimary
+    private val textSecondary get() = AppTheme.textSecondary
     private val typeface: Typeface? = Typeface.SANS_SERIF
-    private val highlightBorder = Color.parseColor("#7F8EA3")
+    private val highlightBorder get() = AppTheme.highlightBorder
     private val statusRefreshHandler =
         Handler(Looper.getMainLooper())
 
@@ -167,6 +168,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppTheme.configure(this)
 
         if (!DeviceCompatibility.isSupportedDevice()) {
             showUnsupportedDeviceDialog()
@@ -331,6 +333,18 @@ class MainActivity : Activity() {
             statusRefreshHandler.post(
                 initialStatusRefreshRunnable
             )
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        val savedUnit = isUseFahrenheitStorage(this)
+        if (savedUnit != useFahrenheit) {
+            useFahrenheit = savedUnit
+            if (mainUiReady) {
+                refreshStatus()
+            }
         }
     }
 
@@ -783,6 +797,11 @@ class MainActivity : Activity() {
                 openUsageStatsAccessSettings = { PermissionActions.openUsageStatsAccessSettings(this) },
                 showGamePickerDialog = { showGamePickerDialog() },
                 updateGameModeStatusUI = { textView -> updateGameModeStatusUI(textView) },
+                openSettings = {
+                    startActivity(
+                        Intent(this, SettingsActivity::class.java)
+                    )
+                },
                 openUrl = { url -> openUrl(url) },
                 deviceScanSummary = {
                     deviceScanSummaryStorage(this)
@@ -838,10 +857,6 @@ class MainActivity : Activity() {
                 getAutoFanCurveEnabled = { autoFanCurveEnabled },
                 setAutoFanCurveEnabled = { value -> autoFanCurveEnabled = value },
                 setAutoFanEnabledSaved = { value -> saveAutoFanEnabledStorage(this, value) },
-
-                getUseFahrenheit = { useFahrenheit },
-                setUseFahrenheit = { value -> useFahrenheit = value },
-                saveUseFahrenheit = { value -> saveUseFahrenheitStorage(this, value) },
 
                 getPumpEnabled = { pumpEnabled },
                 setPumpEnabled = { value -> pumpEnabled = value },
@@ -1782,7 +1797,7 @@ class MainActivity : Activity() {
                 if (selected) highlightBorder else borderColor
             )
             rippleColor =
-                ColorStateList.valueOf(Color.parseColor("#33445A"))
+                ColorStateList.valueOf(AppTheme.rippleColor)
             cornerRadius = dp(16)
 
             insetTop = 0
@@ -2093,7 +2108,7 @@ class MainActivity : Activity() {
     private fun roundedTopBar(): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(Color.parseColor("#11161F"))
+            setColor(panelColor)
             cornerRadius = dp(24).toFloat()
             setStroke(dp(1), borderColor)
         }
@@ -2292,13 +2307,13 @@ class MainActivity : Activity() {
             setTextColor(textPrimary)
             setTypeface(typeface, Typeface.BOLD)
             setPadding(dp(14), 0, 0, 0)
-            setShadowLayer(dp(6).toFloat(), 0f, 0f, Color.parseColor("#5AA9FF"))
+            setShadowLayer(dp(6).toFloat(), 0f, 0f, accent)
 
             val animator = ValueAnimator.ofObject(
                 ArgbEvaluator(),
-                Color.parseColor("#7CC0FF"),
-                Color.parseColor("#E8EEF7"),
-                Color.parseColor("#7CC0FF")
+                accent,
+                textPrimary,
+                accent
             ).apply {
                 duration = 1800L
                 repeatCount = ValueAnimator.INFINITE
@@ -2371,7 +2386,7 @@ class MainActivity : Activity() {
                 textSize = 11f
                 setTextColor(textSecondary)
                 gravity = Gravity.CENTER
-                background = roundedFill(Color.parseColor("#1A2230"), 10)
+                background = roundedFill(panelPressed, 10)
                 setPadding(dp(7), dp(5), dp(7), dp(5))
             }
 
@@ -2398,7 +2413,7 @@ class MainActivity : Activity() {
             initializeElevationOverlay(this@MainActivity)
             fillColor = ColorStateList.valueOf(panelColor)
             strokeWidth = dp(1).toFloat()
-            strokeColor = ColorStateList.valueOf(Color.parseColor("#2A3444"))
+            strokeColor = ColorStateList.valueOf(borderColor)
             elevation = dp(2).toFloat()
         }
 
@@ -2494,7 +2509,7 @@ class MainActivity : Activity() {
             isAllCaps = false
             setTextColor(textPrimary)
             strokeWidth = dp(1)
-            rippleColor = ColorStateList.valueOf(Color.parseColor("#33445A"))
+            rippleColor = ColorStateList.valueOf(AppTheme.rippleColor)
             cornerRadius = dp(20)
 
             insetTop = 0
@@ -2517,7 +2532,7 @@ class MainActivity : Activity() {
                 if (isDanger) danger else panelPressed
             )
             rippleColor = ColorStateList.valueOf(
-                if (isDanger) Color.parseColor("#8F4651") else Color.parseColor("#33445A")
+                if (isDanger) highlightBorder else AppTheme.rippleColor
             )
             cornerRadius = dp(16)
 
@@ -2565,7 +2580,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun applyPressEffect(view: View, pressedColor: Int = Color.parseColor("#253040")) {
+    private fun applyPressEffect(view: View, pressedColor: Int = panelPressed) {
         val normalBg = view.background
         view.setOnTouchListener { v, event ->
             when (event.action) {
@@ -2639,7 +2654,7 @@ class MainActivity : Activity() {
                 if (isDanger) danger else panelPressed
             )
             rippleColor = ColorStateList.valueOf(
-                if (isDanger) Color.parseColor("#8F4651") else Color.parseColor("#33445A")
+                if (isDanger) highlightBorder else AppTheme.rippleColor
             )
             cornerRadius = dp(14)
 

@@ -17,6 +17,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import java.util.Locale
+import com.elitedarkkaiser.redmagic.ui.AppTheme
 
 internal object SliderDualAppDialog {
     fun show(
@@ -44,8 +45,7 @@ internal object SliderDualAppDialog {
             config.scheduledDownPackage
         )
 
-        val accent = Color.parseColor("#4EA1FF")
-        val rowColor = Color.parseColor("#121A27")
+        val accent = AppTheme.accentColor
         var dialogRef: AlertDialog? = null
 
         fun label(text: String, secondary: Boolean = false) =
@@ -389,7 +389,7 @@ internal object SliderDualAppDialog {
         })
 
         val root = ScrollView(activity).apply {
-            setBackgroundColor(Color.parseColor("#070B12"))
+            setBackgroundColor(AppTheme.bgColor)
             setPadding(
                 pickerDeps.dp(12),
                 pickerDeps.dp(12),
