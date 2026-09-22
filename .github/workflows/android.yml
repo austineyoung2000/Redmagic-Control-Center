@@ -56,9 +56,6 @@ jobs:
         run: |
           echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/red-release.jks"
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-
       - name: Build signed release APK
         env:
           SIGNING_STORE_FILE: ${{ runner.temp }}/red-release.jks
@@ -66,12 +63,6 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
-
-      - name: Upload debug APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: redmagic-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
 
       - name: Upload signed release APK artifact
         uses: actions/upload-artifact@v4
@@ -87,6 +78,5 @@ jobs:
           name: RedMagic Control Center ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           files: |
-            app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
           generate_release_notes: true
