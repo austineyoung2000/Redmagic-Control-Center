@@ -1,6 +1,7 @@
 package com.elitedarkkaiser.redmagic
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -12,6 +13,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.Toast
 import kotlin.math.roundToInt
 
 /**
@@ -23,11 +25,13 @@ object NativeTgkGameplayOverlay {
 
     private var windowManager: WindowManager? = null
     private var overlayRoot: View? = null
+    private var editRoot: View? = null
 
     fun show(
         context: Context,
         profile: NativeTgkProfile,
         mapping: NativeTgkOrientationMapping,
+        orientation: NativeTgkOrientation,
         displayWidth: Int,
         displayHeight: Int
     ) {
@@ -105,6 +109,13 @@ object NativeTgkGameplayOverlay {
             }.onSuccess {
                 windowManager = manager
                 overlayRoot = root
+
+                showEditControl(
+                    context = appContext,
+                    manager = manager,
+                    profile = profile,
+                    orientation = orientation
+                )
             }
         }
     }
@@ -117,15 +128,104 @@ object NativeTgkGameplayOverlay {
 
     private fun hideOnMainThread() {
         val root = overlayRoot
+        val edit = editRoot
         val manager = windowManager
 
         overlayRoot = null
+        editRoot = null
         windowManager = null
 
         if (root != null && manager != null) {
             runCatching {
                 manager.removeViewImmediate(root)
             }
+        }
+
+        if (edit != null && manager != null) {
+            runCatching {
+                manager.removeViewImmediate(edit)
+            }
+        }
+    }
+
+    private fun showEditControl(
+        context: Context,
+        manager: WindowManager,
+        profile: NativeTgkProfile,
+        orientation: NativeTgkOrientation
+    ) {
+        val edit = TextView(context).apply {
+            text = "EDIT L/R"
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setPadding(
+                dp(context, 11),
+                dp(context, 7),
+                dp(context, 11),
+                dp(context, 7)
+            )
+            alpha = 0.38f
+            background = GradientDrawable().apply {
+                cornerRadius = dp(context, 16).toFloat()
+                setColor(Color.argb(220, 20, 20, 24))
+                setStroke(
+                    dp(context, 1),
+                    Color.argb(210, 255, 255, 255)
+                )
+            }
+            setOnClickListener {
+                val editorIntent = Intent(
+                    context,
+                    NativeTgkEditorService::class.java
+                ).apply {
+                    putExtra(
+                        NativeTgkEditorService.EXTRA_PACKAGE_NAME,
+                        profile.packageName
+                    )
+                    putExtra(
+                        NativeTgkEditorService.EXTRA_APP_LABEL,
+                        profile.appLabel
+                    )
+                    putExtra(
+                        NativeTgkEditorService.EXTRA_ORIENTATION,
+                        orientation.name
+                    )
+                    putExtra(
+                        NativeTgkEditorService.EXTRA_LAUNCH_TARGET,
+                        false
+                    )
+                }
+
+                runCatching {
+                    context.startService(editorIntent)
+                }.onFailure {
+                    Toast.makeText(
+                        context,
+                        "Could not reopen the trigger editor",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            x = dp(context, 12)
+            y = dp(context, 12)
+        }
+
+        runCatching {
+            manager.addView(edit, params)
+        }.onSuccess {
+            editRoot = edit
         }
     }
 

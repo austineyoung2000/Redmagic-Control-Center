@@ -94,13 +94,9 @@ data class NativeTgkOrientationMapping(
     }
 }
 
-data class NativeTgkProfile(
-    val packageName: String,
-    val appLabel: String,
-    val enabled: Boolean = true,
-    val hapticsEnabled: Boolean = true,
-    val showSavedTargets: Boolean = true,
-    val savedTargetOpacityPercent: Int = 12,
+data class NativeTgkLayout(
+    val id: String,
+    val name: String,
     val leftRapidFireCount: Int = 0,
     val rightRapidFireCount: Int = 0,
     val portrait: NativeTgkOrientationMapping? = null,
@@ -115,10 +111,125 @@ data class NativeTgkProfile(
         }
     }
 
+    fun withMapping(
+        orientation: NativeTgkOrientation,
+        mapping: NativeTgkOrientationMapping
+    ): NativeTgkLayout {
+        return when (orientation) {
+            NativeTgkOrientation.PORTRAIT ->
+                copy(portrait = mapping)
+            NativeTgkOrientation.LANDSCAPE ->
+                copy(landscape = mapping)
+        }
+    }
+}
+
+data class NativeTgkProfile(
+    val packageName: String,
+    val appLabel: String,
+    val enabled: Boolean = true,
+    val hapticsEnabled: Boolean = true,
+    val showSavedTargets: Boolean = true,
+    val savedTargetOpacityPercent: Int = 12,
+    val leftRapidFireCount: Int = 0,
+    val rightRapidFireCount: Int = 0,
+    val portrait: NativeTgkOrientationMapping? = null,
+    val landscape: NativeTgkOrientationMapping? = null,
+    val activeLayoutId: String = "default",
+    val layouts: List<NativeTgkLayout> = emptyList()
+) {
+    fun activeLayout(): NativeTgkLayout? {
+        return layouts.firstOrNull {
+            it.id == activeLayoutId
+        } ?: layouts.firstOrNull()
+    }
+
+    fun mappingFor(
+        orientation: NativeTgkOrientation
+    ): NativeTgkOrientationMapping? {
+        activeLayout()?.let {
+            return it.mappingFor(orientation)
+        }
+
+        return when (orientation) {
+            NativeTgkOrientation.PORTRAIT -> portrait
+            NativeTgkOrientation.LANDSCAPE -> landscape
+        }
+    }
+
     fun hasCompleteMapping(
         orientation: NativeTgkOrientation
     ): Boolean {
         return mappingFor(orientation)?.isComplete() == true
+    }
+
+    fun hasAnyCompleteMapping(): Boolean {
+        return hasCompleteMapping(
+            NativeTgkOrientation.PORTRAIT
+        ) || hasCompleteMapping(
+            NativeTgkOrientation.LANDSCAPE
+        )
+    }
+
+    fun effectiveLeftRapidFireCount(): Int {
+        return activeLayout()?.leftRapidFireCount
+            ?: leftRapidFireCount
+    }
+
+    fun effectiveRightRapidFireCount(): Int {
+        return activeLayout()?.rightRapidFireCount
+            ?: rightRapidFireCount
+    }
+
+    fun withMapping(
+        orientation: NativeTgkOrientation,
+        mapping: NativeTgkOrientationMapping
+    ): NativeTgkProfile {
+        val active = activeLayout()
+        if (active == null) {
+            return when (orientation) {
+                NativeTgkOrientation.PORTRAIT ->
+                    copy(portrait = mapping)
+                NativeTgkOrientation.LANDSCAPE ->
+                    copy(landscape = mapping)
+            }
+        }
+
+        return copy(
+            layouts = layouts.map {
+                if (it.id == active.id) {
+                    it.withMapping(orientation, mapping)
+                } else {
+                    it
+                }
+            }
+        )
+    }
+
+    fun withRapidFireCount(
+        left: Boolean,
+        count: Int
+    ): NativeTgkProfile {
+        val active = activeLayout()
+        if (active == null) {
+            return if (left) {
+                copy(leftRapidFireCount = count)
+            } else {
+                copy(rightRapidFireCount = count)
+            }
+        }
+
+        return copy(
+            layouts = layouts.map {
+                if (it.id != active.id) {
+                    it
+                } else if (left) {
+                    it.copy(leftRapidFireCount = count)
+                } else {
+                    it.copy(rightRapidFireCount = count)
+                }
+            }
+        )
     }
 }
 
@@ -126,7 +237,9 @@ object NativeTgkStorage {
     private const val TAG = "RedmagicNativeTgk"
     private const val PREFS_NAME = "native_tgk_profiles"
     private const val PROFILES_KEY = "profiles_json"
-    private const val VERSION = 2
+    private const val VERSION = 3
+
+    const val MAX_LAYOUTS_PER_PROFILE = 5
 
     val supportedRapidFireCounts = setOf(0, 2, 5, 10)
 
@@ -188,13 +301,25 @@ object NativeTgkStorage {
         context: Context,
         profile: NativeTgkProfile
     ): Boolean {
+        val normalized = profile.normalized()
+
         if (
-            !packagePattern.matches(profile.packageName) ||
-            profile.appLabel.isBlank() ||
-            profile.savedTargetOpacityPercent !in 5..30 ||
-            profile.leftRapidFireCount !in
+            !packagePattern.matches(normalized.packageName) ||
+            normalized.appLabel.isBlank() ||
+            normalized.savedTargetOpacityPercent !in 5..30 ||
+            normalized.layouts.isEmpty() ||
+            normalized.layouts.size > MAX_LAYOUTS_PER_PROFILE ||
+            normalized.layouts.any {
+                it.name.isBlank() ||
+                    it.name.length > 40 ||
+                    it.leftRapidFireCount !in
+                    supportedRapidFireCounts ||
+                    it.rightRapidFireCount !in
+                    supportedRapidFireCounts
+            } ||
+            normalized.leftRapidFireCount !in
                 supportedRapidFireCounts ||
-            profile.rightRapidFireCount !in
+            normalized.rightRapidFireCount !in
                 supportedRapidFireCounts
         ) {
             return false
@@ -202,9 +327,9 @@ object NativeTgkStorage {
 
         val profiles = readProfiles(context)
             .filterNot {
-                it.packageName == profile.packageName
+                it.packageName == normalized.packageName
             }
-            .plus(profile)
+            .plus(normalized)
             .sortedBy {
                 it.appLabel.lowercase()
             }
@@ -235,10 +360,7 @@ object NativeTgkStorage {
         return readProfiles(context)
             .asSequence()
             .filter { it.enabled }
-            .filter {
-                it.portrait?.isComplete() == true ||
-                    it.landscape?.isComplete() == true
-            }
+            .filter { it.hasAnyCompleteMapping() }
             .map { it.packageName }
             .toSet()
     }
@@ -250,10 +372,7 @@ object NativeTgkStorage {
         return getProfile(context, packageName)
             ?.let { profile ->
                 profile.enabled &&
-                    (
-                        profile.portrait?.isComplete() == true ||
-                            profile.landscape?.isComplete() == true
-                        )
+                    profile.hasAnyCompleteMapping()
             } == true
     }
 
@@ -302,6 +421,31 @@ object NativeTgkStorage {
             )
             .put("leftRapidFireCount", leftRapidFireCount)
             .put("rightRapidFireCount", rightRapidFireCount)
+            .put("activeLayoutId", activeLayoutId)
+            .put(
+                "layouts",
+                JSONArray().apply {
+                    layouts.forEach {
+                        put(it.toJson())
+                    }
+                }
+            )
+            .apply {
+                portrait?.let {
+                    put("portrait", it.toJson())
+                }
+                landscape?.let {
+                    put("landscape", it.toJson())
+                }
+            }
+    }
+
+    private fun NativeTgkLayout.toJson(): JSONObject {
+        return JSONObject()
+            .put("id", id)
+            .put("name", name)
+            .put("leftRapidFireCount", leftRapidFireCount)
+            .put("rightRapidFireCount", rightRapidFireCount)
             .apply {
                 portrait?.let {
                     put("portrait", it.toJson())
@@ -344,6 +488,34 @@ object NativeTgkStorage {
             return null
         }
 
+        val legacyLeftRapid = optInt(
+            "leftRapidFireCount",
+            0
+        ).takeIf {
+            it in supportedRapidFireCounts
+        } ?: 0
+        val legacyRightRapid = optInt(
+            "rightRapidFireCount",
+            0
+        ).takeIf {
+            it in supportedRapidFireCounts
+        } ?: 0
+        val legacyPortrait = optJSONObject("portrait")
+            ?.toOrientationMapping()
+        val legacyLandscape = optJSONObject("landscape")
+            ?.toOrientationMapping()
+        val parsedLayouts = optJSONArray("layouts")
+            ?.let { array ->
+                buildList {
+                    for (index in 0 until array.length()) {
+                        array.optJSONObject(index)
+                            ?.toLayout()
+                            ?.let(::add)
+                    }
+                }
+            }
+            .orEmpty()
+
         return NativeTgkProfile(
             packageName = packageName,
             appLabel = appLabel,
@@ -360,6 +532,28 @@ object NativeTgkStorage {
                 "savedTargetOpacityPercent",
                 12
             ).coerceIn(5, 30),
+            leftRapidFireCount = legacyLeftRapid,
+            rightRapidFireCount = legacyRightRapid,
+            portrait = legacyPortrait,
+            landscape = legacyLandscape,
+            activeLayoutId = optString(
+                "activeLayoutId",
+                "default"
+            ),
+            layouts = parsedLayouts
+        ).normalized()
+    }
+
+    private fun JSONObject.toLayout(): NativeTgkLayout? {
+        val id = optString("id").trim()
+        val name = optString("name").trim()
+        if (id.isBlank() || name.isBlank()) {
+            return null
+        }
+
+        return NativeTgkLayout(
+            id = id,
+            name = name.take(40),
             leftRapidFireCount = optInt(
                 "leftRapidFireCount",
                 0
@@ -376,6 +570,39 @@ object NativeTgkStorage {
                 ?.toOrientationMapping(),
             landscape = optJSONObject("landscape")
                 ?.toOrientationMapping()
+        )
+    }
+
+    private fun NativeTgkProfile.normalized(): NativeTgkProfile {
+        val validLayouts = layouts
+            .distinctBy { it.id }
+            .take(MAX_LAYOUTS_PER_PROFILE)
+
+        val normalizedLayouts = if (validLayouts.isEmpty()) {
+            listOf(
+                NativeTgkLayout(
+                    id = "default",
+                    name = "Default",
+                    leftRapidFireCount =
+                        leftRapidFireCount,
+                    rightRapidFireCount =
+                        rightRapidFireCount,
+                    portrait = portrait,
+                    landscape = landscape
+                )
+            )
+        } else {
+            validLayouts
+        }
+
+        val normalizedActiveId = activeLayoutId.takeIf {
+            candidate ->
+            normalizedLayouts.any { it.id == candidate }
+        } ?: normalizedLayouts.first().id
+
+        return copy(
+            activeLayoutId = normalizedActiveId,
+            layouts = normalizedLayouts
         )
     }
 

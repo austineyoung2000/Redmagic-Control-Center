@@ -49,6 +49,8 @@ class NativeTgkEditorService : Service() {
             "native_tgk_editor_app_label"
         const val EXTRA_ORIENTATION =
             "native_tgk_editor_orientation"
+        const val EXTRA_LAUNCH_TARGET =
+            "native_tgk_editor_launch_target"
 
         private const val ORIENTATION_RETRY_MS = 250L
         private const val MAX_ORIENTATION_RETRIES = 120
@@ -144,14 +146,21 @@ class NativeTgkEditorService : Service() {
             "RedMagicTgkEditorCleanup"
         ).start()
 
-        launchTargetApp()
+        val launchTarget = intent.getBooleanExtra(
+            EXTRA_LAUNCH_TARGET,
+            true
+        )
+
+        if (launchTarget) {
+            launchTargetApp()
+        }
 
         handler.removeCallbacksAndMessages(null)
         handler.postDelayed(
             {
                 waitForRequestedOrientation(0)
             },
-            700L
+            if (launchTarget) 700L else 150L
         )
 
         return START_NOT_STICKY
@@ -603,19 +612,12 @@ class NativeTgkEditorService : Service() {
             appLabel = targetLabel
         )
 
-        val updated = when (requestedOrientation) {
-            NativeTgkOrientation.PORTRAIT ->
-                baseProfile.copy(
-                    appLabel = targetLabel,
-                    portrait = mapping
-                )
-
-            NativeTgkOrientation.LANDSCAPE ->
-                baseProfile.copy(
-                    appLabel = targetLabel,
-                    landscape = mapping
-                )
-        }
+        val updated = baseProfile
+            .copy(appLabel = targetLabel)
+            .withMapping(
+                requestedOrientation,
+                mapping
+            )
 
         if (!NativeTgkStorage.saveProfile(this, updated)) {
             Toast.makeText(

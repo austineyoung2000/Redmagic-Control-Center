@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.EditText
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -362,9 +363,202 @@ object NativeTgkProfileDialog {
                     }
                 )
 
+                val activeLayout = profile.activeLayout()
+                val layoutRow = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(
+                        0,
+                        0,
+                        0,
+                        dp(activity, 8)
+                    )
+                }
+
+                val selectLayoutButton = actionButton(
+                    activity,
+                    "LAYOUT: ${activeLayout?.name ?: "Default"}",
+                    primary = false
+                ).apply {
+                    setOnClickListener {
+                        val layouts = profile.layouts
+                        val labels = layouts.map { layout ->
+                            buildString {
+                                append(layout.name)
+                                if (layout.id == profile.activeLayoutId) {
+                                    append(" • Active")
+                                }
+                            }
+                        }.toTypedArray()
+
+                        MaterialAlertDialogBuilder(activity)
+                            .setTitle("Select trigger layout")
+                            .setSingleChoiceItems(
+                                labels,
+                                layouts.indexOfFirst {
+                                    it.id == profile.activeLayoutId
+                                }.coerceAtLeast(0)
+                            ) { dialog, which ->
+                                val selected = layouts[which]
+                                NativeTgkStorage.saveProfile(
+                                    activity,
+                                    profile.copy(
+                                        activeLayoutId = selected.id
+                                    )
+                                )
+                                dialog.dismiss()
+                                renderProfiles()
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                }
+
+                val newLayoutButton = actionButton(
+                    activity,
+                    "NEW",
+                    primary = false
+                ).apply {
+                    isEnabled = profile.layouts.size <
+                        NativeTgkStorage.MAX_LAYOUTS_PER_PROFILE
+                    setOnClickListener {
+                        val input = EditText(activity).apply {
+                            hint = "Layout name"
+                            setSingleLine(true)
+                            setPadding(
+                                dp(activity, 18),
+                                dp(activity, 8),
+                                dp(activity, 18),
+                                dp(activity, 8)
+                            )
+                        }
+
+                        MaterialAlertDialogBuilder(activity)
+                            .setTitle("Duplicate current layout")
+                            .setMessage(
+                                "The new layout starts with the " +
+                                    "current targets and trigger behavior."
+                            )
+                            .setView(input)
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Create") { _, _ ->
+                                val name = input.text
+                                    ?.toString()
+                                    ?.trim()
+                                    .orEmpty()
+
+                                if (
+                                    name.isBlank() ||
+                                    name.length > 40 ||
+                                    profile.layouts.any {
+                                        it.name.equals(
+                                            name,
+                                            ignoreCase = true
+                                        )
+                                    }
+                                ) {
+                                    Toast.makeText(
+                                        activity,
+                                        "Enter a unique layout name up to 40 characters",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    return@setPositiveButton
+                                }
+
+                                val source = profile.activeLayout()
+                                    ?: return@setPositiveButton
+                                val id = "layout_" +
+                                    System.currentTimeMillis()
+                                        .toString(36)
+                                val created = source.copy(
+                                    id = id,
+                                    name = name
+                                )
+
+                                NativeTgkStorage.saveProfile(
+                                    activity,
+                                    profile.copy(
+                                        activeLayoutId = id,
+                                        layouts =
+                                            profile.layouts + created
+                                    )
+                                )
+                                renderProfiles()
+                            }
+                            .show()
+                    }
+                }
+
+                val deleteLayoutButton = actionButton(
+                    activity,
+                    "DELETE",
+                    primary = false
+                ).apply {
+                    isEnabled = profile.layouts.size > 1
+                    setTextColor(Color.rgb(255, 110, 110))
+                    setOnClickListener {
+                        val selected = profile.activeLayout()
+                            ?: return@setOnClickListener
+
+                        MaterialAlertDialogBuilder(activity)
+                            .setTitle("Delete ${selected.name}?")
+                            .setMessage(
+                                "Its portrait and landscape targets " +
+                                    "and trigger behavior will be removed."
+                            )
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Delete") { _, _ ->
+                                val remaining = profile.layouts
+                                    .filterNot {
+                                        it.id == selected.id
+                                    }
+                                val next = remaining.first()
+
+                                NativeTgkStorage.saveProfile(
+                                    activity,
+                                    profile.copy(
+                                        activeLayoutId = next.id,
+                                        layouts = remaining
+                                    )
+                                )
+                                renderProfiles()
+                            }
+                            .show()
+                    }
+                }
+
+                listOf(
+                    selectLayoutButton to 2f,
+                    newLayoutButton to 0.8f,
+                    deleteLayoutButton to 1f
+                ).forEachIndexed { layoutIndex, item ->
+                    if (layoutIndex > 0) {
+                        layoutRow.addView(
+                            View(activity),
+                            LinearLayout.LayoutParams(
+                                dp(activity, 6),
+                                1
+                            )
+                        )
+                    }
+
+                    layoutRow.addView(
+                        item.first,
+                        LinearLayout.LayoutParams(
+                            0,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            item.second
+                        )
+                    )
+                }
+
+                card.addView(layoutRow)
+
                 val portraitStatus =
                     if (
-                        profile.portrait
+                        profile.mappingFor(
+                            NativeTgkOrientation.PORTRAIT
+                        )
                             ?.isComplete() == true
                     ) {
                         "Portrait configured"
@@ -374,7 +568,9 @@ object NativeTgkProfileDialog {
 
                 val landscapeStatus =
                     if (
-                        profile.landscape
+                        profile.mappingFor(
+                            NativeTgkOrientation.LANDSCAPE
+                        )
                             ?.isComplete() == true
                     ) {
                         "Landscape configured"
@@ -606,17 +802,11 @@ object NativeTgkProfileDialog {
                                         )
                                             ?: return@setPositiveButton
 
-                                    val updated = if (left) {
-                                        current.copy(
-                                            leftRapidFireCount =
-                                                counts[selected]
+                                    val updated = current
+                                        .withRapidFireCount(
+                                            left = left,
+                                            count = counts[selected]
                                         )
-                                    } else {
-                                        current.copy(
-                                            rightRapidFireCount =
-                                                counts[selected]
-                                        )
-                                    }
 
                                     NativeTgkStorage.saveProfile(
                                         activity,
@@ -631,12 +821,12 @@ object NativeTgkProfileDialog {
 
                 val leftRapidButton = rapidButton(
                     "L",
-                    profile.leftRapidFireCount,
+                    profile.effectiveLeftRapidFireCount(),
                     true
                 )
                 val rightRapidButton = rapidButton(
                     "R",
-                    profile.rightRapidFireCount,
+                    profile.effectiveRightRapidFireCount(),
                     false
                 )
 
@@ -681,7 +871,9 @@ object NativeTgkProfileDialog {
                 val landscapeButton = actionButton(
                     activity,
                     if (
-                        profile.landscape
+                        profile.mappingFor(
+                            NativeTgkOrientation.LANDSCAPE
+                        )
                             ?.isComplete() == true
                     ) {
                         "EDIT LANDSCAPE"
@@ -702,7 +894,9 @@ object NativeTgkProfileDialog {
                 val portraitButton = actionButton(
                     activity,
                     if (
-                        profile.portrait
+                        profile.mappingFor(
+                            NativeTgkOrientation.PORTRAIT
+                        )
                             ?.isComplete() == true
                     ) {
                         "EDIT PORTRAIT"
