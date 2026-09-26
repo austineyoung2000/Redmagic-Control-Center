@@ -418,6 +418,16 @@ object NativeTgkProfileDialog {
                             profile.hapticsEnabled
                     }
 
+                val savedTargetsSwitch =
+                    MaterialSwitch(activity).apply {
+                        text = "Show saved targets in game"
+                        setTextColor(
+                            AppTheme.textPrimary
+                        )
+                        isChecked =
+                            profile.showSavedTargets
+                    }
+
                 enabledSwitch.setOnCheckedChangeListener {
                         _,
                         checked ->
@@ -456,8 +466,206 @@ object NativeTgkProfileDialog {
                     )
                 }
 
+                savedTargetsSwitch
+                    .setOnCheckedChangeListener {
+                            _,
+                            checked ->
+                        val current =
+                            NativeTgkStorage.getProfile(
+                                activity,
+                                profile.packageName
+                            ) ?: return@setOnCheckedChangeListener
+
+                        NativeTgkStorage.saveProfile(
+                            activity,
+                            current.copy(
+                                showSavedTargets = checked
+                            )
+                        )
+
+                        if (!checked) {
+                            NativeTgkGameplayOverlay.hide()
+                        }
+                    }
+
                 card.addView(enabledSwitch)
                 card.addView(hapticsSwitch)
+                card.addView(savedTargetsSwitch)
+
+                val optionsRow = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(
+                        0,
+                        dp(activity, 8),
+                        0,
+                        0
+                    )
+                }
+
+                val opacityButton = actionButton(
+                    activity,
+                    "TARGETS ${profile.savedTargetOpacityPercent}%",
+                    primary = false
+                ).apply {
+                    setOnClickListener {
+                        val values = intArrayOf(
+                            8,
+                            12,
+                            18,
+                            25
+                        )
+                        val labels = values.map {
+                            "$it%"
+                        }.toTypedArray()
+                        var selected = values.indexOf(
+                            profile.savedTargetOpacityPercent
+                        ).coerceAtLeast(0)
+
+                        MaterialAlertDialogBuilder(activity)
+                            .setTitle("Saved target opacity")
+                            .setSingleChoiceItems(
+                                labels,
+                                selected
+                            ) { _, which ->
+                                selected = which
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Save") { _, _ ->
+                                val current =
+                                    NativeTgkStorage.getProfile(
+                                        activity,
+                                        profile.packageName
+                                    )
+                                        ?: return@setPositiveButton
+
+                                NativeTgkStorage.saveProfile(
+                                    activity,
+                                    current.copy(
+                                        savedTargetOpacityPercent =
+                                            values[selected]
+                                    )
+                                )
+                                renderProfiles()
+                            }
+                            .show()
+                    }
+                }
+
+                fun rapidLabel(
+                    side: String,
+                    count: Int
+                ): String {
+                    return if (count == 0) {
+                        "$side SINGLE"
+                    } else {
+                        "$side RAPID ×$count"
+                    }
+                }
+
+                fun rapidButton(
+                    side: String,
+                    count: Int,
+                    left: Boolean
+                ): MaterialButton {
+                    return actionButton(
+                        activity,
+                        rapidLabel(side, count),
+                        primary = false
+                    ).apply {
+                        setOnClickListener {
+                            val counts = intArrayOf(
+                                0,
+                                2,
+                                5,
+                                10
+                            )
+                            val labels = arrayOf(
+                                "Single tap",
+                                "Rapid fire ×2",
+                                "Rapid fire ×5",
+                                "Rapid fire ×10"
+                            )
+                            var selected = counts.indexOf(count)
+                                .coerceAtLeast(0)
+
+                            MaterialAlertDialogBuilder(activity)
+                                .setTitle("$side trigger behavior")
+                                .setSingleChoiceItems(
+                                    labels,
+                                    selected
+                                ) { _, which ->
+                                    selected = which
+                                }
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Save") { _, _ ->
+                                    val current =
+                                        NativeTgkStorage.getProfile(
+                                            activity,
+                                            profile.packageName
+                                        )
+                                            ?: return@setPositiveButton
+
+                                    val updated = if (left) {
+                                        current.copy(
+                                            leftRapidFireCount =
+                                                counts[selected]
+                                        )
+                                    } else {
+                                        current.copy(
+                                            rightRapidFireCount =
+                                                counts[selected]
+                                        )
+                                    }
+
+                                    NativeTgkStorage.saveProfile(
+                                        activity,
+                                        updated
+                                    )
+                                    renderProfiles()
+                                }
+                                .show()
+                        }
+                    }
+                }
+
+                val leftRapidButton = rapidButton(
+                    "L",
+                    profile.leftRapidFireCount,
+                    true
+                )
+                val rightRapidButton = rapidButton(
+                    "R",
+                    profile.rightRapidFireCount,
+                    false
+                )
+
+                listOf(
+                    opacityButton,
+                    leftRapidButton,
+                    rightRapidButton
+                ).forEachIndexed { optionIndex, button ->
+                    if (optionIndex > 0) {
+                        optionsRow.addView(
+                            View(activity),
+                            LinearLayout.LayoutParams(
+                                dp(activity, 6),
+                                1
+                            )
+                        )
+                    }
+
+                    optionsRow.addView(
+                        button,
+                        LinearLayout.LayoutParams(
+                            0,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            1f
+                        )
+                    )
+                }
+
+                card.addView(optionsRow)
 
                 val editRow = LinearLayout(activity).apply {
                     orientation = LinearLayout.HORIZONTAL

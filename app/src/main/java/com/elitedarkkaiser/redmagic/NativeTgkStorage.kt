@@ -99,6 +99,10 @@ data class NativeTgkProfile(
     val appLabel: String,
     val enabled: Boolean = true,
     val hapticsEnabled: Boolean = true,
+    val showSavedTargets: Boolean = true,
+    val savedTargetOpacityPercent: Int = 12,
+    val leftRapidFireCount: Int = 0,
+    val rightRapidFireCount: Int = 0,
     val portrait: NativeTgkOrientationMapping? = null,
     val landscape: NativeTgkOrientationMapping? = null
 ) {
@@ -122,7 +126,9 @@ object NativeTgkStorage {
     private const val TAG = "RedmagicNativeTgk"
     private const val PREFS_NAME = "native_tgk_profiles"
     private const val PROFILES_KEY = "profiles_json"
-    private const val VERSION = 1
+    private const val VERSION = 2
+
+    val supportedRapidFireCounts = setOf(0, 2, 5, 10)
 
     private val packagePattern = Regex(
         """[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+"""
@@ -184,7 +190,12 @@ object NativeTgkStorage {
     ): Boolean {
         if (
             !packagePattern.matches(profile.packageName) ||
-            profile.appLabel.isBlank()
+            profile.appLabel.isBlank() ||
+            profile.savedTargetOpacityPercent !in 5..30 ||
+            profile.leftRapidFireCount !in
+                supportedRapidFireCounts ||
+            profile.rightRapidFireCount !in
+                supportedRapidFireCounts
         ) {
             return false
         }
@@ -284,6 +295,13 @@ object NativeTgkStorage {
             .put("appLabel", appLabel)
             .put("enabled", enabled)
             .put("hapticsEnabled", hapticsEnabled)
+            .put("showSavedTargets", showSavedTargets)
+            .put(
+                "savedTargetOpacityPercent",
+                savedTargetOpacityPercent
+            )
+            .put("leftRapidFireCount", leftRapidFireCount)
+            .put("rightRapidFireCount", rightRapidFireCount)
             .apply {
                 portrait?.let {
                     put("portrait", it.toJson())
@@ -334,6 +352,26 @@ object NativeTgkStorage {
                 "hapticsEnabled",
                 true
             ),
+            showSavedTargets = optBoolean(
+                "showSavedTargets",
+                true
+            ),
+            savedTargetOpacityPercent = optInt(
+                "savedTargetOpacityPercent",
+                12
+            ).coerceIn(5, 30),
+            leftRapidFireCount = optInt(
+                "leftRapidFireCount",
+                0
+            ).takeIf {
+                it in supportedRapidFireCounts
+            } ?: 0,
+            rightRapidFireCount = optInt(
+                "rightRapidFireCount",
+                0
+            ).takeIf {
+                it in supportedRapidFireCounts
+            } ?: 0,
             portrait = optJSONObject("portrait")
                 ?.toOrientationMapping(),
             landscape = optJSONObject("landscape")

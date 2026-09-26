@@ -37,6 +37,7 @@ object NativeTgkBridge {
     const val RIGHT_KEY_CODE = 138
 
     private const val MODE_SINGLE_TOUCH = 0
+    private const val MODE_MULTI_CLICKS = 6
     private const val CONFIG_SETTLE_MS = 2_000L
     private const val ENABLE_SETTLE_MS = 1_000L
 
@@ -46,7 +47,9 @@ object NativeTgkBridge {
         mapping: NativeTgkOrientationMapping,
         displayWidth: Int,
         displayHeight: Int,
-        hapticsEnabled: Boolean
+        hapticsEnabled: Boolean,
+        leftRapidFireCount: Int = 0,
+        rightRapidFireCount: Int = 0
     ): NativeTgkApplyResult {
         if (!mapping.isComplete()) {
             return NativeTgkApplyResult(
@@ -96,18 +99,30 @@ object NativeTgkBridge {
                     left
                 )
                 backend.setMode(
-                    MODE_SINGLE_TOUCH,
+                    modeForRapidFire(leftRapidFireCount),
                     LEFT_KEY_CODE
                 )
+                if (leftRapidFireCount > 0) {
+                    backend.setRapidFireCount(
+                        leftRapidFireCount,
+                        LEFT_KEY_CODE
+                    )
+                }
 
                 backend.setPoint(
                     RIGHT_KEY_CODE,
                     right
                 )
                 backend.setMode(
-                    MODE_SINGLE_TOUCH,
+                    modeForRapidFire(rightRapidFireCount),
                     RIGHT_KEY_CODE
                 )
+                if (rightRapidFireCount > 0) {
+                    backend.setRapidFireCount(
+                        rightRapidFireCount,
+                        RIGHT_KEY_CODE
+                    )
+                }
 
                 /*
                  * NX809J processes setTgkPoint/setTgkMode
@@ -271,6 +286,20 @@ object NativeTgkBridge {
         return "$source: $detail"
     }
 
+    private fun modeForRapidFire(count: Int): Int {
+        require(
+            count in NativeTgkStorage.supportedRapidFireCounts
+        ) {
+            "Unsupported TGK rapid-fire count: $count"
+        }
+
+        return if (count == 0) {
+            MODE_SINGLE_TOUCH
+        } else {
+            MODE_MULTI_CLICKS
+        }
+    }
+
     private interface Backend {
         val name: String
 
@@ -281,6 +310,11 @@ object NativeTgkBridge {
 
         fun setMode(
             mode: Int,
+            keyCode: Int
+        )
+
+        fun setRapidFireCount(
+            count: Int,
             keyCode: Int
         )
 
@@ -341,6 +375,21 @@ object NativeTgkBridge {
             )
         }
 
+        override fun setRapidFireCount(
+            count: Int,
+            keyCode: Int
+        ) {
+            call(
+                "setTgkRapidFireCount",
+                arrayOf(
+                    Integer.TYPE,
+                    Integer.TYPE
+                ),
+                count,
+                keyCode
+            )
+        }
+
         override fun setConsumeKeys(enabled: Boolean) {
             callBooleanSetter(
                 "setConsumeTgkKey",
@@ -350,7 +399,7 @@ object NativeTgkBridge {
 
         override fun setHaptics(enabled: Boolean) {
             callBooleanSetter(
-                "setTgkCenterEffectEnable",
+                "setTouchHapticFeedbackEnable",
                 enabled
             )
         }
@@ -466,6 +515,17 @@ object NativeTgkBridge {
             call(
                 143,
                 "i32", mode.toString(),
+                "i32", keyCode.toString()
+            )
+        }
+
+        override fun setRapidFireCount(
+            count: Int,
+            keyCode: Int
+        ) {
+            call(
+                144,
+                "i32", count.toString(),
                 "i32", keyCode.toString()
             )
         }

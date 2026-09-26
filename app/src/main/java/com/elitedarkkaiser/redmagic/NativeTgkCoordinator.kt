@@ -129,16 +129,30 @@ object NativeTgkCoordinator {
             mapping = mapping,
             displayWidth = displaySize.width,
             displayHeight = displaySize.height,
-            hapticsEnabled = profile.hapticsEnabled
+            hapticsEnabled = profile.hapticsEnabled,
+            leftRapidFireCount =
+                profile.leftRapidFireCount,
+            rightRapidFireCount =
+                profile.rightRapidFireCount
         )
 
         if (result.success) {
+            NativeTgkGameplayOverlay.show(
+                context = context,
+                profile = profile,
+                mapping = mapping,
+                displayWidth = displaySize.width,
+                displayHeight = displaySize.height
+            )
+
             android.util.Log.i(
                 TAG,
                 "Applied $orientation TGK mapping " +
                     "for $packageName using ${result.backend}"
             )
         } else {
+            NativeTgkGameplayOverlay.hide()
+
             android.util.Log.e(
                 TAG,
                 "Failed to apply TGK mapping for " +
@@ -153,6 +167,8 @@ object NativeTgkCoordinator {
         context: Context,
         reason: String
     ): NativeTgkApplyResult {
+        NativeTgkGameplayOverlay.hide()
+
         val result = NativeTgkBridge.disable(context)
 
         if (result.success) {
