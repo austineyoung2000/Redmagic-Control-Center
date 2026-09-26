@@ -1087,6 +1087,9 @@ class MainActivity : Activity() {
                 showNativeTgkProfileDialog = {
                     showNativeTgkProfileDialog()
                 },
+                showNativeTgkDiagnosticsDialog = {
+                    NativeTgkDiagnosticsDialog.show(this)
+                },
                 triggerSafetySummary = {
                     triggerSafetySummaryStorage(this)
                 },

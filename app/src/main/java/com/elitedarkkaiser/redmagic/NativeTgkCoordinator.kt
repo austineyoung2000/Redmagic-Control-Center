@@ -23,6 +23,10 @@ object NativeTgkRuntimeState {
         return activePackageName
     }
 
+    fun activeOrientation(): NativeTgkOrientation? {
+        return activeOrientation
+    }
+
     fun matches(
         packageName: String,
         orientation: NativeTgkOrientation
@@ -104,22 +108,36 @@ object NativeTgkCoordinator {
         )
 
         if (profile == null || !profile.enabled) {
-            return NativeTgkApplyResult(
+            val result = NativeTgkApplyResult(
                 success = false,
                 backend = null,
                 state = null,
                 message = "No enabled mapping for $packageName"
             )
+            NativeTgkDiagnostics.recordApply(
+                context,
+                packageName,
+                orientation,
+                result
+            )
+            return result
         }
 
         val mapping = profile.mappingFor(orientation)
         if (mapping?.isComplete() != true) {
-            return NativeTgkApplyResult(
+            val result = NativeTgkApplyResult(
                 success = false,
                 backend = null,
                 state = null,
                 message = "No complete $orientation mapping"
             )
+            NativeTgkDiagnostics.recordApply(
+                context,
+                packageName,
+                orientation,
+                result
+            )
+            return result
         }
 
         val displaySize = currentDisplaySize(context)
@@ -134,6 +152,13 @@ object NativeTgkCoordinator {
                 profile.effectiveLeftRapidFireCount(),
             rightRapidFireCount =
                 profile.effectiveRightRapidFireCount()
+        )
+
+        NativeTgkDiagnostics.recordApply(
+            context,
+            packageName,
+            orientation,
+            result
         )
 
         if (result.success) {
@@ -171,6 +196,12 @@ object NativeTgkCoordinator {
         NativeTgkGameplayOverlay.hide()
 
         val result = NativeTgkBridge.disable(context)
+
+        NativeTgkDiagnostics.recordDisable(
+            context,
+            reason,
+            result
+        )
 
         if (result.success) {
             android.util.Log.i(

@@ -81,6 +81,7 @@ class TriggerAccessibilityService : AccessibilityService() {
         }
 
         lastForegroundPackage = pkg
+        NativeTgkDiagnostics.recordForeground(this, pkg)
         dispatchNativeTgkForForeground(pkg)
 
         if (

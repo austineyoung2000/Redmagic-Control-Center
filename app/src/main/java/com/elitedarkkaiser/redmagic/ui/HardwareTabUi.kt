@@ -133,6 +133,12 @@ object HardwareTabUi {
         ) {
             deps.showNativeTgkProfileDialog()
         }
+        val nativeDiagnosticsButton = deps.actionButton(
+            "TGK DIAGNOSTICS",
+            false
+        ) {
+            deps.showNativeTgkDiagnosticsDialog()
+        }
 
         val nativeMappingCard = deps.sectionPanel().apply {
             addView(
@@ -151,6 +157,8 @@ object HardwareTabUi {
             )
             addView(deps.space(deps.dp(8)))
             addView(deps.singleRow(nativeMappingButton))
+            addView(deps.space(deps.dp(8)))
+            addView(deps.singleRow(nativeDiagnosticsButton))
         }
 
         container.addView(nativeMappingCard)

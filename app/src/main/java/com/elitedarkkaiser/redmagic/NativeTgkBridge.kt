@@ -42,6 +42,50 @@ object NativeTgkBridge {
     private const val ENABLE_SETTLE_MS = 1_000L
 
     @Synchronized
+    fun readState(context: Context): NativeTgkApplyResult {
+        val appContext = context.applicationContext
+        val failures = mutableListOf<String>()
+        val backends = listOf<() -> Backend>(
+            { ServiceCallBackend() },
+            { ReflectionBackend(appContext) }
+        )
+
+        backends.forEach { createBackend ->
+            val backend = try {
+                createBackend()
+            } catch (error: Throwable) {
+                failures += errorSummary(
+                    "backend initialization",
+                    error
+                )
+                return@forEach
+            }
+
+            try {
+                val state = backend.readState()
+                return NativeTgkApplyResult(
+                    success = true,
+                    backend = backend.name,
+                    state = state,
+                    message = "Native TGK state read successfully"
+                )
+            } catch (error: Throwable) {
+                failures += errorSummary(backend.name, error)
+            }
+        }
+
+        return NativeTgkApplyResult(
+            success = false,
+            backend = null,
+            state = null,
+            message = failures.joinToString(
+                separator = " | ",
+                prefix = "Could not read native TGK state: "
+            )
+        )
+    }
+
+    @Synchronized
     fun applyMapping(
         context: Context,
         mapping: NativeTgkOrientationMapping,
