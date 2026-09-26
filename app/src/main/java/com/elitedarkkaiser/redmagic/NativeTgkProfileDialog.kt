@@ -75,6 +75,51 @@ object NativeTgkProfileDialog {
 
         root.addView(addButton)
 
+        val transferRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        val importButton = actionButton(
+            activity,
+            "IMPORT",
+            primary = false
+        )
+        val exportAllButton = actionButton(
+            activity,
+            "EXPORT ALL",
+            primary = false
+        )
+
+        transferRow.addView(
+            importButton,
+            LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            ).apply {
+                topMargin = dp(activity, 8)
+            }
+        )
+        transferRow.addView(
+            View(activity),
+            LinearLayout.LayoutParams(
+                dp(activity, 8),
+                1
+            )
+        )
+        transferRow.addView(
+            exportAllButton,
+            LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            ).apply {
+                topMargin = dp(activity, 8)
+            }
+        )
+
+        root.addView(transferRow)
+
         root.addView(
             TextView(activity).apply {
                 text = "SAVED APP MAPPINGS"
@@ -952,6 +997,31 @@ object NativeTgkProfileDialog {
 
                 card.addView(editRow)
 
+                val exportButton = actionButton(
+                    activity,
+                    "EXPORT APP",
+                    primary = false
+                ).apply {
+                    setOnClickListener {
+                        managerDialog.dismiss()
+                        NativeTgkDocumentTransfer.requestExport(
+                            activity,
+                            profile.packageName,
+                            profile.appLabel
+                        )
+                    }
+                }
+
+                card.addView(
+                    exportButton,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = dp(activity, 8)
+                    }
+                )
+
                 val deleteButton = actionButton(
                     activity,
                     "REMOVE MAPPING",
@@ -1007,6 +1077,14 @@ object NativeTgkProfileDialog {
 
         addButton.setOnClickListener {
             showAppPicker()
+        }
+        importButton.setOnClickListener {
+            managerDialog.dismiss()
+            NativeTgkDocumentTransfer.requestImport(activity)
+        }
+        exportAllButton.setOnClickListener {
+            managerDialog.dismiss()
+            NativeTgkDocumentTransfer.requestExport(activity)
         }
 
         renderProfiles()

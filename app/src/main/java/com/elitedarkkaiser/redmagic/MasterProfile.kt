@@ -33,5 +33,6 @@ data class MasterProfile(
     val sliderDualApp: SliderDualAppConfig =
         SliderDualAppConfig(),
     val hapticFeedback: HapticFeedbackConfig =
-        HapticFeedbackConfig()
+        HapticFeedbackConfig(),
+    val nativeTgkProfilesJson: String? = null
 )

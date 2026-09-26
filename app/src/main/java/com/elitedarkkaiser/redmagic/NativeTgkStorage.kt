@@ -238,10 +238,20 @@ object NativeTgkStorage {
     private const val PREFS_NAME = "native_tgk_profiles"
     private const val PROFILES_KEY = "profiles_json"
     private const val VERSION = 3
+    private const val EXPORT_FORMAT =
+        "redmagic-native-tgk-profiles"
+    private const val EXPORT_VERSION = 1
+    private const val MAX_IMPORT_SIZE = 5_000_000
 
     const val MAX_LAYOUTS_PER_PROFILE = 5
 
     val supportedRapidFireCounts = setOf(0, 2, 5, 10)
+
+    data class ImportResult(
+        val importedCount: Int,
+        val replacedCount: Int,
+        val skippedCount: Int
+    )
 
     private val packagePattern = Regex(
         """[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+"""
@@ -374,6 +384,140 @@ object NativeTgkStorage {
                 profile.enabled &&
                     profile.hasAnyCompleteMapping()
             } == true
+    }
+
+    fun createExportJson(
+        context: Context,
+        packageName: String? = null,
+        allowEmpty: Boolean = false
+    ): String {
+        val profiles = readProfiles(context).filter {
+            packageName == null || it.packageName == packageName
+        }
+
+        require(allowEmpty || profiles.isNotEmpty()) {
+            if (packageName == null) {
+                "No TGK profiles are available to export"
+            } else {
+                "No TGK profile exists for $packageName"
+            }
+        }
+
+        return JSONObject()
+            .put("format", EXPORT_FORMAT)
+            .put("exportVersion", EXPORT_VERSION)
+            .put("profileSchemaVersion", VERSION)
+            .put("exportedAtEpochMs", System.currentTimeMillis())
+            .put(
+                "profiles",
+                JSONArray().apply {
+                    profiles.forEach {
+                        put(it.toJson())
+                    }
+                }
+            )
+            .toString(2)
+    }
+
+    fun importedPackageNames(raw: String): Set<String> {
+        return parseExport(raw)
+            .map { it.packageName }
+            .toSet()
+    }
+
+    @Synchronized
+    fun importProfilesJson(
+        context: Context,
+        raw: String,
+        replaceExisting: Boolean,
+        replaceAll: Boolean = false
+    ): ImportResult {
+        val imported = parseExport(raw)
+        val existing = if (replaceAll) {
+            emptyList()
+        } else {
+            readProfiles(context)
+        }
+        val merged = existing.associateBy {
+            it.packageName
+        }.toMutableMap()
+        var replacedCount = 0
+        var skippedCount = 0
+        var importedCount = 0
+
+        imported.forEach { profile ->
+            val conflict = merged.containsKey(profile.packageName)
+            if (conflict && !replaceExisting) {
+                skippedCount += 1
+                return@forEach
+            }
+
+            if (conflict) {
+                replacedCount += 1
+            }
+            merged[profile.packageName] = profile.normalized()
+            importedCount += 1
+        }
+
+        check(
+            writeProfiles(
+                context,
+                merged.values.sortedBy {
+                    it.appLabel.lowercase()
+                }
+            )
+        ) {
+            "Unable to save imported TGK profiles"
+        }
+
+        return ImportResult(
+            importedCount = importedCount,
+            replacedCount = replacedCount,
+            skippedCount = skippedCount
+        )
+    }
+
+    private fun parseExport(raw: String): List<NativeTgkProfile> {
+        require(raw.length <= MAX_IMPORT_SIZE) {
+            "TGK profile file is larger than 5 MB"
+        }
+
+        val root = JSONObject(raw)
+        require(root.optString("format") == EXPORT_FORMAT) {
+            "This is not a Redmagic TGK profile file"
+        }
+        require(
+            root.optInt("exportVersion", 0) in
+                1..EXPORT_VERSION
+        ) {
+            "Unsupported TGK export version"
+        }
+
+        val array = root.optJSONArray("profiles")
+            ?: error("TGK profile file contains no profiles")
+        require(array.length() in 0..500) {
+            "TGK profile file has an invalid profile count"
+        }
+
+        val profiles = buildList {
+            for (index in 0 until array.length()) {
+                val profile = array.optJSONObject(index)
+                    ?.toProfile()
+                    ?: error(
+                        "TGK profile ${index + 1} is invalid"
+                    )
+                add(profile)
+            }
+        }
+
+        require(
+            profiles.map { it.packageName }.toSet().size ==
+                profiles.size
+        ) {
+            "TGK profile file contains duplicate packages"
+        }
+
+        return profiles
     }
 
     private fun writeProfiles(

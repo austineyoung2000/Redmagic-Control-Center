@@ -202,6 +202,18 @@ class MainActivity : Activity() {
         data: Intent?
     ) {
         super.onActivityResult(requestCode, resultCode, data)
+
+        if (
+            NativeTgkDocumentTransfer.handleActivityResult(
+                activity = this,
+                requestCode = requestCode,
+                resultCode = resultCode,
+                data = data
+            )
+        ) {
+            return
+        }
+
         if (resultCode != RESULT_OK) return
         val uri = data?.data ?: return
 

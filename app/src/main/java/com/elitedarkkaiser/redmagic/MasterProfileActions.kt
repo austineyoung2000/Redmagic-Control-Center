@@ -80,7 +80,12 @@ object MasterProfileActions {
             magicKeyAppPackage = savedMagicKeyAppPackageStorage(context),
             magicKeyShortcut = savedMagicKeyShortcutStorage(context),
             sliderDualApp = SliderDualAppStorage.read(context),
-            hapticFeedback = HapticFeedback.read(context)
+            hapticFeedback = HapticFeedback.read(context),
+            nativeTgkProfilesJson =
+                NativeTgkStorage.createExportJson(
+                    context = context,
+                    allowEmpty = true
+                )
         )
     }
 
@@ -129,6 +134,22 @@ object MasterProfileActions {
                 context,
                 profile.hapticFeedback
             )
+        }
+
+        if (profile.schemaVersion >= 7) {
+            profile.nativeTgkProfilesJson?.let {
+                NativeTgkRuntimeState.clear()
+                NativeTgkCoordinator.disable(
+                    context,
+                    "master profile applied"
+                )
+                NativeTgkStorage.importProfilesJson(
+                    context = context,
+                    raw = it,
+                    replaceExisting = true,
+                    replaceAll = true
+                )
+            }
         }
 
         ChargingLedState.setEnabled(context, profile.chargingEnabled)
