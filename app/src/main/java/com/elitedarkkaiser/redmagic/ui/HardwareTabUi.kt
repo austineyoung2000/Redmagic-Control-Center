@@ -127,6 +127,34 @@ object HardwareTabUi {
 
         container.addView(triggerCard)
 
+        val nativeMappingButton = deps.actionButton(
+            "MANAGE GAME TRIGGER MAPPINGS",
+            false
+        ) {
+            deps.showNativeTgkProfileDialog()
+        }
+
+        val nativeMappingCard = deps.sectionPanel().apply {
+            addView(
+                deps.sectionHeader(
+                    "🎯",
+                    "GAME TRIGGER MAPPING"
+                )
+            )
+            addView(
+                deps.bodyText(
+                    "Place native L and R touch targets for " +
+                        "individual apps. Portrait and landscape " +
+                        "mappings are stored separately and Game " +
+                        "Space is not required."
+                )
+            )
+            addView(deps.space(deps.dp(8)))
+            addView(deps.singleRow(nativeMappingButton))
+        }
+
+        container.addView(nativeMappingCard)
+
         val triggerSafetySummary =
             deps.subtleLabel(deps.triggerSafetySummary())
         val configureSafetyButton = deps.actionButton(

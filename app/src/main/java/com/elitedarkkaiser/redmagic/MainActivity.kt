@@ -1072,6 +1072,9 @@ class MainActivity : Activity() {
                 capabilities = deviceCapabilities,
 
                 showTriggerSetupDialog = { showTriggerSetupDialog() },
+                showNativeTgkProfileDialog = {
+                    showNativeTgkProfileDialog()
+                },
                 triggerSafetySummary = {
                     triggerSafetySummaryStorage(this)
                 },
@@ -1528,6 +1531,10 @@ class MainActivity : Activity() {
                 selectedFanPresetBubble(h1, h2, h3, h4, value, selected, onClick)
             }
         )
+    }
+
+    private fun showNativeTgkProfileDialog() {
+        NativeTgkProfileDialog.show(this)
     }
 
     private fun showTriggerSetupDialog() {

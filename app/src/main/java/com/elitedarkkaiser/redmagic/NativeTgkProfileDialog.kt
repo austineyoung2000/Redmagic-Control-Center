@@ -1,0 +1,684 @@
+package com.elitedarkkaiser.redmagic
+
+import android.app.Activity
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.provider.Settings
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import com.elitedarkkaiser.redmagic.ui.AppTheme
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
+
+object NativeTgkProfileDialog {
+
+    private data class LaunchableApp(
+        val packageName: String,
+        val label: String
+    )
+
+    fun show(activity: Activity) {
+        AppTheme.configure(activity)
+
+        val root = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                dp(activity, 18),
+                dp(activity, 16),
+                dp(activity, 18),
+                dp(activity, 18)
+            )
+        }
+
+        root.addView(
+            TextView(activity).apply {
+                text = "Game Trigger Mapping"
+                textSize = 20f
+                setTextColor(AppTheme.textPrimary)
+                setTypeface(typeface, Typeface.BOLD)
+            }
+        )
+
+        root.addView(
+            TextView(activity).apply {
+                text =
+                    "Use REDMAGIC’s native touch-game-key engine " +
+                    "for independent per-app L and R targets. " +
+                    "Mappings work without opening Game Space."
+                textSize = 13f
+                setTextColor(AppTheme.textSecondary)
+                setPadding(
+                    0,
+                    dp(activity, 5),
+                    0,
+                    dp(activity, 14)
+                )
+            }
+        )
+
+        val addButton = actionButton(
+            activity,
+            "ADD APP MAPPING",
+            primary = true
+        )
+
+        root.addView(addButton)
+
+        root.addView(
+            TextView(activity).apply {
+                text = "SAVED APP MAPPINGS"
+                textSize = 12f
+                setTextColor(AppTheme.textSecondary)
+                setTypeface(typeface, Typeface.BOLD)
+                setPadding(
+                    0,
+                    dp(activity, 18),
+                    0,
+                    dp(activity, 8)
+                )
+            }
+        )
+
+        val profilesContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        root.addView(profilesContainer)
+
+        val scroll = ScrollView(activity).apply {
+            isFillViewport = true
+            addView(
+                root,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+
+        lateinit var managerDialog: AlertDialog
+
+        fun launchEditor(
+            profile: NativeTgkProfile,
+            orientation: NativeTgkOrientation
+        ) {
+            if (!Settings.canDrawOverlays(activity)) {
+                Toast.makeText(
+                    activity,
+                    "Allow display over other apps, then open Game Trigger Mapping again",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                activity.startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse(
+                            "package:${activity.packageName}"
+                        )
+                    )
+                )
+                return
+            }
+
+            val started = runCatching {
+                activity.startService(
+                    Intent(
+                        activity,
+                        NativeTgkEditorService::class.java
+                    ).apply {
+                        putExtra(
+                            NativeTgkEditorService.EXTRA_PACKAGE_NAME,
+                            profile.packageName
+                        )
+                        putExtra(
+                            NativeTgkEditorService.EXTRA_APP_LABEL,
+                            profile.appLabel
+                        )
+                        putExtra(
+                            NativeTgkEditorService.EXTRA_ORIENTATION,
+                            orientation.name
+                        )
+                    }
+                )
+            }.isSuccess
+
+            if (!started) {
+                Toast.makeText(
+                    activity,
+                    "Could not start the trigger target editor",
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            }
+
+            managerDialog.dismiss()
+        }
+
+        fun showOrientationPicker(
+            profile: NativeTgkProfile
+        ) {
+            MaterialAlertDialogBuilder(activity)
+                .setTitle("Choose mapping orientation")
+                .setMessage(
+                    "The selected app will open. Rotate the " +
+                        "device if requested, then drag L and R " +
+                        "onto the desired controls."
+                )
+                .setItems(
+                    arrayOf(
+                        "Landscape",
+                        "Portrait"
+                    )
+                ) { _, which ->
+                    val orientation = if (which == 0) {
+                        NativeTgkOrientation.LANDSCAPE
+                    } else {
+                        NativeTgkOrientation.PORTRAIT
+                    }
+
+                    launchEditor(
+                        profile,
+                        orientation
+                    )
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        fun showAppPicker() {
+            val manager = activity.packageManager
+
+            val apps = manager
+                .getInstalledApplications(0)
+                .asSequence()
+                .filter {
+                    it.enabled &&
+                        it.packageName != activity.packageName
+                }
+                .filter {
+                    manager.getLaunchIntentForPackage(
+                        it.packageName
+                    ) != null
+                }
+                .map {
+                    LaunchableApp(
+                        packageName = it.packageName,
+                        label = it.loadLabel(manager)
+                            .toString()
+                            .trim()
+                    )
+                }
+                .filter {
+                    it.label.isNotBlank()
+                }
+                .distinctBy {
+                    it.packageName
+                }
+                .sortedBy {
+                    it.label.lowercase()
+                }
+                .toList()
+
+            if (apps.isEmpty()) {
+                Toast.makeText(
+                    activity,
+                    "No launchable applications were found",
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            }
+
+            val labels = apps.map {
+                "${it.label}\n${it.packageName}"
+            }.toTypedArray()
+
+            MaterialAlertDialogBuilder(activity)
+                .setTitle("Select an app or game")
+                .setItems(labels) { _, position ->
+                    val app = apps[position]
+                    val existing =
+                        NativeTgkStorage.getProfile(
+                            activity,
+                            app.packageName
+                        )
+
+                    val profile = existing
+                        ?: NativeTgkProfile(
+                            packageName = app.packageName,
+                            appLabel = app.label
+                        )
+
+                    showOrientationPicker(profile)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        fun disableActiveProfileIfNeeded(
+            packageName: String
+        ) {
+            if (
+                NativeTgkRuntimeState.activePackage() !=
+                packageName
+            ) {
+                return
+            }
+
+            NativeTgkRuntimeState.clear()
+
+            Thread(
+                {
+                    NativeTgkCoordinator.disable(
+                        activity.applicationContext,
+                        "profile disabled or removed"
+                    )
+                },
+                "RedMagicTgkProfileCleanup"
+            ).start()
+        }
+
+        fun renderProfiles() {
+            profilesContainer.removeAllViews()
+
+            val profiles =
+                NativeTgkStorage.readProfiles(activity)
+
+            if (profiles.isEmpty()) {
+                profilesContainer.addView(
+                    TextView(activity).apply {
+                        text =
+                            "No app mappings saved yet. Add an " +
+                            "app, choose an orientation, and place " +
+                            "the L and R targets."
+                        textSize = 13f
+                        setTextColor(AppTheme.textSecondary)
+                        setPadding(
+                            dp(activity, 4),
+                            dp(activity, 8),
+                            dp(activity, 4),
+                            dp(activity, 8)
+                        )
+                    }
+                )
+                return
+            }
+
+            profiles.forEachIndexed { index, profile ->
+                if (index > 0) {
+                    profilesContainer.addView(
+                        View(activity).apply {
+                            layoutParams =
+                                LinearLayout.LayoutParams(
+                                    1,
+                                    dp(activity, 10)
+                                )
+                        }
+                    )
+                }
+
+                val card = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(
+                        dp(activity, 14),
+                        dp(activity, 13),
+                        dp(activity, 14),
+                        dp(activity, 13)
+                    )
+                    background = panelBackground(activity)
+                }
+
+                card.addView(
+                    TextView(activity).apply {
+                        text = profile.appLabel
+                        textSize = 16f
+                        setTextColor(AppTheme.textPrimary)
+                        setTypeface(
+                            typeface,
+                            Typeface.BOLD
+                        )
+                        maxLines = 1
+                    }
+                )
+
+                card.addView(
+                    TextView(activity).apply {
+                        text = profile.packageName
+                        textSize = 11f
+                        setTextColor(
+                            AppTheme.textSecondary
+                        )
+                        maxLines = 1
+                        setPadding(
+                            0,
+                            dp(activity, 2),
+                            0,
+                            dp(activity, 6)
+                        )
+                    }
+                )
+
+                val portraitStatus =
+                    if (
+                        profile.portrait
+                            ?.isComplete() == true
+                    ) {
+                        "Portrait configured"
+                    } else {
+                        "Portrait not configured"
+                    }
+
+                val landscapeStatus =
+                    if (
+                        profile.landscape
+                            ?.isComplete() == true
+                    ) {
+                        "Landscape configured"
+                    } else {
+                        "Landscape not configured"
+                    }
+
+                card.addView(
+                    TextView(activity).apply {
+                        text =
+                            "$landscapeStatus • $portraitStatus"
+                        textSize = 12f
+                        setTextColor(
+                            AppTheme.textSecondary
+                        )
+                        setPadding(
+                            0,
+                            0,
+                            0,
+                            dp(activity, 8)
+                        )
+                    }
+                )
+
+                val enabledSwitch =
+                    MaterialSwitch(activity).apply {
+                        text = "Enable for this app"
+                        setTextColor(
+                            AppTheme.textPrimary
+                        )
+                        isChecked = profile.enabled
+                    }
+
+                val hapticsSwitch =
+                    MaterialSwitch(activity).apply {
+                        text = "Native trigger haptics"
+                        setTextColor(
+                            AppTheme.textPrimary
+                        )
+                        isChecked =
+                            profile.hapticsEnabled
+                    }
+
+                enabledSwitch.setOnCheckedChangeListener {
+                        _,
+                        checked ->
+                    val current =
+                        NativeTgkStorage.getProfile(
+                            activity,
+                            profile.packageName
+                        ) ?: return@setOnCheckedChangeListener
+
+                    NativeTgkStorage.saveProfile(
+                        activity,
+                        current.copy(enabled = checked)
+                    )
+
+                    if (!checked) {
+                        disableActiveProfileIfNeeded(
+                            profile.packageName
+                        )
+                    }
+                }
+
+                hapticsSwitch.setOnCheckedChangeListener {
+                        _,
+                        checked ->
+                    val current =
+                        NativeTgkStorage.getProfile(
+                            activity,
+                            profile.packageName
+                        ) ?: return@setOnCheckedChangeListener
+
+                    NativeTgkStorage.saveProfile(
+                        activity,
+                        current.copy(
+                            hapticsEnabled = checked
+                        )
+                    )
+                }
+
+                card.addView(enabledSwitch)
+                card.addView(hapticsSwitch)
+
+                val editRow = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(
+                        0,
+                        dp(activity, 8),
+                        0,
+                        0
+                    )
+                }
+
+                val landscapeButton = actionButton(
+                    activity,
+                    if (
+                        profile.landscape
+                            ?.isComplete() == true
+                    ) {
+                        "EDIT LANDSCAPE"
+                    } else {
+                        "SET LANDSCAPE"
+                    },
+                    primary = false
+                ).apply {
+                    setOnClickListener {
+                        showOrientationPicker(
+                            profile.copy(
+                                appLabel = profile.appLabel
+                            )
+                        )
+                    }
+                }
+
+                val portraitButton = actionButton(
+                    activity,
+                    if (
+                        profile.portrait
+                            ?.isComplete() == true
+                    ) {
+                        "EDIT PORTRAIT"
+                    } else {
+                        "SET PORTRAIT"
+                    },
+                    primary = false
+                ).apply {
+                    setOnClickListener {
+                        launchEditor(
+                            profile,
+                            NativeTgkOrientation.PORTRAIT
+                        )
+                    }
+                }
+
+                /*
+                 * Landscape has its own direct handler because it
+                 * is the common gaming orientation.
+                 */
+                landscapeButton.setOnClickListener {
+                    launchEditor(
+                        profile,
+                        NativeTgkOrientation.LANDSCAPE
+                    )
+                }
+
+                editRow.addView(
+                    landscapeButton,
+                    LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                )
+
+                editRow.addView(
+                    View(activity),
+                    LinearLayout.LayoutParams(
+                        dp(activity, 8),
+                        1
+                    )
+                )
+
+                editRow.addView(
+                    portraitButton,
+                    LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+                )
+
+                card.addView(editRow)
+
+                val deleteButton = actionButton(
+                    activity,
+                    "REMOVE MAPPING",
+                    primary = false
+                ).apply {
+                    setTextColor(
+                        Color.rgb(255, 110, 110)
+                    )
+                    setOnClickListener {
+                        MaterialAlertDialogBuilder(
+                            activity
+                        )
+                            .setTitle(
+                                "Remove ${profile.appLabel}?"
+                            )
+                            .setMessage(
+                                "Both portrait and landscape " +
+                                    "trigger targets will be deleted."
+                            )
+                            .setNegativeButton(
+                                "Cancel",
+                                null
+                            )
+                            .setPositiveButton(
+                                "Remove"
+                            ) { _, _ ->
+                                disableActiveProfileIfNeeded(
+                                    profile.packageName
+                                )
+                                NativeTgkStorage.removeProfile(
+                                    activity,
+                                    profile.packageName
+                                )
+                                renderProfiles()
+                            }
+                            .show()
+                    }
+                }
+
+                card.addView(
+                    deleteButton,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = dp(activity, 8)
+                    }
+                )
+
+                profilesContainer.addView(card)
+            }
+        }
+
+        addButton.setOnClickListener {
+            showAppPicker()
+        }
+
+        renderProfiles()
+
+        managerDialog = MaterialAlertDialogBuilder(activity)
+            .setView(scroll)
+            .setNegativeButton("Close", null)
+            .create()
+
+        managerDialog.show()
+    }
+
+    private fun actionButton(
+        activity: Activity,
+        label: String,
+        primary: Boolean
+    ): MaterialButton {
+        return MaterialButton(
+            activity,
+            null,
+            if (primary) {
+                com.google.android.material.R.attr
+                    .materialButtonStyle
+            } else {
+                com.google.android.material.R.attr
+                    .materialButtonOutlinedStyle
+            }
+        ).apply {
+            text = label
+            textSize = 12f
+            isAllCaps = false
+            minHeight = dp(activity, 46)
+            cornerRadius = dp(activity, 14)
+            insetTop = 0
+            insetBottom = 0
+            setTextColor(
+                if (primary) {
+                    Color.WHITE
+                } else {
+                    AppTheme.textPrimary
+                }
+            )
+        }
+    }
+
+    private fun panelBackground(
+        activity: Activity
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(
+                activity,
+                18
+            ).toFloat()
+            setColor(AppTheme.panelColor)
+            setStroke(
+                dp(activity, 1),
+                AppTheme.borderColor
+            )
+        }
+    }
+
+    private fun dp(
+        context: android.content.Context,
+        value: Int
+    ): Int {
+        return (
+            value *
+                context.resources.displayMetrics.density
+            ).toInt()
+    }
+}
