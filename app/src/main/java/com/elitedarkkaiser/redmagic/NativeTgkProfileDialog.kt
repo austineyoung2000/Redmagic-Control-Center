@@ -169,11 +169,6 @@ object NativeTgkProfileDialog {
         ) {
             MaterialAlertDialogBuilder(activity)
                 .setTitle("Choose mapping orientation")
-                .setMessage(
-                    "The selected app will open. Rotate the " +
-                        "device if requested, then drag L and R " +
-                        "onto the desired controls."
-                )
                 .setItems(
                     arrayOf(
                         "Landscape",
