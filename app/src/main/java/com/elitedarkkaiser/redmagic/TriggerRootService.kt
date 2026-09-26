@@ -123,6 +123,14 @@ class TriggerRootService : Service() {
         prefKey: String,
         config: TriggerSafetyConfig
     ): Boolean {
+        if (NativeTgkRuntimeState.isActive()) {
+            android.util.Log.d(
+                "TRIGGER",
+                "$prefKey ignored while native TGK mapping is active"
+            )
+            return false
+        }
+
         if (!isScreenInteractive()) {
             android.util.Log.d(
                 "TRIGGER",

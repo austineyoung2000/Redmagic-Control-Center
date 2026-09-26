@@ -1,12 +1,17 @@
 package com.elitedarkkaiser.redmagic
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.res.Configuration
+import android.os.Build
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 
 class TriggerAccessibilityService : AccessibilityService() {
 
@@ -17,25 +22,89 @@ class TriggerAccessibilityService : AccessibilityService() {
             }
         }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (!DeviceCompatibility.isSupportedDevice()) return
+    private val nativeTgkExecutor: ExecutorService =
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "RedMagicNativeTgk").apply {
+                priority = Thread.NORM_PRIORITY - 1
+            }
+        }
 
-        val pkg = event?.packageName?.toString() ?: return
-        if (pkg.isBlank() || pkg == packageName || pkg == "com.android.systemui") return
+    private var nativeTgkTask: Future<*>? = null
+    private var screenReceiverRegistered = false
 
-        val isTrackedGame = getSavedGamePackagesStorage(this).contains(pkg)
-        val gameModeActive = isGameModeLedOverrideActiveStorage(this)
+    @Volatile
+    private var lastForegroundPackage: String? = null
 
-        // Start GameModeService when entering a tracked game, or send one
-        // final foreground event while Game Mode is active so it can restore
-        // the normal profile immediately after leaving the game.
-        if (!isTrackedGame && !gameModeActive) return
-
-        startService(Intent(this, GameModeService::class.java).apply {
-            putExtra("foreground_pkg", pkg)
-        })
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(
+            context: Context,
+            intent: Intent
+        ) {
+            if (intent.action == Intent.ACTION_SCREEN_OFF) {
+                deactivateNativeTgk("screen off")
+            }
+        }
     }
-    override fun onInterrupt() = Unit
+
+    override fun onAccessibilityEvent(
+        event: AccessibilityEvent?
+    ) {
+        if (!DeviceCompatibility.isSupportedDevice()) {
+            return
+        }
+
+        val pkg = event?.packageName
+            ?.toString()
+            ?: return
+
+        if (
+            pkg.isBlank() ||
+            pkg == packageName ||
+            pkg == "com.android.systemui"
+        ) {
+            return
+        }
+
+        lastForegroundPackage = pkg
+        dispatchNativeTgkForForeground(pkg)
+
+        val isTrackedGame =
+            getSavedGamePackagesStorage(this).contains(pkg)
+        val gameModeActive =
+            isGameModeLedOverrideActiveStorage(this)
+
+        /*
+         * Game Mode and native TGK mappings are independent.
+         * Forward the event to Game Mode only when its existing
+         * profile lifecycle requires it.
+         */
+        if (isTrackedGame || gameModeActive) {
+            startService(
+                Intent(
+                    this,
+                    GameModeService::class.java
+                ).apply {
+                    putExtra("foreground_pkg", pkg)
+                }
+            )
+        }
+    }
+
+    override fun onConfigurationChanged(
+        newConfig: Configuration
+    ) {
+        super.onConfigurationChanged(newConfig)
+
+        lastForegroundPackage?.let {
+            dispatchNativeTgkForForeground(it)
+        }
+    }
+
+    override fun onInterrupt() {
+        deactivateNativeTgk(
+            "accessibility service interrupted"
+        )
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -45,6 +114,21 @@ class TriggerAccessibilityService : AccessibilityService() {
             return
         }
 
+        registerScreenReceiver()
+
+        /*
+         * Repair any native TGK state left behind by an earlier
+         * process termination before accepting new foreground
+         * application events.
+         */
+        NativeTgkRuntimeState.clear()
+        nativeTgkTask = nativeTgkExecutor.submit {
+            NativeTgkCoordinator.disable(
+                applicationContext,
+                "accessibility service connected"
+            )
+        }
+
         submitRootAction {
             HardwareServiceActions
                 .startTriggersIfAutoStartEnabled(this)
@@ -52,14 +136,148 @@ class TriggerAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        lastForegroundPackage = null
+        NativeTgkRuntimeState.clear()
+
+        nativeTgkTask?.cancel(true)
+        nativeTgkTask = null
+
+        if (screenReceiverRegistered) {
+            runCatching {
+                unregisterReceiver(screenReceiver)
+            }
+            screenReceiverRegistered = false
+        }
+
+        nativeTgkExecutor.shutdownNow()
+
+        Thread(
+            {
+                NativeTgkCoordinator.disable(
+                    applicationContext,
+                    "accessibility service destroyed"
+                )
+            },
+            "RedMagicNativeTgkCleanup"
+        ).start()
+
         rootExecutor.shutdownNow()
         super.onDestroy()
     }
 
-    private fun prefs() = getSharedPreferences("triggers", Context.MODE_PRIVATE)
+    private fun dispatchNativeTgkForForeground(
+        packageName: String
+    ) {
+        val orientation =
+            NativeTgkCoordinator.currentOrientation(this)
+
+        val mappingReady =
+            NativeTgkCoordinator.hasReadyMapping(
+                context = this,
+                packageName = packageName,
+                orientation = orientation
+            )
+
+        if (!mappingReady) {
+            if (NativeTgkRuntimeState.isActive()) {
+                deactivateNativeTgk(
+                    "left mapped app or orientation"
+                )
+            }
+            return
+        }
+
+        if (
+            NativeTgkRuntimeState.matches(
+                packageName,
+                orientation
+            )
+        ) {
+            return
+        }
+
+        /*
+         * Mark the native path active before the two-second vendor
+         * setup delay so the legacy F7/F8 readers cannot perform
+         * quick actions during the transition.
+         */
+        NativeTgkRuntimeState.markActive(
+            packageName,
+            orientation
+        )
+
+        nativeTgkTask?.cancel(true)
+        nativeTgkTask = nativeTgkExecutor.submit {
+            val result =
+                NativeTgkCoordinator.applyForegroundMapping(
+                    context = applicationContext,
+                    packageName = packageName,
+                    orientation = orientation
+                )
+
+            if (!result.success) {
+                NativeTgkRuntimeState.clearIfMatches(
+                    packageName,
+                    orientation
+                )
+            }
+        }
+    }
+
+    private fun deactivateNativeTgk(reason: String) {
+        if (!NativeTgkRuntimeState.isActive()) {
+            return
+        }
+
+        NativeTgkRuntimeState.clear()
+        nativeTgkTask?.cancel(true)
+
+        nativeTgkTask = runCatching {
+            nativeTgkExecutor.submit {
+                NativeTgkCoordinator.disable(
+                    applicationContext,
+                    reason
+                )
+            }
+        }.getOrNull()
+    }
+
+    private fun registerScreenReceiver() {
+        if (screenReceiverRegistered) {
+            return
+        }
+
+        val filter = IntentFilter(
+            Intent.ACTION_SCREEN_OFF
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                screenReceiver,
+                filter,
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(
+                screenReceiver,
+                filter
+            )
+        }
+
+        screenReceiverRegistered = true
+    }
+
+    private fun prefs() = getSharedPreferences(
+        "triggers",
+        Context.MODE_PRIVATE
+    )
 
     private fun getAction(key: String): String {
-        return prefs().getString(key, "NONE") ?: "NONE"
+        return prefs().getString(
+            key,
+            "NONE"
+        ) ?: "NONE"
     }
 
     private fun submitRootAction(action: () -> Unit) {
@@ -88,16 +306,31 @@ class TriggerAccessibilityService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN) return false
+        /*
+         * Native TGK consumes F7/F8 inside InputManager and creates
+         * the mapped touch contacts. Never perform or consume the
+         * legacy quick action while that native path is active.
+         */
+        if (NativeTgkRuntimeState.isActive()) {
+            return false
+        }
+
+        if (event.action != KeyEvent.ACTION_DOWN) {
+            return false
+        }
 
         return when (event.keyCode) {
             KeyEvent.KEYCODE_F7 -> {
-                performAction(getAction("left_trigger"))
+                performAction(
+                    getAction("left_trigger")
+                )
                 true
             }
 
             KeyEvent.KEYCODE_F8 -> {
-                performAction(getAction("right_trigger"))
+                performAction(
+                    getAction("right_trigger")
+                )
                 true
             }
 
