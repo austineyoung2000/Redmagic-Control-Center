@@ -146,10 +146,10 @@ class NativeTgkEditorService : Service() {
             "RedMagicTgkEditorCleanup"
         ).start()
 
-        val launchTarget = intent.getBooleanExtra(
+        val launchTarget = intent?.getBooleanExtra(
             EXTRA_LAUNCH_TARGET,
             true
-        )
+        ) ?: true
 
         if (launchTarget) {
             launchTargetApp()

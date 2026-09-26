@@ -1,6 +1,8 @@
 package com.elitedarkkaiser.redmagic
 
 import android.accessibilityservice.AccessibilityService
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -53,20 +55,40 @@ class TriggerAccessibilityService : AccessibilityService() {
             return
         }
 
-        val pkg = event?.packageName
+        val reportedPackage = event?.packageName
             ?.toString()
             ?: return
 
-        if (
-            pkg.isBlank() ||
-            pkg == packageName ||
-            pkg == "com.android.systemui"
-        ) {
+        if (reportedPackage.isBlank()) {
             return
+        }
+
+        /*
+         * Our non-touchable gameplay overlay and SystemUI can emit
+         * window events even though the mapped game remains the
+         * resumed activity. Resolve those ambiguous events through
+         * UsageEvents; when the Control Center, Recents, launcher, or
+         * another app is genuinely resumed, the resolved package
+         * immediately drives TGK cleanup.
+         */
+        val pkg = if (
+            reportedPackage == packageName ||
+            reportedPackage == SYSTEM_UI_PACKAGE
+        ) {
+            latestResumedPackage() ?: reportedPackage
+        } else {
+            reportedPackage
         }
 
         lastForegroundPackage = pkg
         dispatchNativeTgkForForeground(pkg)
+
+        if (
+            pkg == packageName ||
+            pkg == SYSTEM_UI_PACKAGE
+        ) {
+            return
+        }
 
         val isTrackedGame =
             getSavedGamePackagesStorage(this).contains(pkg)
@@ -235,6 +257,7 @@ class TriggerAccessibilityService : AccessibilityService() {
 
     private fun deactivateNativeTgk(reason: String) {
         if (!NativeTgkRuntimeState.isActive()) {
+            NativeTgkGameplayOverlay.hide()
             return
         }
 
@@ -248,6 +271,46 @@ class TriggerAccessibilityService : AccessibilityService() {
                     reason
                 )
             }
+        }.getOrNull()
+    }
+
+    private fun latestResumedPackage(): String? {
+        return runCatching {
+            val manager = getSystemService(
+                Context.USAGE_STATS_SERVICE
+            ) as UsageStatsManager
+            val end = System.currentTimeMillis()
+            val events = manager.queryEvents(
+                end - FOREGROUND_EVENT_LOOKBACK_MS,
+                end
+            )
+            val event = UsageEvents.Event()
+            var latestPackage: String? = null
+            var latestTimestamp = Long.MIN_VALUE
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+
+                if (
+                    event.eventType !=
+                    UsageEvents.Event.ACTIVITY_RESUMED &&
+                    event.eventType !=
+                    UsageEvents.Event.MOVE_TO_FOREGROUND
+                ) {
+                    continue
+                }
+
+                val candidate = event.packageName
+                if (
+                    !candidate.isNullOrBlank() &&
+                    event.timeStamp >= latestTimestamp
+                ) {
+                    latestPackage = candidate
+                    latestTimestamp = event.timeStamp
+                }
+            }
+
+            latestPackage
         }.getOrNull()
     }
 
@@ -275,6 +338,13 @@ class TriggerAccessibilityService : AccessibilityService() {
         }
 
         screenReceiverRegistered = true
+    }
+
+    companion object {
+        private const val SYSTEM_UI_PACKAGE =
+            "com.android.systemui"
+        private const val FOREGROUND_EVENT_LOOKBACK_MS =
+            15_000L
     }
 
     private fun prefs() = getSharedPreferences(
