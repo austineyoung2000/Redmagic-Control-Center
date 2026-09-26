@@ -15,6 +15,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <application
@@ -110,6 +111,10 @@
 
     
         <service android:name=".TriggerRootService" android:exported="false" />
+
+        <service
+            android:name=".NativeTgkEditorService"
+            android:exported="false" />
 
         <service android:name=".GameModeService" android:exported="false" />
 

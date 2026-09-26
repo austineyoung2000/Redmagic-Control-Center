@@ -168,6 +168,15 @@ class TriggerAccessibilityService : AccessibilityService() {
     private fun dispatchNativeTgkForForeground(
         packageName: String
     ) {
+        if (NativeTgkEditorRuntime.isEditing()) {
+            if (NativeTgkRuntimeState.isActive()) {
+                deactivateNativeTgk(
+                    "target editor active"
+                )
+            }
+            return
+        }
+
         val orientation =
             NativeTgkCoordinator.currentOrientation(this)
 
@@ -311,7 +320,10 @@ class TriggerAccessibilityService : AccessibilityService() {
          * the mapped touch contacts. Never perform or consume the
          * legacy quick action while that native path is active.
          */
-        if (NativeTgkRuntimeState.isActive()) {
+        if (
+            NativeTgkRuntimeState.isActive() ||
+            NativeTgkEditorRuntime.isEditing()
+        ) {
             return false
         }
 
